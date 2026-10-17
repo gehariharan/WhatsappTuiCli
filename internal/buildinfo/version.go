@@ -7,11 +7,12 @@ import (
 )
 
 var (
-	Version = "dev"
-	Commit  = "unknown"
-	BuiltAt = "unknown"
+	Distribution = "standalone"
+	Version      = "dev"
+	Commit       = "unknown"
+	BuiltAt      = "unknown"
 )
 
 func String() string {
-	return fmt.Sprintf("wasync %s (%s/%s; commit %s; built %s)", Version, runtime.GOOS, runtime.GOARCH, Commit, BuiltAt)
+	return fmt.Sprintf("wasync %s (%s/%s; distribution %s; commit %s; built %s)", Version, runtime.GOOS, runtime.GOARCH, Distribution, Commit, BuiltAt)
 }

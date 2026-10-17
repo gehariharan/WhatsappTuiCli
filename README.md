@@ -442,6 +442,9 @@ All commands use the same private data directory, normally:
 
 - macOS: `~/Library/Application Support/wasync`
 - Linux: `$XDG_CONFIG_HOME/wasync` or `~/.config/wasync`
+- Windows EXE/ZIP: `%APPDATA%\wasync`
+- Windows Microsoft Store build: `%USERPROFILE%\.wasync` (see
+  [Store archive location and migration](#store-archive-location-and-migration))
 
 Override it using `WASYNC_DATA_DIR` or the global `--data-dir` flag; flags win.
 Global flags precede the command.
@@ -1029,3 +1032,102 @@ valid WhatsApp media metadata is required to attempt them again. Sending an
 attachment to an enabled chat with downloads enabled may also download your own
 upload. Purge removes content and disables capture; discovery rows (chat ID/name)
 remain for the selection interface and may be refreshed by later WhatsApp events.
+
+## Microsoft Store MSIX distribution
+
+The Store edition is an x64 desktop console application with a `wasync.exe` app
+execution alias and the same optional TUI/CLI. Windows 10 build 19041 or newer is
+required. Store publication is a separate certification process; building a
+package does not create a Store listing or guarantee approval.
+
+For Windows Server, this manifest targets Server 2022 or newer with Desktop
+Experience; native installation still needs validation on your server image.
+Server 2019 is below this package's minimum OS version and does not support the
+execution alias extension. For Server Core or unattended deployments, use the
+portable ZIP distribution. Server sideloading requires a trusted signed MSIX;
+the unsigned Store submission output cannot be installed directly. See
+[Microsoft's Server guidance](https://learn.microsoft.com/en-us/windows/msix/msix-server-2019).
+
+The Microsoft Store signs MSIX submissions after certification. No Azure signing
+subscription, commercial certificate, PFX or hardware token is required for this
+route. Our existing GitHub EXE/ZIP downloads keep their existing signing status.
+Unsigned Store build artifacts are submission inputs, not public sideload installers.
+
+### Reserve the product and configure its identity
+
+1. Register and verify a developer account at <https://storedeveloper.microsoft.com>.
+2. Reserve the MSIX product name **wasync**. Open **Product identity** and copy the
+   exact case-sensitive `Package/Identity/Name`, `Package/Identity/Publisher`, and
+   `PublisherDisplayName`. These values are public package metadata, not passwords.
+3. Set repository variables `WASYNC_STORE_IDENTITY_NAME`, `WASYNC_STORE_PUBLISHER`,
+   and `WASYNC_STORE_PUBLISHER_DISPLAY_NAME` to those values.
+4. Run **Build Microsoft Store submission** in GitHub Actions. Supply an application
+   version such as `0.1.0-store.1` and a separate increasing Store version such as
+   `1.0.1.0`. Store versions use four integers, the first is nonzero, all are at most
+   65535, and the last is zero. A later Store update must have a higher version.
+5. Download the `store-submission-VERSION` artifact. It contains an unsigned `.msix`,
+   `.msixupload` upload container, checksums and `submission-info.json`. Verify the
+   identity receipt against Partner Center before uploading the package.
+6. Use the draft copy and certification notes in
+   [packaging/store/listing.json](packaging/store/listing.json). Provide real,
+   privacy-safe screenshots of the running application, complete age ratings and
+   the `runFullTrust` justification, run Windows App Certification Kit, then submit
+   for Microsoft review. No Partner Center credentials are stored in this repo.
+
+The workflow refuses missing identity values and the CI-only test identity. It
+produces an artifact for manual review/upload; it does not automatically publish
+or claim certification. Native CI separately packages an isolated test identity,
+uses a short-lived test certificate on its disposable runner, and exercises app
+alias activation, local search, package upgrade and retained data after uninstall.
+Its test packages are labelled **not for Store** and must never be submitted.
+
+For a native Windows maintainer build with the Windows SDK installed:
+
+```powershell
+./scripts/package-msix.ps1 -Version 0.1.0-store.1 -PackageVersion 1.0.1.0 `
+  -IdentityName 'COPY_FROM_PARTNER_CENTER' `
+  -Publisher 'CN=COPY_FROM_PARTNER_CENTER' `
+  -PublisherDisplayName 'COPY_FROM_PARTNER_CENTER'
+```
+
+### Store archive location and migration
+
+The Store build defaults to `%USERPROFILE%\.wasync`, a private directory outside
+MSIX-managed app data. Upgrades and uninstall retain the archive, linked-device
+session, allowlist and downloads. This avoids requesting the additional restricted
+capability for disabling MSIX filesystem virtualization. `runFullTrust` remains
+necessary for this desktop application and requires Store review.
+
+The EXE/ZIP build keeps `%APPDATA%\wasync`. These are separate installations;
+there is no automatic session copy or background login. Before switching, stop
+both versions and back up the entire old data directory, including SQLite
+sidecars, session database and media. Copy it to `%USERPROFILE%\.wasync` while
+both apps are stopped, then start the Store edition and verify `wasync status`.
+Copying a live WAL database or running two device sessions can lose data or
+cause conflicts. `WASYNC_DATA_DIR`/`--data-dir` can override the location; use a
+private external directory if data must survive MSIX uninstall. Remove an old
+EXE installation or its PATH entry when switching so the intended command wins.
+
+### Store privacy policy
+
+wasync is a local, personal-use WhatsApp client. The developer operates no data
+collection backend and does not collect analytics or receive your archived chats,
+credentials, searches or downloaded attachments. Your account connects to
+WhatsApp servers through the unofficial whatsmeow linked-device implementation;
+authentication, protocol acknowledgements, synchronization requests, and messages
+you explicitly send are exchanged with WhatsApp under its own service policies.
+
+You choose which chats have content captured. Chat discovery metadata is cached
+for selection; disabled chats' message bodies are discarded. Enabled chats can
+store sender identifiers, timestamps, message text and attachment metadata.
+Downloading images/documents is opt-in. Search and the optional authenticated
+loopback API operate on your computer. Nothing is sent to an AI service.
+
+The archive, session and downloaded files are plaintext with restrictive OS
+permissions; software running as your user can access them. Shared or exported
+copies are your responsibility. Local cleanup and WhatsApp remote deletion have
+different scopes and require explicit confirmation. Uninstall intentionally
+retains the Store data directory; stop the application and remove that directory
+if you want to delete the remaining local archive and pairing credentials. Use
+`wasync logout` before removal to unlink the device. Questions can be raised via
+our public GitHub issue tracker; do not post private messages or credentials there.
