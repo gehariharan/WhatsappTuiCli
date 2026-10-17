@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   verify:
+    # GitHub hides draft releases from tokens without push access, even when
+    # downloading only. This job does not modify the draft.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
