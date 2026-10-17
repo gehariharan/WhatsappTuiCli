@@ -68,7 +68,7 @@ func TestMediaSweepPreservesReferencedAndUnmanagedFiles(t *testing.T) {
 	}
 	name := mediafiles.Prefix("image") + "-" + mediafiles.Prefix("content") + ".png"
 	referenced := filepath.Join(destination, name)
-	orphan := filepath.Join(destination, mediafiles.Prefix("orphan")+"-"+mediafiles.Prefix("content")+".png")
+	orphan := filepath.Join(destination, mediafiles.Prefix("orphan")+"-"+mediafiles.Prefix("content")+".mp4")
 	unmanaged := filepath.Join(destination, "notes.txt")
 	for _, path := range []string{referenced, orphan, unmanaged} {
 		if err = os.WriteFile(path, []byte("synthetic"), 0600); err != nil {

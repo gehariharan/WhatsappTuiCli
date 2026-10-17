@@ -45,7 +45,7 @@ func RemoveMessage(root string, account int64, chat, message string) error {
 	return nil
 }
 
-var managedName = regexp.MustCompile(`^[a-f0-9]{64}-[a-f0-9]{64}\.(bin|jpg|png|webp|gif|pdf)(\.part)?$`)
+var managedName = regexp.MustCompile(`^[a-f0-9]{64}-[a-f0-9]{64}\.(bin|jpg|png|webp|gif|pdf|mp4|3gp|webm|ogg|mp3|m4a|aac|wav|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip)(\.part)?$`)
 var chatDirectory = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 func ManagedPath(root, path string) bool {

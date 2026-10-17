@@ -1,12 +1,12 @@
 {
   "displayName": "wasync",
   "shortDescription": "Archive selected WhatsApp chats locally with a terminal UI and CLI.",
-  "description": "wasync is an open-source, personal-use terminal application. Pair your WhatsApp account as a linked device, choose which groups or direct chats to archive, and search your local SQLite database. Launch wasync for the terminal UI or use CLI commands for discovery, capture selection, explicit sync, queries and opt-in sending. Available historical messages are imported on a best-effort basis; complete history is not guaranteed. Images and documents can be downloaded when explicitly enabled. Message bodies and linked-device credentials stay on your computer; no developer-operated cloud service or analytics is used. WhatsApp connectivity uses the unofficial whatsmeow library. This application is not affiliated with or endorsed by WhatsApp or Meta.",
+  "description": "wasync is an open-source, personal-use terminal application. Pair your WhatsApp account as a linked device, choose which groups or direct chats to archive, and search your local SQLite database. Launch wasync for the terminal UI or use CLI commands for discovery, capture selection, explicit sync, queries and opt-in sending. Available historical messages are imported on a best-effort basis; complete history is not guaranteed. Images, documents, video, audio and stickers can be downloaded when explicitly enabled. Message bodies and linked-device credentials stay on your computer; no developer-operated cloud service or analytics is used. WhatsApp connectivity uses the unofficial whatsmeow library. This application is not affiliated with or endorsed by WhatsApp or Meta.",
   "features": [
     "Terminal UI with group/direct-chat selection",
     "Scriptable local queries and SQLite full-text search",
     "Live capture and best-effort historical import",
-    "Optional local image/document downloads",
+    "Optional local media and document downloads",
     "Explicit message sending and confirmed cleanup actions"
   ],
   "categorySuggestion": "Developer tools",

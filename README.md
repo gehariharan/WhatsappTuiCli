@@ -201,9 +201,11 @@ capture and removes the group's stored records and search entries.
 
 The archive captures text, extended text, captions, sender/group/message IDs,
 original timestamps, whether the message was sent by you, reply IDs and safe
-media metadata. It does not download attachment files or store thumbnails, quoted
-message bodies, download URLs or media decryption keys. Reactions and unsupported
-types currently retain minimal type metadata.
+media metadata. By default it does not download attachment files. Optional media downloads are
+described below. It never stores thumbnails, quoted message bodies, download URLs
+or media decryption keys in the archive. Reactions retain emoji, target message identity, sender timestamp and removal
+events. Unsupported types retain minimal type metadata. Reaction records are
+observed events, not a reconstructed current reaction count.
 
 Live and historical messages share the same allowlist and normalization rules.
 Repeated deliveries are deduplicated by account, group and WhatsApp message ID.
@@ -851,7 +853,7 @@ replays; they do not transmit the credential. Send, sync and action routes accep
 only signed requests (headers `X-Wasync-Time`, `X-Wasync-Nonce`, `X-Wasync-Signature`);
 a plaintext bearer token is rejected there. Keep the token private.
 
-## Optional image and document downloads
+## Optional media and document downloads
 
 ```sh
 wasync --download-media
@@ -861,10 +863,12 @@ wasync --download-media serve
 WASYNC_DOWNLOAD_MEDIA=1 wasync
 ```
 
-Only enabled chats are eligible. Downloads run in a bounded background queue and
+Images, documents, videos, audio/voice notes and ordinary WebP stickers are
+eligible in enabled chats. Lottie stickers retain metadata only. Downloads run in
+a bounded background queue and
 use whatsmeow's authenticated decryption and integrity checking. Each file is
 limited to 25 MiB and stored under the private `media/ACCOUNT/CHAT_HASH/` directory.
-Sender filenames are never used as paths. Image/document metadata gains
+Sender filenames are never used as paths. Attachment metadata gains
 `download_state`, `local_path` and `relative_path`, visible in message queries.
 `relative_path` is authoritative relative to the current data directory’s `media/`
 root, so moving your archive preserves file identity; `local_path` records the
@@ -1120,7 +1124,7 @@ you explicitly send are exchanged with WhatsApp under its own service policies.
 You choose which chats have content captured. Chat discovery metadata is cached
 for selection; disabled chats' message bodies are discarded. Enabled chats can
 store sender identifiers, timestamps, message text and attachment metadata.
-Downloading images/documents is opt-in. Search and the optional authenticated
+Downloading attachment files (images, documents, video, audio, stickers) is opt-in. Search and the optional authenticated
 loopback API operate on your computer. Nothing is sent to an AI service.
 
 The archive, session and downloaded files are plaintext with restrictive OS
@@ -1131,3 +1135,28 @@ retains the Store data directory; stop the application and remove that directory
 if you want to delete the remaining local archive and pairing credentials. Use
 `wasync logout` before removal to unlink the device. Questions can be raised via
 our public GitHub issue tracker; do not post private messages or credentials there.
+
+
+## Linked-device identity and rich attachment details
+
+New pairings identify the client as **wasync (macOS)**, **wasync (Windows)** or
+**wasync (Linux)** with the desktop platform type. WhatsApp chooses the linked-device
+icon and final label; there is no supported custom icon upload. This is an
+unofficial client, not an official browser or verified WhatsApp application.
+Existing linked devices may keep their old label until you explicitly logout and
+pair again. Updating does not automatically logout or delete an archive.
+
+The TUI attachment details show MIME type, original filename/title when supplied,
+size, dimensions, duration, document page count, voice-note/animation flags,
+download state and local file location. The same fields are available in query/API
+`media_metadata`. Sender filenames are display metadata only: downloads use hashed
+names and a fixed safe MIME-to-extension mapping. Unknown types use `.bin`.
+Documents such as PDF, Word, Excel and PowerPoint are retained as files, not parsed
+or indexed internally; text search covers message text and attachment captions, not
+PDF/OCR/document contents or metadata-only filenames/titles. Files are never opened or executed automatically.
+
+Media downloads remain explicitly enabled with `--download-media` or
+`WASYNC_DOWNLOAD_MEDIA=1`. The 25 MiB bound, allowlist, expiry/view-once exclusions,
+deletion cleanup and best-effort history limits also apply to video, voice notes,
+audio and stickers. Installing an update does not recover previously discarded
+media download keys; WhatsApp must deliver the original attachment metadata again.
