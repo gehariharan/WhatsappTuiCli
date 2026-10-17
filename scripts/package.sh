@@ -22,13 +22,19 @@ trap 'rm -rf "$stage"' EXIT
 commit="$(git rev-parse --short=12 HEAD)"
 if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then commit="$commit-dirty"; fi
 built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-if [[ "$platform" == darwin ]]; then export MACOSX_DEPLOYMENT_TARGET=15.0; fi
+if [[ "$platform" == darwin ]]; then
+  export MACOSX_DEPLOYMENT_TARGET=15.0
+  if [[ -n "${WASYNC_NOTARY_PROFILE:-}" && ( -z "${WASYNC_CODESIGN_IDENTITY:-}" || -z "${WASYNC_INSTALLER_IDENTITY:-}" ) ]]; then
+    echo 'Notarized packages require Developer ID Application and Developer ID Installer identities.' >&2
+    exit 1
+  fi
+fi
 CGO_ENABLED=1 GOOS="$platform" GOARCH="$architecture" go build -trimpath -tags sqlite_fts5 \
   -ldflags "-s -w -X whatsappsync/internal/buildinfo.Version=$version -X whatsappsync/internal/buildinfo.Commit=$commit -X whatsappsync/internal/buildinfo.BuiltAt=$built_at" \
   -o "$stage/wasync" ./cmd/wasync
 if [[ "$platform" == darwin ]]; then
   if [[ -n "${WASYNC_CODESIGN_IDENTITY:-}" ]]; then
-    codesign --force --options runtime --timestamp --sign "$WASYNC_CODESIGN_IDENTITY" "$stage/wasync"
+    codesign --force --options runtime --timestamp --identifier com.gehariharan.wasynctuicli --sign "$WASYNC_CODESIGN_IDENTITY" "$stage/wasync"
   else
     codesign --force --sign - "$stage/wasync"
   fi
@@ -68,6 +74,9 @@ HOOK
     --install-location / --ownership recommended)
   if [[ -n "${WASYNC_INSTALLER_IDENTITY:-}" ]]; then pkg_args+=(--sign "$WASYNC_INSTALLER_IDENTITY" --timestamp); fi
   pkgbuild "${pkg_args[@]}" "$out/$name.pkg"
+  if [[ -n "${WASYNC_NOTARY_PROFILE:-}" ]]; then
+    bash scripts/notarize.sh "$WASYNC_NOTARY_PROFILE" "$stage/wasync" "$out/$name.pkg"
+  fi
 fi
 (
   cd "$out"

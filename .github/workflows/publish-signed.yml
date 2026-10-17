@@ -1,0 +1,85 @@
+name: Verify and publish signed release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Draft version containing signed and notarized macOS assets (without v)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Download and verify draft assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ inputs.version }}
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: bash scripts/verify-signed-release.sh "$PACKAGE_VERSION" "$ARCHITECTURE"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate checksums and cask, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ inputs.version }}
+        run: |
+          gh release download "v$PACKAGE_VERSION" --dir dist/release
+          cd dist/release
+          sha256sum --check checksums.txt
+          cd ../..
+          extra=()
+          if [[ "$(gh repo view --json isPrivate --jq .isPrivate)" == true ]]; then extra+=(--private); fi
+          python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/expected.rb "${extra[@]}"
+          cmp dist/expected.rb dist/release/wasync.rb
+          cat > dist/release-notes.md <<'NOTES'
+          Prebuilt preview packages. No Go compiler is required.
+
+          macOS 15+: Apple Silicon and Intel executables are Developer ID signed and notarized. The matching .pkg installers are signed, notarized, and carry stapled tickets.
+          Linux: extract the matching archive and install wasync on PATH (glibc 2.35+).
+          Homebrew: install gehariharan/tap/wasync. Private repository access requires GitHub CLI authentication.
+          Run wasync for the TUI, or wasync query --help for the agent query interface.
+          Verify downloads against checksums.txt. Installation preserves per-user archives and pairing credentials.
+          NOTES
+          gh release edit "v$PACKAGE_VERSION" --draft=false --prerelease --notes-file dist/release-notes.md
+      - name: Update Homebrew tap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
+        run: bash scripts/publish-tap.sh dist/release
+
+  homebrew-e2e:
+    needs: publish
+    uses: ./.github/workflows/homebrew-e2e.yml
+    with:
+      version: ${{ inputs.version }}
+      allow_unsigned_preview: false
+    secrets: inherit

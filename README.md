@@ -611,3 +611,76 @@ certificates or signing credentials. Before publishing, inspect the package
 contents and signatures, verify the checksum, and validate installation on each
 supported platform. No installer launches WhatsApp, starts capture or creates
 credentials during installation.
+
+### Signing and notarizing with a Keychain profile
+
+For a normal Gatekeeper-accepted release, use Developer ID Application for the
+executable and Developer ID Installer for the package, plus Apple notarization.
+An Apple Development certificate or an Xcode account alone is not sufficient.
+
+On the signing Mac, configure a `notarytool` Keychain profile through Apple's
+credential setup, then run:
+
+```sh
+WASYNC_CODESIGN_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' \
+WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
+WASYNC_NOTARY_PROFILE='wasync-notary' \
+WASYNC_SIGNING_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" \
+  scripts/package.sh 0.1.0
+```
+
+The optional notarization step rejects development/ad hoc signatures, submits
+both the exact signed executable (in a temporary ZIP) and installer to Apple,
+requires an `Accepted` result, staples and validates the installer ticket, and
+checks the installer with Gatekeeper. Checksums are calculated after stapling.
+Credentials are read from the signing Mac's Keychain profile; no Apple password
+is passed in a script argument or committed to Git.
+
+The raw CLI executable cannot hold a stapled ticket. Its code hash is registered
+by notarization; Homebrew downloads the same signed executable and Gatekeeper
+uses Apple's notarization lookup. The `.pkg` carries its own stapled ticket.
+Signing/notarization still needs to be exercised with the real Developer ID
+certificates before publishing a signed release. A signed release must run the
+Homebrew E2E workflow with `allow_unsigned_preview=false`.
+
+Apple references: [Developer ID certificates](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/)
+and [Customizing the notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
+
+### Release signing on a separate Mac
+
+The signing Mac does not need Go or GitHub credentials. Apple private keys and
+the notarization profile remain in its login Keychain. Signing needs an
+interactive unlock in the same SSH session; unlocking a previous SSH session
+does not make credentials available to later connections.
+
+1. Run **Build prebuilt installers** with a new version and `publish=false`.
+   Download the resulting draft assets using `gh release download vVERSION`.
+2. Copy the four macOS assets and `scripts/notarize.sh` and
+   `scripts/sign-release-macos.sh` to the signing Mac. Run:
+
+   ```sh
+   WASYNC_CODESIGN_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' \
+   WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
+   WASYNC_NOTARY_PROFILE=wasync-notary \
+   WASYNC_SIGNING_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" \
+     bash scripts/sign-release-macos.sh VERSION assets
+   ```
+
+   Enter the Mac login password at the Keychain prompt. Approve signing-key
+   access on that Mac if macOS requests it. The script verifies CPU types and
+   matching archive/installer executables, signs and notarizes both architectures,
+   validates Gatekeeper acceptance, and replaces the four assets only after all
+   checks succeed. No executable is launched during signing.
+3. Retrieve the signed assets. Recompute aggregate checksums and regenerate the
+   cask with `scripts/homebrew-cask.py` (include `--private` for this repository).
+   Replace these assets, `checksums.txt`, and `wasync.rb` in the **draft only**.
+   Never overwrite a published release.
+4. Run **Verify and publish signed release** with the version. It verifies the
+   expected signing team, both architectures, notarization, installer tickets,
+   checksums, and cask hashes before publishing and updating the tap. Homebrew
+   E2E then runs on Intel and Apple Silicon with `allow_unsigned_preview=false`.
+
+The signed publication workflow is separate from the older unsigned-preview
+publication option. It requires no Apple passwords or private keys in GitHub
+Actions. One interactive Keychain unlock on the signing Mac is required per
+signing session. Initial real-certificate validation is still pending.
