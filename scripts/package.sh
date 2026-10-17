@@ -41,13 +41,15 @@ if [[ "$platform" == darwin ]]; then
 fi
 "$stage/wasync" version
 cp README.md "$stage/README.md"
+cp LICENSE "$stage/LICENSE"
 python3 scripts/collect-licenses.py "$stage/THIRD_PARTY_LICENSES"
 name="wasync_${version}_${platform}_${architecture}"
-tar -czf "$out/$name.tar.gz" -C "$stage" wasync README.md THIRD_PARTY_LICENSES
+tar -czf "$out/$name.tar.gz" -C "$stage" wasync README.md LICENSE THIRD_PARTY_LICENSES
 
 if [[ "$platform" == darwin ]]; then
   mkdir -p "$stage/payload/usr/local/bin" "$stage/payload/usr/local/share/wasync" "$stage/hooks"
   cp -R "$stage/THIRD_PARTY_LICENSES" "$stage/payload/usr/local/share/wasync/"
+  cp LICENSE "$stage/payload/usr/local/share/wasync/LICENSE"
   install -m 755 "$stage/wasync" "$stage/payload/usr/local/bin/wasync"
   # Refuse installation on the wrong CPU rather than installing an unusable CLI.
   if [[ "$architecture" == arm64 ]]; then expected_cpu=arm64; else expected_cpu=x86_64; fi

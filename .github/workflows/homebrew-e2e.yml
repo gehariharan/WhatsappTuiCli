@@ -40,20 +40,26 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Install prebuilt release from the private tap
+      - name: Install prebuilt release from the tap
         env:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
+          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
           HOMEBREW_NO_AUTO_UPDATE: '1'
           HOMEBREW_NO_ANALYTICS: '1'
           HOMEBREW_NO_ASK: '1'
           HOMEBREW_NO_INSTALL_CLEANUP: '1'
         shell: bash
         run: |
-          source scripts/tap-ssh.sh
-          trap 'rm -rf "$tap_ssh_dir"' EXIT
-          brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
+          if [[ "$PRIVATE_REPOSITORY" == true ]]; then
+            source scripts/tap-ssh.sh
+            trap 'rm -rf "$tap_ssh_dir"' EXIT
+            brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
+          else
+            unset GH_TOKEN HOMEBREW_GITHUB_API_TOKEN HOMEBREW_TAP_SSH_KEY
+            brew tap gehariharan/tap https://github.com/gehariharan/homebrew-tap
+          fi
           if brew help trust >/dev/null 2>&1; then brew trust --cask gehariharan/tap/wasync; fi
           brew install --cask gehariharan/tap/wasync
       - name: Explicit CI-only exception for unsigned preview

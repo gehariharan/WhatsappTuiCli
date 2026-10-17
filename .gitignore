@@ -30,3 +30,6 @@ __pycache__/
 *.key
 *.mobileprovision
 *.provisionprofile
+
+# Cloudflare local state
+.wrangler/

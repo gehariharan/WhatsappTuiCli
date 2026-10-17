@@ -52,7 +52,9 @@ for architecture in arm64 amd64; do
   # spctl's execute assessment expects an app bundle and rejects standalone
   # Mach-O tools even when notarized. Require Apple's ticket for the CLI itself.
   codesign --verify --strict --verbose=2 -R='notarized' --check-notarization "$binary"
-  tar -czf "$work/$name.tar.gz" -C "$work/$architecture" wasync README.md THIRD_PARTY_LICENSES
+  archive_files=(wasync README.md THIRD_PARTY_LICENSES)
+  if [[ -f "$work/$architecture/LICENSE" ]]; then archive_files+=(LICENSE); fi
+  tar -czf "$work/$name.tar.gz" -C "$work/$architecture" "${archive_files[@]}"
 done
 # Replace inputs only after both architectures pass signing and notarization.
 for architecture in arm64 amd64; do

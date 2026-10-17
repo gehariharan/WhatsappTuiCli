@@ -24,7 +24,7 @@ Linux packages. Manual builds can remain drafts; publishing also updates the
 Homebrew tap and runs installation checks on both Mac architectures. Downloadable
 versions appear on the
 [GitHub Releases page](https://github.com/gehariharan/WhatsappTuiCli/releases).
-The repository is currently private, so downloads require an account with access.
+Source code and prebuilt downloads are public. No GitHub account is needed to install.
 
 On macOS the package installs `/usr/local/bin/wasync` and dependency notices under
 `/usr/local/share/wasync`. It asks for administrator approval. After installation,
@@ -69,13 +69,10 @@ rejects the wrong CPU architecture, unsupported macOS versions and an existing
 
 Each release generates `wasync.rb`, a Homebrew **cask** that installs the
 prebuilt native macOS executable and verifies its archive checksum. It performs
-no source build. The private tap uses GitHub CLI authentication for release
-downloads; use an account with access to both repositories:
+no source build. The public tap downloads signed release assets without GitHub
+authentication:
 
 ```sh
-brew install gh
-gh auth login
-gh auth setup-git
 brew tap gehariharan/tap
 # On Homebrew versions with tap trust:
 brew trust --cask gehariharan/tap/wasync
@@ -84,7 +81,7 @@ brew install --cask gehariharan/tap/wasync
 
 Releases from `0.1.0-preview.5` onward are Developer ID signed and notarized.
 Homebrew's quarantine behavior is preserved; no cask hook disables Gatekeeper.
-Both repositories remain private. Existing manual launchers may
+Both repositories are public. Existing manual launchers may
 precede the Homebrew binary; check `command -v wasync` and use
 `/usr/local/bin/wasync` on Intel or `/opt/homebrew/bin/wasync` on Apple Silicon to
 select the installed release explicitly.
@@ -582,8 +579,6 @@ automatically. Its installation is outside this repository at
 For a new installation:
 
 ```sh
-gh auth login
-gh auth setup-git
 brew tap gehariharan/tap
 brew trust --cask gehariharan/tap/wasync # on Homebrew versions with tap trust
 brew install --cask gehariharan/tap/wasync
@@ -597,7 +592,7 @@ brew upgrade --cask gehariharan/tap/wasync
 wasync version
 ```
 
-The repositories remain private, so users need authorized GitHub access. Homebrew
+No GitHub authentication is needed for public downloads. Homebrew
 updates the executable when requested; installation and upgrades preserve local
 archives, group preferences and pairing credentials. The workflow also supports
 manual dispatch to retry a release without a new commit.
@@ -625,24 +620,25 @@ Linux executables use the build platform's libc, so the workflow uses Ubuntu
 and Linux. Run **Build prebuilt installers** manually with a version, or push a
 `vVERSION` tag. All four platforms must pass tests and build before the workflow
 creates a prerelease with archives, macOS installers, aggregate checksums and the
-generated Homebrew cask. A manual run defaults to a draft. Set its `publish` input
-to true, or push a version tag, to publish the prerelease, update the private
-`gehariharan/homebrew-tap` repository, and run Homebrew installation checks on
-Intel and Apple Silicon. Existing releases are not overwritten. No workflow
-changes repository visibility.
+generated Homebrew cask. This workflow creates drafts only, including manual
+tag builds. The automatic main pipeline signs and notarizes these drafts before
+calling **Verify and publish signed release**, updating `gehariharan/homebrew-tap`
+and running Homebrew installation checks on Intel and Apple Silicon. Existing
+published releases are not overwritten. No workflow changes repository visibility.
 
 `HOMEBREW_TAP_SSH_KEY` is an encrypted Actions secret containing a write deploy
 key restricted to the tap. It is not a personal GitHub token. Release jobs use
 their temporary `GITHUB_TOKEN` for assets in the application repository. Private
-Homebrew downloads invoke `gh`; authentication is not embedded in casks, URLs,
-or cache metadata. Do not print or commit either credential.
+Public Homebrew downloads do not use credentials. The optional private-release
+download strategy invokes `gh`; authentication is not embedded in casks, URLs,
+or cache metadata. Do not print or commit credentials.
 
 The reusable Homebrew E2E workflow can also be run independently against an
 existing release. Its explicit `allow_unsigned_preview` option removes quarantine
 only from the installed test executable on a disposable GitHub-hosted runner.
 The cask itself never disables quarantine. This option is false by default for
-manual runs and the signed automatic pipeline. The older explicit unsigned
-preview publication path sets it to true.
+manual runs and the signed automatic pipeline. The option is retained only for
+explicitly checking old unsigned previews on disposable runners.
 The jobs install the actual release archive and validate the installed binary's
 version and native architecture, concurrent read-only JSON queries, FTS5 search,
 pagination, graceful shutdown, and offline TUI rendering/exit with synthetic data.
@@ -705,7 +701,7 @@ the notarization profile remain in its login Keychain. Signing needs an
 interactive unlock in the same SSH session; unlocking a previous SSH session
 does not make credentials available to later connections.
 
-1. Run **Build prebuilt installers** with a new version and `publish=false`.
+1. Run **Build prebuilt installers** with a new version to create a draft.
    Download the resulting draft assets using `gh release download vVERSION`.
 2. Copy the four macOS assets and `scripts/notarize.sh` and
    `scripts/sign-release-macos.sh` to the signing Mac. Run:
@@ -729,7 +725,7 @@ does not make credentials available to later connections.
    `codesign --verify -R='notarized' --check-notarization`; `spctl --type execute`
    expects an app bundle. Installer validation uses `spctl --type install`.
 3. Retrieve the signed assets. Recompute aggregate checksums and regenerate the
-   cask with `scripts/homebrew-cask.py` (include `--private` for this repository).
+   cask with `scripts/homebrew-cask.py` (`--private` is only for private forks).
    Replace these assets, `checksums.txt`, and `wasync.rb` in the **draft only**.
    Never overwrite a published release.
 4. Run **Verify and publish signed release** with the version. It verifies the
@@ -737,8 +733,12 @@ does not make credentials available to later connections.
    checksums, and cask hashes before publishing and updating the tap. Homebrew
    E2E then runs on Intel and Apple Silicon with `allow_unsigned_preview=false`.
 
-The signed publication workflow is separate from the older unsigned-preview
-publication option. It requires no Apple passwords or private keys in GitHub
+The signed publication workflow requires no Apple passwords or private keys in GitHub
 Actions. Manual SSH signing requires an interactive Keychain unlock in that
 session. The automatic pipeline sets `WASYNC_SIGNING_UNATTENDED=1` and runs in
 the logged-in desktop session, using its already-unlocked Keychain.
+
+## License
+
+wasync is open source under the [MIT license](LICENSE). Dependencies retain
+their own licenses; prebuilt archives and installers include third-party notices.

@@ -31,7 +31,6 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.version.outputs.value }}
-      publish: false
     secrets: inherit
 
   sign:

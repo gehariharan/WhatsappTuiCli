@@ -6,9 +6,6 @@ on:
       version:
         required: true
         type: string
-      publish:
-        type: boolean
-        default: false
   push:
     tags: ["v[0-9]*"]
   workflow_dispatch:
@@ -17,10 +14,6 @@ on:
         description: "Package version (e.g. 0.1.0-preview.1); creates a draft prerelease"
         required: true
         type: string
-      publish:
-        description: "Publish the private prerelease, update the tap, and run Homebrew E2E checks"
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -36,14 +29,12 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       value: ${{ steps.version.outputs.value }}
-      publish: ${{ steps.version.outputs.publish }}
     steps:
       - name: Validate release version
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_VERSION: ${{ inputs.version }}
-          PUBLISH: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || inputs.publish }}
         shell: bash
         run: |
           version="${REQUESTED_VERSION:-${GITHUB_REF_NAME#v}}"
@@ -65,7 +56,6 @@ jobs:
               -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" >/dev/null
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
-          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
@@ -147,44 +137,10 @@ jobs:
           - `wasync query --help` documents the agent query interface.
           - Verify downloads against checksums.txt.
 
-          These preview macOS packages are unsigned and not notarized. The maintainer must configure Apple Developer signing and notarization before general public distribution.
+          Unpublished build-stage artifacts. Mac packages must pass the signing, notarization, and signed verification stages before publication.
           The generated wasync.rb is a binary-only Homebrew cask. Private releases use GitHub CLI authentication.
           Installation preserves existing per-user archives and pairing credentials.
           NOTES
           gh release create "$tag" --draft --prerelease --verify-tag \
             --title "wasync $PACKAGE_VERSION" --notes-file dist/release/RELEASE_NOTES.md \
             dist/release/*.tar.gz dist/release/*.pkg dist/release/checksums.txt dist/release/wasync.rb
-      - name: Publish prerelease for Homebrew
-        if: needs.version.outputs.publish == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
-        run: gh release edit "v$PACKAGE_VERSION" --draft=false --prerelease
-
-  publish-tap:
-    needs: [version, release]
-    if: needs.version.outputs.publish == 'true'
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - name: Download release cask
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
-        run: gh release download "v$PACKAGE_VERSION" --pattern wasync.rb --dir dist/release
-      - name: Update tap with repository-scoped deploy key
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
-        run: bash scripts/publish-tap.sh dist/release
-
-  homebrew-e2e:
-    needs: [version, publish-tap]
-    if: needs.version.outputs.publish == 'true'
-    uses: ./.github/workflows/homebrew-e2e.yml
-    with:
-      version: ${{ needs.version.outputs.value }}
-      allow_unsigned_preview: true
-    secrets: inherit

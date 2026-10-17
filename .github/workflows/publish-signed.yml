@@ -74,7 +74,7 @@ jobs:
 
           macOS 15+: Apple Silicon and Intel executables are Developer ID signed and notarized. The matching .pkg installers are signed, notarized, and carry stapled tickets.
           Linux: extract the matching archive and install wasync on PATH (glibc 2.35+).
-          Homebrew: install gehariharan/tap/wasync. Private repository access requires GitHub CLI authentication.
+          Homebrew: brew install --cask gehariharan/tap/wasync. Intel and Apple Silicon downloads select the native architecture automatically.
           Run wasync for the TUI, or wasync query --help for the agent query interface.
           Verify downloads against checksums.txt. Installation preserves per-user archives and pairing credentials.
           NOTES
