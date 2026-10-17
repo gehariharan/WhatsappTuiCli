@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,7 +64,7 @@ func (c *Client) startMediaWorker(ctx context.Context) {
 	}()
 }
 func (c *Client) queueMedia(account int64, e *events.Message, m storage.Message) error {
-	if !c.mediaEnabled || c.mediaQueue == nil || m.Kind != "" || m.ExpiresAt != nil || e.IsViewOnce || e.IsViewOnceV2 || e.IsViewOnceV2Extension {
+	if !c.mediaEnabled || c.mediaQueue == nil || m.Kind != "" || m.ExpiresAt != nil || viewOnceEvent(e) {
 		return nil
 	}
 	message := unwrap(e.Message)
@@ -72,28 +73,36 @@ func (c *Client) queueMedia(account int64, e *events.Message, m storage.Message)
 	}
 	job := mediaJob{account: account, message: m, extension: ".bin"}
 	var length uint64
-	if image := message.GetImageMessage(); image != nil {
-		job.attachment = proto.Clone(image).(whatsmeow.DownloadableMessage)
-		length = image.GetFileLength()
-		switch image.GetMimetype() {
-		case "image/png":
-			job.extension = ".png"
-		case "image/jpeg":
-			job.extension = ".jpg"
-		case "image/webp":
-			job.extension = ".webp"
-		case "image/gif":
-			job.extension = ".gif"
+	var contentType string
+	switch {
+	case message.GetImageMessage() != nil:
+		attachment := message.GetImageMessage()
+		job.attachment = proto.Clone(attachment).(whatsmeow.DownloadableMessage)
+		length, contentType = attachment.GetFileLength(), attachment.GetMimetype()
+	case message.GetDocumentMessage() != nil:
+		attachment := message.GetDocumentMessage()
+		job.attachment = proto.Clone(attachment).(whatsmeow.DownloadableMessage)
+		length, contentType = attachment.GetFileLength(), attachment.GetMimetype()
+	case message.GetVideoMessage() != nil:
+		attachment := message.GetVideoMessage()
+		job.attachment = proto.Clone(attachment).(whatsmeow.DownloadableMessage)
+		length, contentType = attachment.GetFileLength(), attachment.GetMimetype()
+	case message.GetAudioMessage() != nil:
+		attachment := message.GetAudioMessage()
+		job.attachment = proto.Clone(attachment).(whatsmeow.DownloadableMessage)
+		length, contentType = attachment.GetFileLength(), attachment.GetMimetype()
+	case message.GetStickerMessage() != nil:
+		attachment := message.GetStickerMessage()
+		// Lottie sticker containers are not WebP images; retain their safe metadata.
+		if attachment.GetIsLottie() {
+			return nil
 		}
-	} else if document := message.GetDocumentMessage(); document != nil {
-		job.attachment = proto.Clone(document).(whatsmeow.DownloadableMessage)
-		length = document.GetFileLength()
-		if document.GetMimetype() == "application/pdf" {
-			job.extension = ".pdf"
-		}
-	} else {
+		job.attachment = proto.Clone(attachment).(whatsmeow.DownloadableMessage)
+		length, contentType = attachment.GetFileLength(), attachment.GetMimetype()
+	default:
 		return nil
 	}
+	job.extension = mediaExtension(contentType)
 	if length == 0 || length > MaxAttachmentSize || len(job.attachment.GetFileSHA256()) != 32 {
 		_, err := c.capture.store.SetMediaDownload(c.capture.ctx, account, m.GroupID, m.MessageID, "skipped_size", "")
 		return err
@@ -238,5 +247,62 @@ func (c *Client) sweepMedia(ctx context.Context) {
 	})
 	if err != nil && ctx.Err() == nil {
 		c.log.Warn("local media cleanup incomplete; retrying later")
+	}
+}
+
+// Use a fixed MIME mapping rather than platform-dependent extensions or sender
+// filenames. Unknown types are retained as inert .bin files and never opened.
+func mediaExtension(contentType string) string {
+	kind, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return ".bin"
+	}
+	switch kind {
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	case "video/mp4":
+		return ".mp4"
+	case "video/3gpp":
+		return ".3gp"
+	case "video/webm":
+		return ".webm"
+	case "audio/ogg", "application/ogg":
+		return ".ogg"
+	case "audio/mpeg":
+		return ".mp3"
+	case "audio/mp4", "audio/x-m4a":
+		return ".m4a"
+	case "audio/aac":
+		return ".aac"
+	case "audio/wav", "audio/x-wav":
+		return ".wav"
+	case "application/pdf":
+		return ".pdf"
+	case "application/msword":
+		return ".doc"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	case "application/vnd.ms-excel":
+		return ".xls"
+	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return ".xlsx"
+	case "application/vnd.ms-powerpoint":
+		return ".ppt"
+	case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		return ".pptx"
+	case "text/plain":
+		return ".txt"
+	case "text/csv":
+		return ".csv"
+	case "application/zip":
+		return ".zip"
+	default:
+		return ".bin"
 	}
 }

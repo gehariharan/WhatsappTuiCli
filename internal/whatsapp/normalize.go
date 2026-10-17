@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"whatsappsync/internal/storage"
 )
@@ -85,19 +86,24 @@ func Normalize(e *events.Message, source string, now time.Time) (storage.Message
 		// A wrapper with no explicit target is ambiguous: do not overwrite an original.
 		return out, false
 	}
-	if e.IsViewOnce || e.IsViewOnceV2 || e.IsViewOnceV2Extension {
+	if viewOnceEvent(e) || viewOnceMessage(m) {
 		return out, false
 	}
 	var contextInfo *waE2E.ContextInfo
 	type mediaInfo struct {
-		MIME     string `json:"mime,omitempty"`
-		Filename string `json:"filename,omitempty"`
-		Size     uint64 `json:"size,omitempty"`
-		Width    uint32 `json:"width,omitempty"`
-		Height   uint32 `json:"height,omitempty"`
-		Duration uint32 `json:"duration_seconds,omitempty"`
+		MIME      string `json:"mime,omitempty"`
+		Filename  string `json:"filename,omitempty"`
+		Size      uint64 `json:"size,omitempty"`
+		Width     uint32 `json:"width,omitempty"`
+		Height    uint32 `json:"height,omitempty"`
+		Duration  uint32 `json:"duration_seconds,omitempty"`
+		VoiceNote bool   `json:"voice_note,omitempty"`
+		Animated  bool   `json:"animated,omitempty"`
+		Lottie    bool   `json:"lottie,omitempty"`
+		Pages     uint32 `json:"pages,omitempty"`
+		Title     string `json:"title,omitempty"`
 	}
-	var metadata *mediaInfo
+	var metadata any
 	switch {
 	case m.GetConversation() != "":
 		out.Type = "text"
@@ -118,21 +124,45 @@ func Normalize(e *events.Message, source string, now time.Time) (storage.Message
 		out.Type = "video"
 		out.Text = v.GetCaption()
 		contextInfo = v.GetContextInfo()
-		metadata = &mediaInfo{MIME: v.GetMimetype(), Size: v.GetFileLength(), Width: v.GetWidth(), Height: v.GetHeight(), Duration: v.GetSeconds()}
+		metadata = &mediaInfo{MIME: v.GetMimetype(), Size: v.GetFileLength(), Width: v.GetWidth(), Height: v.GetHeight(), Duration: v.GetSeconds(), Animated: v.GetGifPlayback()}
 	case m.GetDocumentMessage() != nil:
 		v := m.GetDocumentMessage()
 		out.Type = "document"
 		out.Text = v.GetCaption()
 		contextInfo = v.GetContextInfo()
-		metadata = &mediaInfo{MIME: v.GetMimetype(), Filename: v.GetFileName(), Size: v.GetFileLength()}
+		metadata = &mediaInfo{MIME: v.GetMimetype(), Filename: v.GetFileName(), Size: v.GetFileLength(), Pages: v.GetPageCount(), Title: v.GetTitle()}
 	case m.GetAudioMessage() != nil:
 		v := m.GetAudioMessage()
 		out.Type = "audio"
 		contextInfo = v.GetContextInfo()
-		metadata = &mediaInfo{MIME: v.GetMimetype(), Size: v.GetFileLength(), Duration: v.GetSeconds()}
+		metadata = &mediaInfo{MIME: v.GetMimetype(), Size: v.GetFileLength(), Duration: v.GetSeconds(), VoiceNote: v.GetPTT()}
+	case m.GetStickerMessage() != nil:
+		v := m.GetStickerMessage()
+		out.Type = "sticker"
+		contextInfo = v.GetContextInfo()
+		metadata = &mediaInfo{MIME: v.GetMimetype(), Size: v.GetFileLength(), Width: v.GetWidth(), Height: v.GetHeight(), Animated: v.GetIsAnimated(), Lottie: v.GetIsLottie()}
 	case m.GetReactionMessage() != nil:
+		v := m.GetReactionMessage()
+		target := v.GetKey()
+		if target.GetID() == "" || !reactionTargetMatches(e, target.GetRemoteJID()) {
+			return out, false
+		}
 		out.Type = "reaction"
-		out.ReplyTo = m.GetReactionMessage().GetKey().GetID()
+		out.Text = v.GetText()
+		out.ReplyTo = target.GetID()
+		// Preserve a reaction event, including removal, rather than claiming it is
+		// the latest aggregate state when live/history deliveries can be reordered.
+		metadata = struct {
+			Target      string `json:"target_message_id"`
+			Participant string `json:"target_participant,omitempty"`
+			FromMe      bool   `json:"target_from_me"`
+			Emoji       string `json:"emoji"`
+			Removed     bool   `json:"removed"`
+			Timestamp   int64  `json:"sender_timestamp_ms,omitempty"`
+		}{target.GetID(), target.GetParticipant(), target.GetFromMe(), v.GetText(), v.GetText() == "", v.GetSenderTimestampMS()}
+	}
+	if out.Kind == "edit" && (out.Type == "sticker" || out.Type == "reaction") {
+		return out, false
 	}
 	if contextInfo != nil {
 		out.ReplyTo = contextInfo.GetStanzaID()
@@ -164,4 +194,27 @@ func Normalize(e *events.Message, source string, now time.Time) (storage.Message
 		out.ExpiresAt = &expiry
 	}
 	return out, !out.Timestamp.IsZero()
+}
+
+// Reject view-once wrappers and inline media flags even when an event was not
+// unwrapped by the library (for example when processing historical deliveries).
+func viewOnceMessage(message *waE2E.Message) bool {
+	m := unwrap(message)
+	return m.GetViewOnceMessage() != nil || m.GetViewOnceMessageV2() != nil || m.GetViewOnceMessageV2Extension() != nil || m.GetImageMessage().GetViewOnce() || m.GetVideoMessage().GetViewOnce() || m.GetAudioMessage().GetViewOnce()
+}
+func viewOnceEvent(e *events.Message) bool {
+	return e.IsViewOnce || e.IsViewOnceV2 || e.IsViewOnceV2Extension || viewOnceMessage(e.Message) || viewOnceMessage(e.RawMessage)
+}
+func reactionTargetMatches(e *events.Message, remote string) bool {
+	if remote == "" || remote == e.Info.Chat.String() {
+		return true
+	}
+	if e.Info.IsGroup || e.Info.Chat.Server == types.GroupServer {
+		return false
+	}
+	alternate := e.Info.SenderAlt
+	if e.Info.IsFromMe {
+		alternate = e.Info.RecipientAlt
+	}
+	return !alternate.IsEmpty() && SupportedChat(alternate.ToNonAD()) && alternate.Server != types.GroupServer && remote == alternate.ToNonAD().String()
 }

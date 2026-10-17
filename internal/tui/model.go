@@ -889,7 +889,7 @@ func (m Model) detailText(width int) string {
 			detail += "\n\nReply to " + oneLine(item.ReplyTo)
 		}
 		if item.Media != "" && item.DeletedAt == nil {
-			detail += "\n\n" + clean(item.Media)
+			detail += "\n\n" + mediaDetails(item.Type, item.Media)
 		}
 	}
 	return ansi.Hardwrap(detail, width-4, false)
