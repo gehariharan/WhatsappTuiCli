@@ -1,0 +1,111 @@
+package cli
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"path/filepath"
+	"time"
+
+	"whatsappsync/internal/api"
+	"whatsappsync/internal/config"
+	"whatsappsync/internal/storage"
+	"whatsappsync/internal/tui"
+	"whatsappsync/internal/whatsapp"
+)
+
+// withAPI closes all HTTP handlers before the caller closes the store/client.
+func (a *App) withAPI(ctx context.Context, cfg config.Config, store *storage.Store, status func() whatsapp.CaptureStatus, run func(context.Context, string) error) (result error) {
+	if cfg.NoAPI {
+		return run(ctx, "")
+	}
+	server, err := api.Start(cfg.APIAddr, cfg.DataDir, store, status)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, server.Close()) }()
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	failed := make(chan error, 1)
+	go func() {
+		select {
+		case err := <-server.Errors:
+			if err != nil {
+				failed <- err
+				cancel()
+			}
+		case <-runCtx.Done():
+		}
+	}()
+	result = run(runCtx, server.URL)
+	select {
+	case err := <-failed:
+		result = errors.Join(result, err)
+	default:
+	}
+	return result
+}
+func (a *App) serveAction(offline bool) action {
+	return func(ctx context.Context, cfg config.Config, store *storage.Store, log *slog.Logger) (result error) {
+		if cfg.NoAPI {
+			return fmt.Errorf("serve requires the local API; remove --no-api")
+		}
+		var client Client
+		var live tui.Client
+		if !offline {
+			var err error
+			client, err = a.OpenClient(ctx, filepath.Join(cfg.DataDir, "session.db"), log)
+			if err != nil {
+				return err
+			}
+			defer func() { result = errors.Join(result, client.Close()) }()
+			if !client.Paired() {
+				return fmt.Errorf("pair using the TUI first, or use serve --offline for archive queries")
+			}
+			var ok bool
+			live, ok = client.(tui.Client)
+			if !ok {
+				return fmt.Errorf("this client does not implement capture")
+			}
+			if err = live.EnableCapture(ctx, store); err != nil {
+				return err
+			}
+		}
+		var status func() whatsapp.CaptureStatus
+		if live != nil {
+			status = live.Status
+		}
+		return a.withAPI(ctx, cfg, store, status, func(ctx context.Context, url string) error {
+			fmt.Fprintf(a.Out, "Local API: %s\nBearer token file: %s\n", url, filepath.Join(cfg.DataDir, "api.token"))
+			if client != nil {
+				err := client.Connect(ctx)
+				if err == nil {
+					discoveryCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+					_, _, err = discover(discoveryCtx, store, client)
+					cancel()
+				}
+				if err != nil {
+					return err
+				}
+			}
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					if live != nil {
+						if err := live.Maintain(ctx); err != nil {
+							live.StopCapture(err)
+							return err
+						}
+					} else if err := store.Expire(ctx); err != nil {
+						return err
+					}
+				}
+			}
+		})
+	}
+}

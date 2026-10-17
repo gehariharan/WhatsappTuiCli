@@ -1,0 +1,179 @@
+// Package api exposes the shared archive to authenticated local applications.
+package api
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"whatsappsync/internal/localfs"
+	"whatsappsync/internal/storage"
+	"whatsappsync/internal/whatsapp"
+)
+
+type Server struct {
+	HTTP   *http.Server
+	URL    string
+	Errors <-chan error
+}
+
+// ValidateAddr permits only literal loopback addresses, avoiding DNS rebinding.
+func ValidateAddr(addr string) error {
+	host, port, err := net.SplitHostPort(addr)
+	number, portErr := strconv.Atoi(port)
+	if err != nil || portErr != nil || number < 0 || number > 65535 || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
+		return fmt.Errorf("API address must be a literal loopback address, e.g. 127.0.0.1:8787")
+	}
+	return nil
+}
+
+func loadToken(dir string) (token string, result error) {
+	f, err := localfs.OpenFile(filepath.Join(dir, "api.token"))
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, f.Close()) }()
+	b, err := io.ReadAll(io.LimitReader(f, 1024))
+	if err != nil {
+		return "", err
+	}
+	if len(b) == 0 {
+		key := make([]byte, 32)
+		if _, err = rand.Read(key); err != nil {
+			return "", err
+		}
+		token = hex.EncodeToString(key)
+		if _, err = f.WriteString(token + "\n"); err != nil {
+			return "", err
+		}
+		if err = f.Sync(); err != nil {
+			return "", err
+		}
+		return token, nil
+	}
+	token = strings.TrimSpace(string(b))
+	key, err := hex.DecodeString(token)
+	if err != nil || len(key) != 32 {
+		return "", fmt.Errorf("invalid api.token; remove it with wasync stopped to generate a replacement")
+	}
+	return token, nil
+}
+
+// Start shares the caller's store; it never opens a WhatsApp session.
+func Start(addr, dir string, store *storage.Store, status func() whatsapp.CaptureStatus) (*Server, error) {
+	if err := ValidateAddr(addr); err != nil {
+		return nil, err
+	}
+	token, err := loadToken(dir)
+	if err != nil {
+		return nil, err
+	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("start local API (change --api-addr or use --no-api): %w", err)
+	}
+	h := &handler{store: store, token: token, status: status, authority: listener.Addr().String()}
+	srv := &http.Server{Handler: h.routes(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	done := make(chan error, 1)
+	go func() {
+		err := srv.Serve(listener)
+		if errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		done <- err
+		close(done)
+	}()
+	return &Server{HTTP: srv, URL: "http://" + listener.Addr().String(), Errors: done}, nil
+}
+
+func (s *Server) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.HTTP.Shutdown(ctx); err != nil {
+		return errors.Join(err, s.HTTP.Close())
+	}
+	return nil
+}
+
+type handler struct {
+	store            *storage.Store
+	token, authority string
+	status           func() whatsapp.CaptureStatus
+}
+
+func (h *handler) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		if err := h.store.Ping(r.Context()); err != nil {
+			fail(w, 503, "archive unavailable")
+			return
+		}
+		writeJSON(w, 200, map[string]string{"status": "ok"})
+	})
+	mux.HandleFunc("GET /api/status", h.getStatus)
+	mux.HandleFunc("GET /api/groups", h.groups)
+	mux.HandleFunc("GET /api/groups/{id}", h.group)
+	mux.HandleFunc("POST /api/groups/{id}/enable", h.enable)
+	mux.HandleFunc("POST /api/groups/{id}/disable", h.enable)
+	mux.HandleFunc("POST /api/groups/{id}/history", h.history)
+	mux.HandleFunc("GET /api/groups/{id}/messages", h.messages)
+	mux.HandleFunc("GET /api/messages/search", h.search)
+	mux.HandleFunc("GET /api/messages/{id}", h.message)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		if r.Host != h.authority {
+			fail(w, 403, "invalid host")
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil || u.Scheme != "http" || u.Host != h.authority {
+				fail(w, 403, "foreign origin")
+				return
+			}
+		}
+		if r.URL.Path != "/health" && subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+h.token)) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			fail(w, 401, "bearer token required")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		mux.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func writeJSON(w http.ResponseWriter, code int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(value)
+}
+func fail(w http.ResponseWriter, code int, message string) {
+	writeJSON(w, code, map[string]string{"error": message})
+}
+
+func (h *handler) account(w http.ResponseWriter, r *http.Request) *storage.Account {
+	a, err := h.store.Account(r.Context())
+	if err != nil {
+		fail(w, 500, "archive unavailable")
+		return nil
+	}
+	if a == nil {
+		fail(w, 409, "no paired account in archive")
+		return nil
+	}
+	return a
+}

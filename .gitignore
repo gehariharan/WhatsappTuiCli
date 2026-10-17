@@ -1,0 +1,17 @@
+/bin/
+/.cache/
+/.local/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.test
+.DS_Store
+
+# Local credentials, configuration, and runtime files
+api.token
+device.lock
+*.log
+.env
+.env.*
+!.env.example
