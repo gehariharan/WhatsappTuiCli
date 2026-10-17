@@ -84,6 +84,10 @@ func StartWithApprovals(addr, dir string, store *storage.Store, status func() wh
 
 // StartControlled shares one device owner across the TUI and CLI command channel.
 func StartControlled(addr, dir string, store *storage.Store, status func() whatsapp.CaptureStatus, approvals *approval.Queue, approve func(int64, string) error, syncer whatsapp.Syncer, sender ...whatsapp.Sender) (*Server, error) {
+	return StartMediaControlled(addr, dir, store, status, approvals, approve, syncer, nil, sender...)
+}
+
+func StartMediaControlled(addr, dir string, store *storage.Store, status func() whatsapp.CaptureStatus, approvals *approval.Queue, approve func(int64, string) error, syncer whatsapp.Syncer, media whatsapp.MediaDownloader, sender ...whatsapp.Sender) (*Server, error) {
 	if err := ValidateAddr(addr); err != nil {
 		return nil, err
 	}
@@ -95,11 +99,11 @@ func StartControlled(addr, dir string, store *storage.Store, status func() whats
 	if err != nil {
 		return nil, fmt.Errorf("start local API (change --api-addr or use --no-api): %w", err)
 	}
-	h := &handler{store: store, token: token, status: status, authority: listener.Addr().String(), approvals: approvals, approve: approve, syncer: syncer}
+	h := &handler{mediaDownload: media, store: store, token: token, status: status, authority: listener.Addr().String(), approvals: approvals, approve: approve, syncer: syncer}
 	if len(sender) > 0 {
 		h.sender = sender[0]
 	}
-	if h.sender != nil || approvals != nil || syncer != nil {
+	{ // Policy configuration is available even when the media owner is offline.
 		h.sendToken, err = loadNamedToken(dir, "send.token")
 		if err != nil {
 			listener.Close()
@@ -136,6 +140,7 @@ func (s *Server) Close() error {
 }
 
 type handler struct {
+	mediaDownload    whatsapp.MediaDownloader
 	approve          func(int64, string) error
 	approveToken     string
 	syncer           whatsapp.Syncer
@@ -160,6 +165,8 @@ func (h *handler) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/status", h.getStatus)
 	mux.HandleFunc("POST /api/send", h.send)
+	mux.HandleFunc("POST /api/media/policy", h.mediaControl)
+	mux.HandleFunc("POST /api/media/download", h.mediaControl)
 	mux.HandleFunc("POST /api/sync", h.syncNow)
 	mux.HandleFunc("POST /api/actions/{id}/approve", h.approveAction)
 	mux.HandleFunc("POST /api/groups/enable-all", h.enableAll)
@@ -197,7 +204,7 @@ func (h *handler) routes() http.Handler {
 			}
 		}
 		requiredToken := h.token
-		if (r.URL.Path == "/api/send" || r.URL.Path == "/api/sync") || strings.HasPrefix(r.URL.Path, "/api/actions") {
+		if (r.URL.Path == "/api/send" || r.URL.Path == "/api/sync") || strings.HasPrefix(r.URL.Path, "/api/actions") || strings.HasPrefix(r.URL.Path, "/api/media/") {
 			if r.URL.Path == "/api/send" && h.sender == nil || strings.HasPrefix(r.URL.Path, "/api/actions") && h.approvals == nil {
 				fail(w, 503, "sending unavailable")
 				return

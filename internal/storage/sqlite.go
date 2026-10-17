@@ -26,11 +26,15 @@ var migration3 string
 //go:embed migrations/004_history_anchors.sql
 var migration4 string
 
+//go:embed migrations/005_media_preferences.sql
+var migration5 string
+
 type Store struct{ db *sql.DB }
 type Group struct {
 	ID                   string
 	Name                 string
 	Enabled              bool
+	MediaPolicy          string
 	MessageCount         int64
 	LastMessage          *time.Time
 	HistoryState         string
@@ -94,7 +98,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	migrations := []string{migration1, migration2, migration3, migration4}
+	migrations := []string{migration1, migration2, migration3, migration4, migration5}
 	if version > len(migrations) {
 		return fmt.Errorf("archive schema %d is newer than supported schema %d", version, len(migrations))
 	}
@@ -162,7 +166,7 @@ func (s *Store) SaveGroups(ctx context.Context, account int64, groups []Group) e
 	return tx.Commit()
 }
 func (s *Store) Groups(ctx context.Context, account int64) ([]Group, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT group_id,name,sync_enabled FROM groups WHERE account_id=? ORDER BY name COLLATE NOCASE,group_id`, account)
+	rows, err := s.db.QueryContext(ctx, `SELECT group_id,name,sync_enabled,COALESCE((SELECT mode FROM media_preferences p WHERE p.account_id=groups.account_id AND p.group_id=groups.group_id),'inherit') FROM groups WHERE account_id=? ORDER BY name COLLATE NOCASE,group_id`, account)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +174,7 @@ func (s *Store) Groups(ctx context.Context, account int64) ([]Group, error) {
 	groups := make([]Group, 0)
 	for rows.Next() {
 		var g Group
-		if err = rows.Scan(&g.ID, &g.Name, &g.Enabled); err != nil {
+		if err = rows.Scan(&g.ID, &g.Name, &g.Enabled, &g.MediaPolicy); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)

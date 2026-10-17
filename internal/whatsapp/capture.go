@@ -60,8 +60,7 @@ func (c *Client) enableCapture(ctx context.Context, s *storage.Store, history bo
 	if history {
 		c.startHistoryWorker(ctx)
 	}
-	c.startMediaWorker(ctx)
-	return nil
+	return c.startMediaWorker(ctx)
 }
 func (p *capture) initialize(jid string) error {
 	if p.account.Load() != 0 {

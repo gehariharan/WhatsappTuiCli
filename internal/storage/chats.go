@@ -24,9 +24,16 @@ func (s *Store) SaveDiscoveredChat(ctx context.Context, account int64, chat Grou
 
 // SetMediaDownload changes only metadata for a still-enabled, non-deleted original.
 func (s *Store) SetMediaDownload(ctx context.Context, account int64, chat, message, state, path string) (bool, error) {
+	return s.setMediaDownload(ctx, account, chat, message, state, path, false, false)
+}
+func (s *Store) CompleteMediaDownload(ctx context.Context, account int64, chat, message, path string, automatic, global bool) (bool, error) {
+	return s.setMediaDownload(ctx, account, chat, message, "downloaded", path, automatic, global)
+}
+func (s *Store) setMediaDownload(ctx context.Context, account int64, chat, message, state, path string, automatic, global bool) (bool, error) {
 	result, err := s.db.ExecContext(ctx, `UPDATE messages SET media_metadata=json_set(CASE WHEN json_valid(media_metadata) THEN media_metadata ELSE '{}' END,'$.download_state',?,'$.local_path',?,'$.relative_path',?)
- WHERE account_id=? AND group_id=? AND message_id=? AND has_original=1 AND deleted_at IS NULL AND (expires_at IS NULL OR expires_at>?)
- AND EXISTS(SELECT 1 FROM groups WHERE account_id=? AND group_id=? AND sync_enabled=1)`, state, path, mediaKey(path), account, chat, message, time.Now().UnixMilli(), account, chat)
+ WHERE account_id=? AND group_id=? AND message_id=? AND has_original=1 AND deleted_at IS NULL AND edited_at IS NULL AND (expires_at IS NULL OR expires_at>?)
+ AND EXISTS(SELECT 1 FROM groups WHERE account_id=? AND group_id=? AND sync_enabled=1)
+ AND (NOT ? OR EXISTS(SELECT 1 FROM groups g LEFT JOIN media_preferences p ON p.account_id=g.account_id AND p.group_id=g.group_id WHERE g.account_id=? AND g.group_id=? AND (p.mode='auto' OR (COALESCE(p.mode,'inherit')='inherit' AND ?))))`, state, path, mediaKey(path), account, chat, message, time.Now().UnixMilli(), account, chat, automatic, account, chat, global)
 	if err != nil {
 		return false, err
 	}
@@ -53,7 +60,7 @@ func (s *Store) ClearMessage(ctx context.Context, account int64, chat, message s
 
 func (s *Store) MediaEligible(ctx context.Context, account int64, chat, message string) (bool, error) {
 	var count int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages m JOIN groups g ON g.account_id=m.account_id AND g.group_id=m.group_id WHERE m.account_id=? AND m.group_id=? AND m.message_id=? AND m.has_original=1 AND m.deleted_at IS NULL AND g.sync_enabled=1 AND (m.expires_at IS NULL OR m.expires_at>?)`, account, chat, message, time.Now().UnixMilli()).Scan(&count)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages m JOIN groups g ON g.account_id=m.account_id AND g.group_id=m.group_id WHERE m.account_id=? AND m.group_id=? AND m.message_id=? AND m.has_original=1 AND m.deleted_at IS NULL AND m.edited_at IS NULL AND g.sync_enabled=1 AND (m.expires_at IS NULL OR m.expires_at>?)`, account, chat, message, time.Now().UnixMilli()).Scan(&count)
 	return count > 0, err
 }
 

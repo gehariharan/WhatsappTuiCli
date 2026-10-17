@@ -11,6 +11,7 @@ type Group struct {
 	Kind                 string     `json:"chat_kind"`
 	ID                   string     `json:"id"`
 	Name                 string     `json:"name"`
+	MediaPolicy          string     `json:"media_policy"`
 	Enabled              bool       `json:"sync_enabled"`
 	MessageCount         int64      `json:"message_count"`
 	LastMessage          *time.Time `json:"last_message_at"`
@@ -21,7 +22,7 @@ type Group struct {
 }
 
 func FormatGroup(g storage.Group) Group {
-	return Group{storage.ChatKind(g.ID), g.ID, g.Name, g.Enabled, g.MessageCount, g.LastMessage, g.HistoryState, g.HistoryRequest, g.HistoryBatchMessages, g.GapCount}
+	return Group{storage.ChatKind(g.ID), g.ID, g.Name, g.MediaPolicy, g.Enabled, g.MessageCount, g.LastMessage, g.HistoryState, g.HistoryRequest, g.HistoryBatchMessages, g.GapCount}
 }
 
 type Message struct {

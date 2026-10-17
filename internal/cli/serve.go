@@ -21,7 +21,7 @@ func (a *App) withAPI(ctx context.Context, cfg config.Config, store *storage.Sto
 	if cfg.NoAPI {
 		return run(ctx, "")
 	}
-	server, err := api.StartControlled(cfg.APIAddr, cfg.DataDir, store, status, a.Approvals, a.Approve, a.Sync, sender...)
+	server, err := api.StartMediaControlled(cfg.APIAddr, cfg.DataDir, store, status, a.Approvals, a.Approve, a.Sync, a.MediaDownload, sender...)
 	if err != nil {
 		return err
 	}
@@ -89,12 +89,18 @@ func (a *App) serveAction(offline bool) action {
 		}); ok {
 			send = active.Send
 		}
+		a.MediaDownload = nil
 		a.Approvals = &approval.Queue{}
 		session := tui.NewSession(ctx, store, live)
 		session.Approvals = a.Approvals
 		session.MediaRoot = filepath.Join(cfg.DataDir, "media")
 		a.Approve = session.ApproveAction
 		a.Sync = session.Sync
+		if media, ok := client.(interface {
+			RequestMedia(context.Context, string, string) (whatsapp.MediaResult, error)
+		}); ok {
+			a.MediaDownload = media.RequestMedia
+		}
 		return a.withAPI(ctx, cfg, store, status, func(ctx context.Context, url string) error {
 			fmt.Fprintf(a.Out, "Local API: %s\nBearer token file: %s\n", url, filepath.Join(cfg.DataDir, "api.token"))
 			if client != nil {
