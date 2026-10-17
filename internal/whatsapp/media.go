@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"mime"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ type mediaJob struct {
 	message    storage.Message
 	attachment whatsmeow.DownloadableMessage
 	extension  string
+	size       int64
 }
 
 func (c *Client) ConfigureMedia(root string, enabled bool) {
@@ -103,10 +105,11 @@ func (c *Client) queueMedia(account int64, e *events.Message, m storage.Message)
 		return nil
 	}
 	job.extension = mediaExtension(contentType)
-	if length == 0 || length > MaxAttachmentSize || len(job.attachment.GetFileSHA256()) != 32 {
-		_, err := c.capture.store.SetMediaDownload(c.capture.ctx, account, m.GroupID, m.MessageID, "skipped_size", "")
+	if length > math.MaxInt64-64 || len(job.attachment.GetFileSHA256()) != 32 {
+		_, err := c.capture.store.SetMediaDownload(c.capture.ctx, account, m.GroupID, m.MessageID, "invalid_metadata", "")
 		return err
 	}
+	job.size = int64(length)
 	select {
 	case c.mediaQueue <- job:
 		return nil
@@ -143,14 +146,12 @@ func (c *Client) downloadMedia(ctx context.Context, job mediaJob) error {
 		f.Close()
 		return err
 	}
-	requestCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	err = c.client.DownloadToFile(requestCtx, job.attachment, &boundedMediaFile{File: f})
-	cancel()
+	err = c.client.DownloadToFile(ctx, job.attachment, &boundedMediaFile{File: f, limit: job.size + 64})
 	if err == nil {
 		var info os.FileInfo
 		info, err = f.Stat()
-		if err == nil && info.Size() > MaxAttachmentSize {
-			err = fmt.Errorf("media too large")
+		if err == nil && info.Size() != job.size {
+			err = fmt.Errorf("downloaded media length does not match message metadata")
 		}
 	}
 	if err == nil {
@@ -178,27 +179,31 @@ func (c *Client) downloadMedia(ctx context.Context, job mediaJob) error {
 	return err
 }
 
-// Bound both encrypted download writes and in-place decryption writes.
-type boundedMediaFile struct{ *os.File }
+// Bound writes to the attachment's own declared length plus encryption overhead,
+// not an application-wide file-size cap. Hash validation remains upstream.
+type boundedMediaFile struct {
+	*os.File
+	limit int64
+}
 
 func (f *boundedMediaFile) Write(p []byte) (int, error) {
 	offset, err := f.File.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return 0, err
 	}
-	if offset > MaxAttachmentSize+64-int64(len(p)) {
+	if offset > f.limit-int64(len(p)) {
 		return 0, fmt.Errorf("media exceeds download limit")
 	}
 	return f.File.Write(p)
 }
 func (f *boundedMediaFile) WriteAt(p []byte, offset int64) (int, error) {
-	if offset < 0 || offset > MaxAttachmentSize+64-int64(len(p)) {
+	if offset < 0 || offset > f.limit-int64(len(p)) {
 		return 0, fmt.Errorf("media exceeds download limit")
 	}
 	return f.File.WriteAt(p, offset)
 }
 func (f *boundedMediaFile) Truncate(size int64) error {
-	if size < 0 || size > MaxAttachmentSize+64 {
+	if size < 0 || size > f.limit {
 		return fmt.Errorf("media exceeds download limit")
 	}
 	return f.File.Truncate(size)

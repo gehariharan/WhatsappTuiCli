@@ -31,7 +31,7 @@ func (a *App) runSend(ctx context.Context, cfg config.Config, args []string) (re
 	in := whatsapp.SendInput{}
 	fs.StringVar(&in.To, "to", "", "exact group or direct chat JID")
 	fs.StringVar(&in.Text, "text", "", "text, URL or attachment caption")
-	fs.StringVar(&in.File, "file", "", "local attachment (at most 25 MiB)")
+	fs.StringVar(&in.File, "file", "", "local attachment (WhatsApp enforces supported transfer limits)")
 	fs.StringVar(&in.Type, "type", "", "image or document (default document)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -155,7 +155,7 @@ func commandRequest(ctx context.Context, cfg config.Config, method, path string,
 	req.Header.Set("X-Wasync-Time", timestamp)
 	req.Header.Set("X-Wasync-Signature", api.SignCommand(strings.TrimSpace(string(token)), timestamp, nonce, req.Method, req.URL.Path, body))
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 2 * time.Minute, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: cfg.Timeout, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := client.Do(req)
 	if err != nil {
 		return nil, err

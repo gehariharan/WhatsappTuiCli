@@ -135,3 +135,55 @@ func TestSendCredentialIsSeparateAndSignedRequestsCannotReplay(t *testing.T) {
 		t.Fatal("remote approval route allowed a destructive action")
 	}
 }
+
+func TestOwnerSendRunsWithoutCommandDeadline(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	store, err := storage.Open(ctx, filepath.Join(dir, "archive.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	account, err := store.UseAccount(ctx, "synthetic@lid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SaveGroups(ctx, account, []storage.Group{{ID: "one@g.us", Name: "Synthetic"}}); err != nil {
+		t.Fatal(err)
+	}
+	limited := make(chan bool, 1)
+	server, err := StartControlled("127.0.0.1:0", dir, store, nil, &approval.Queue{}, nil, nil, func(ctx context.Context, _ whatsapp.SendInput) (whatsapp.SendResult, error) {
+		_, has := ctx.Deadline()
+		limited <- has
+		return whatsapp.SendResult{Status: "server_acknowledged"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	token, err := loadNamedToken(dir, "send.token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"to":"one@g.us","text":"synthetic"}`)
+	req, _ := http.NewRequest("POST", server.URL+"/api/send", bytes.NewReader(body))
+	stamp := strconv.FormatInt(time.Now().Unix(), 10)
+	nonce := "00000000000000000000000000000002"
+	req.Header.Set("X-Wasync-Time", stamp)
+	req.Header.Set("X-Wasync-Nonce", nonce)
+	req.Header.Set("X-Wasync-Signature", SignCommand(token, stamp, nonce, req.Method, "/api/send", body))
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != 200 {
+		t.Fatalf("signed send: %d", response.StatusCode)
+	}
+	if <-limited {
+		t.Fatal("owner send was given a short command deadline")
+	}
+}

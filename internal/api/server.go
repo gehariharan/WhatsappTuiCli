@@ -230,8 +230,18 @@ func (h *handler) routes() http.Handler {
 			fail(w, 401, "bearer token required")
 			return
 		}
+		// An explicitly requested attachment upload may take longer than the
+		// ordinary command deadline. The caller's context still cancels on disconnect.
+		if r.URL.Path == "/api/send" {
+			if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
+				fail(w, 500, "could not configure transfer response")
+				return
+			}
+			mux.ServeHTTP(w, r)
+			return
+		}
 		timeout := 10 * time.Second
-		if r.URL.Path == "/api/send" || r.URL.Path == "/api/sync" || strings.HasSuffix(r.URL.Path, "/approve") {
+		if r.URL.Path == "/api/sync" || strings.HasSuffix(r.URL.Path, "/approve") {
 			timeout = 90 * time.Second
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)

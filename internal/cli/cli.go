@@ -100,7 +100,7 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 	root.DurationVar(&cfg.Timeout, "timeout", cfg.Timeout, "overall command timeout, including selection and observation")
 	root.StringVar(&cfg.APIAddr, "api-addr", cfg.APIAddr, "local API loopback address")
 	root.BoolVar(&cfg.PairingFullHistory, "pairing-full-history", os.Getenv("WASYNC_PAIRING_FULL_HISTORY") == "1", "ask for fuller pairing-time history (best effort; new pairing only)")
-	root.BoolVar(&cfg.DownloadMedia, "download-media", os.Getenv("WASYNC_DOWNLOAD_MEDIA") == "1", "download images/documents/video/audio/stickers from enabled chats (25 MiB each; local plaintext)")
+	root.BoolVar(&cfg.DownloadMedia, "download-media", os.Getenv("WASYNC_DOWNLOAD_MEDIA") == "1", "download images/documents/video/audio/stickers from enabled chats (local plaintext; WhatsApp transfer limits apply)")
 	root.BoolVar(&cfg.NoAPI, "no-api", false, "disable the API alongside the TUI")
 	root.Usage = func() { fmt.Fprint(a.Out, usage) }
 	if err = root.Parse(args); err != nil {

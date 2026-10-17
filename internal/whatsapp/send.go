@@ -17,8 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const MaxAttachmentSize = 25 << 20
-
 type SendInput struct {
 	To   string `json:"to"`
 	Text string `json:"text,omitempty"`
@@ -65,21 +63,15 @@ func (c *Client) Send(ctx context.Context, in SendInput) (SendResult, error) {
 	jid, _ := ParseChat(in.To)
 	message := &waE2E.Message{Conversation: proto.String(in.Text)}
 	if in.File != "" {
-		f, err := os.Open(in.File)
+		f, mime, err := openAttachment(in.File)
 		if err != nil {
-			return out, fmt.Errorf("open attachment: %w", err)
+			return out, err
 		}
+		defer f.Close()
 		info, err := f.Stat()
-		if err != nil || !info.Mode().IsRegular() || info.Size() > MaxAttachmentSize {
-			f.Close()
-			return out, fmt.Errorf("attachment must be a regular file of at most 25 MiB")
+		if err != nil {
+			return out, fmt.Errorf("stat attachment: %w", err)
 		}
-		data, err := io.ReadAll(io.LimitReader(f, MaxAttachmentSize+1))
-		f.Close()
-		if err != nil || len(data) > MaxAttachmentSize {
-			return out, fmt.Errorf("could not read attachment within 25 MiB limit")
-		}
-		mime := http.DetectContentType(data)
 		mediaType := whatsmeow.MediaDocument
 		if in.Type == "image" {
 			if mime != "image/jpeg" && mime != "image/png" {
@@ -87,10 +79,14 @@ func (c *Client) Send(ctx context.Context, in SendInput) (SendResult, error) {
 			}
 			mediaType = whatsmeow.MediaImage
 		}
-		uploaded, err := c.client.Upload(ctx, data, mediaType)
+		// UploadReader encrypts to a temporary file and streams the upload. Limit
+		// reads to this file's initial length so appending cannot grow a transfer.
+		plaintext := &contextReader{ctx: ctx, reader: io.NewSectionReader(f, 0, info.Size())}
+		uploaded, err := c.client.UploadReader(ctx, plaintext, nil, mediaType)
 		if err != nil {
 			return out, fmt.Errorf("attachment upload failed; conversation message was not sent")
 		}
+
 		message = &waE2E.Message{}
 		if mediaType == whatsmeow.MediaImage {
 			message.ImageMessage = &waE2E.ImageMessage{Caption: proto.String(in.Text), Mimetype: proto.String(mime), URL: &uploaded.URL, DirectPath: &uploaded.DirectPath, MediaKey: uploaded.MediaKey, FileEncSHA256: uploaded.FileEncSHA256, FileSHA256: uploaded.FileSHA256, FileLength: &uploaded.FileLength}
@@ -114,4 +110,37 @@ func (c *Client) Send(ctx context.Context, in SendInput) (SendResult, error) {
 		}
 	}
 	return out, nil
+}
+
+// openAttachment reads only the sniffing prefix; supported transfer sizes are
+// determined by WhatsApp rather than an application-specific 25 MiB limit.
+func openAttachment(path string) (*os.File, string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("open attachment: %w", err)
+	}
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		f.Close()
+		return nil, "", fmt.Errorf("attachment must be a regular file")
+	}
+	var prefix [512]byte
+	n, err := f.ReadAt(prefix[:], 0)
+	if err != nil && err != io.EOF {
+		f.Close()
+		return nil, "", fmt.Errorf("read attachment: %w", err)
+	}
+	return f, http.DetectContentType(prefix[:n]), nil
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r *contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
 }
