@@ -1,0 +1,19 @@
+{
+  "displayName": "wasync",
+  "shortDescription": "Archive selected WhatsApp chats locally with a terminal UI and CLI.",
+  "description": "wasync is an open-source, personal-use terminal application. Pair your WhatsApp account as a linked device, choose which groups or direct chats to archive, and search your local SQLite database. Launch wasync for the terminal UI or use CLI commands for discovery, capture selection, explicit sync, queries and opt-in sending. Available historical messages are imported on a best-effort basis; complete history is not guaranteed. Images and documents can be downloaded when explicitly enabled. Message bodies and linked-device credentials stay on your computer; no developer-operated cloud service or analytics is used. WhatsApp connectivity uses the unofficial whatsmeow library. This application is not affiliated with or endorsed by WhatsApp or Meta.",
+  "features": [
+    "Terminal UI with group/direct-chat selection",
+    "Scriptable local queries and SQLite full-text search",
+    "Live capture and best-effort historical import",
+    "Optional local image/document downloads",
+    "Explicit message sending and confirmed cleanup actions"
+  ],
+  "categorySuggestion": "Developer tools",
+  "price": "Free",
+  "supportUrl": "https://github.com/gehariharan/WhatsappTuiCli/issues",
+  "websiteUrl": "https://github.com/gehariharan/WhatsappTuiCli",
+  "privacyPolicyUrl": "https://github.com/gehariharan/WhatsappTuiCli#store-privacy-policy",
+  "certificationNotes": "This is a desktop console/TUI application, not a graphical dashboard. Open Windows Terminal and run wasync, or launch the Start-menu entry. The runFullTrust capability is required by the Go desktop executable, local SQLite/WAL storage and CLI interoperation. No automatic startup, system service, administrator privileges or background-task capability is requested. Pairing requires the reviewer’s own WhatsApp account and phone via Linked Devices; do not use developer credentials. Offline review is available with wasync tui --offline, wasync status, and wasync query --help. New installations contain no conversations. No data is uploaded to a developer-operated service. The application connects to WhatsApp servers and performs account-linked protocol synchronization requested by the user. Archives are plaintext, protected by private filesystem permissions. The Store edition retains data under the user-profile .wasync directory across upgrades and uninstall. Please assess linked-device account functionality only with a consenting test account.",
+  "submissionState": "Draft; reserved identity, publisher verification, screenshots, age rating, capability review and certification are still required."
+}

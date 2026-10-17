@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
+	"whatsappsync/internal/buildinfo"
 )
 
 type Config struct {
@@ -20,11 +22,19 @@ type Config struct {
 func Default() (Config, error) {
 	dir := os.Getenv("WASYNC_DATA_DIR")
 	if dir == "" {
-		base, err := os.UserConfigDir()
-		if err != nil {
-			return Config{}, fmt.Errorf("resolve configuration directory: %w", err)
+		if runtime.GOOS == "windows" && buildinfo.Distribution == "msix" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return Config{}, fmt.Errorf("resolve Store data directory: %w", err)
+			}
+			dir = filepath.Join(home, ".wasync")
+		} else {
+			base, err := os.UserConfigDir()
+			if err != nil {
+				return Config{}, fmt.Errorf("resolve configuration directory: %w", err)
+			}
+			dir = filepath.Join(base, "wasync")
 		}
-		dir = filepath.Join(base, "wasync")
 	}
 	addr := os.Getenv("WASYNC_API_ADDR")
 	if addr == "" {

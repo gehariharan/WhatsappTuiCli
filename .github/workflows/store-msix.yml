@@ -1,0 +1,52 @@
+name: Build Microsoft Store submission
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Application version (e.g. 0.1.0-store.1)'
+        required: true
+        type: string
+      package_version:
+        description: 'Increasing Store version A.B.C.0 (e.g. 1.0.1.0)'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Prepare native compiler
+        shell: pwsh
+        run: |
+          & C:/msys64/usr/bin/bash.exe -lc 'pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc'
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler installation failed' }
+          'C:/msys64/ucrt64/bin' | Out-File -FilePath $env:GITHUB_PATH -Append
+          'CC=C:/msys64/ucrt64/bin/gcc.exe' | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Build unsigned Store submission using reserved identity
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ inputs.version }}
+          STORE_VERSION: ${{ inputs.package_version }}
+          STORE_IDENTITY: ${{ vars.WASYNC_STORE_IDENTITY_NAME }}
+          STORE_PUBLISHER: ${{ vars.WASYNC_STORE_PUBLISHER }}
+          STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.WASYNC_STORE_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          foreach ($value in $env:STORE_IDENTITY,$env:STORE_PUBLISHER,$env:STORE_PUBLISHER_DISPLAY_NAME) {
+            if ([string]::IsNullOrWhiteSpace($value)) { throw 'Configure the three WASYNC_STORE_* repository variables from Partner Center Product identity first.' }
+          }
+          ./scripts/package-msix.ps1 -Version $env:APP_VERSION -PackageVersion $env:STORE_VERSION -IdentityName $env:STORE_IDENTITY -Publisher $env:STORE_PUBLISHER -PublisherDisplayName $env:STORE_PUBLISHER_DISPLAY_NAME
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: store-submission-${{ inputs.package_version }}
+          path: dist/store/${{ inputs.package_version }}/*
+          if-no-files-found: error
+          retention-days: 30
