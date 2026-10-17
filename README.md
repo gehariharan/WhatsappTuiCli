@@ -1124,7 +1124,7 @@ you explicitly send are exchanged with WhatsApp under its own service policies.
 You choose which chats have content captured. Chat discovery metadata is cached
 for selection; disabled chats' message bodies are discarded. Enabled chats can
 store sender identifiers, timestamps, message text and attachment metadata.
-Downloading images/documents is opt-in. Search and the optional authenticated
+Downloading attachment files (images, documents, video, audio, stickers) is opt-in. Search and the optional authenticated
 loopback API operate on your computer. Nothing is sent to an AI service.
 
 The archive, session and downloaded files are plaintext with restrictive OS
