@@ -1,0 +1,63 @@
+name: Validate changes
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-22.04, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test -race -tags sqlite_fts5 ./...
+      - run: go vet -tags sqlite_fts5 ./...
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Prepare Windows compiler and installer tools
+        shell: pwsh
+        run: |
+          & C:/msys64/usr/bin/bash.exe -lc 'pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc'
+          if ($LASTEXITCODE -ne 0) { throw 'C compiler installation failed' }
+          'C:/msys64/ucrt64/bin' | Out-File -FilePath $env:GITHUB_PATH -Append
+          'CC=C:/msys64/ucrt64/bin/gcc.exe' | Out-File -FilePath $env:GITHUB_ENV -Append
+          if (-not (Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Installer compiler installation failed' }
+          }
+      - name: Validate Windows ACLs, device locking, SQLite WAL and full-text search
+        shell: pwsh
+        env:
+          CGO_ENABLED: '1'
+          CGO_LDFLAGS: '-static'
+        run: |
+          go test -tags sqlite_fts5 ./...
+          if ($LASTEXITCODE -ne 0) { throw 'Windows platform checks failed' }
+      - name: Build review installer and portable ZIP
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Version 0.1.0-preview.pr
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-review-installer
+          path: dist/0.1.0-preview.pr/windows_amd64/*
+          if-no-files-found: error

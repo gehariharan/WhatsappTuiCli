@@ -37,7 +37,7 @@ func secureHandle(h windows.Handle, sid *windows.SID, sd *windows.SECURITY_DESCR
 	if err != nil {
 		return err
 	}
-	if !owner.Equals(sid) {
+	if !owner.Equals(sid) && !owner.IsWellKnown(windows.WinBuiltinAdministratorsSid) {
 		return fmt.Errorf("private storage must be owned by the current user")
 	}
 	if err = checkPrivateACL(existing, sid); err != nil {
@@ -132,7 +132,7 @@ func CheckPrivateFile(path string) error {
 	if err != nil {
 		return err
 	}
-	if !owner.Equals(user.User.Sid) {
+	if !owner.Equals(user.User.Sid) && !owner.IsWellKnown(windows.WinBuiltinAdministratorsSid) {
 		return fmt.Errorf("archive must be owned by the current user")
 	}
 	return checkPrivateACL(sd, user.User.Sid)

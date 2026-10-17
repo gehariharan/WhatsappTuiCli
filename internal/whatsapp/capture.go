@@ -22,6 +22,7 @@ type CaptureStatus struct {
 	Observation       Observation
 }
 type capture struct {
+	metadataOnly    bool
 	ctx             context.Context
 	store           *storage.Store
 	mu              sync.Mutex
@@ -34,13 +35,32 @@ type capture struct {
 // EnableCapture must be called before connecting. Existing allowlists are ready
 // before the server can deliver live or historical messages.
 func (c *Client) EnableCapture(ctx context.Context, s *storage.Store) error {
+	return c.enableCapture(ctx, s, true)
+}
+
+// EnableDiscovery persists only chat names and group history anchors during CLI login.
+// It never archives bodies, even for an already-enabled chat.
+func (c *Client) EnableDiscovery(ctx context.Context, store *storage.Store) error {
+	c.capture = &capture{ctx: ctx, store: store, metadataOnly: true}
+	if c.Paired() {
+		return c.capture.initialize(c.AccountJID())
+	}
+	return nil
+}
+func (c *Client) EnableCaptureForSend(ctx context.Context, s *storage.Store) error {
+	return c.enableCapture(ctx, s, false)
+}
+func (c *Client) enableCapture(ctx context.Context, s *storage.Store, history bool) error {
 	c.capture = &capture{ctx: ctx, store: s}
 	if c.Paired() {
 		if err := c.capture.initialize(c.AccountJID()); err != nil {
 			return err
 		}
 	}
-	c.startHistoryWorker(ctx)
+	if history {
+		c.startHistoryWorker(ctx)
+	}
+	c.startMediaWorker(ctx)
 	return nil
 }
 func (p *capture) initialize(jid string) error {
@@ -53,6 +73,10 @@ func (p *capture) initialize(jid string) error {
 	id, err := p.store.UseAccount(p.ctx, jid)
 	if err != nil {
 		return err
+	}
+	if p.metadataOnly {
+		p.account.Store(id)
+		return nil
 	}
 	run, err := p.store.StartCapture(p.ctx, id)
 	if err != nil {
@@ -104,6 +128,30 @@ func (c *Client) captureEvent(evt any) error {
 	if err := c.persistEventAnchors(evt, account); err != nil {
 		return err
 	}
+	if p.metadataOnly {
+		switch e := evt.(type) {
+		case *events.Message:
+			name := ""
+			if !e.Info.IsFromMe {
+				name = e.Info.PushName
+			}
+			return c.discoverDirect(p.ctx, account, e.Info.Chat, name)
+		case *events.HistorySync:
+			for _, conv := range e.Data.GetConversations() {
+				jid, err := types.ParseJID(conv.GetID())
+				if err == nil {
+					name := conv.GetDisplayName()
+					if name == "" {
+						name = conv.GetName()
+					}
+					if err = c.discoverDirect(p.ctx, account, jid, name); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	}
 	switch e := evt.(type) {
 	case *events.Connected:
 		return p.store.Resume(p.ctx, account)
@@ -112,7 +160,7 @@ func (c *Client) captureEvent(evt any) error {
 	case events.PermanentDisconnect:
 		return p.store.Gap(p.ctx, account, "session rejected; recovery unverified")
 	case *events.UndecryptableMessage:
-		if e.Info.Chat.Server == types.GroupServer {
+		if SupportedChat(e.Info.Chat) {
 			enabled, err := p.store.IsEnabled(p.ctx, account, e.Info.Chat.String())
 			if err != nil {
 				return err
@@ -122,8 +170,16 @@ func (c *Client) captureEvent(evt any) error {
 			}
 		}
 	case *events.Message:
-		if e.Info.Chat.Server != types.GroupServer {
+		if !SupportedChat(e.Info.Chat) {
 			return nil
+		}
+
+		name := ""
+		if !e.Info.IsFromMe {
+			name = e.Info.PushName
+		}
+		if err := c.discoverDirect(p.ctx, account, e.Info.Chat, name); err != nil {
+			return err
 		}
 		enabled, err := p.store.IsEnabled(p.ctx, account, e.Info.Chat.String())
 		if err != nil {
@@ -140,7 +196,14 @@ func (c *Client) captureEvent(evt any) error {
 		r, err := p.store.Apply(p.ctx, account, []storage.Message{m})
 		p.stored.Add(int64(r.Stored))
 		p.skipped.Add(int64(r.Skipped))
-		return err
+		if err != nil {
+			return err
+		}
+		if m.Kind == "delete" || m.Kind == "edit" {
+			c.removeMedia(account, m.GroupID, m.MessageID)
+			return nil
+		}
+		return c.queueMedia(account, e, m)
 	case *events.HistorySync:
 		if e.Data == nil {
 			return nil
@@ -153,6 +216,7 @@ func (c *Client) captureEvent(evt any) error {
 		}
 		stored, skipped, failures := 0, 0, 0
 		pending := make([]storage.Message, 0, 100)
+		pendingMedia := make([]*events.Message, 0, 100)
 		flush := func() error {
 			if len(pending) == 0 {
 				return nil
@@ -162,13 +226,33 @@ func (c *Client) captureEvent(evt any) error {
 			skipped += r.Skipped
 			p.stored.Add(int64(r.Stored))
 			p.skipped.Add(int64(r.Skipped))
+			if err != nil {
+				return err
+			}
+			for i, event := range pendingMedia {
+				if pending[i].Kind == "delete" || pending[i].Kind == "edit" {
+					c.removeMedia(account, pending[i].GroupID, pending[i].MessageID)
+					continue
+				}
+				if e := c.queueMedia(account, event, pending[i]); e != nil {
+					return e
+				}
+			}
 			pending = pending[:0]
-			return err
+			pendingMedia = pendingMedia[:0]
+			return nil
 		}
 		for _, conv := range e.Data.GetConversations() {
 			jid, err := types.ParseJID(conv.GetID())
-			if err != nil || jid.Server != types.GroupServer {
+			if err != nil || !SupportedChat(jid) {
 				continue
+			}
+			name := conv.GetDisplayName()
+			if name == "" {
+				name = conv.GetName()
+			}
+			if err := c.discoverDirect(p.ctx, account, jid, name); err != nil {
+				return err
 			}
 			enabled, err := p.store.IsEnabled(p.ctx, account, jid.String())
 			if err != nil {
@@ -195,6 +279,7 @@ func (c *Client) captureEvent(evt any) error {
 					continue
 				}
 				pending = append(pending, m)
+				pendingMedia = append(pendingMedia, event)
 				if len(pending) == 100 {
 					if err = flush(); err != nil {
 						return err

@@ -10,6 +10,7 @@
 
 # Local credentials, configuration, and runtime files
 api.token
+send.token
 device.lock
 *.log
 .env
@@ -38,3 +39,5 @@ __pycache__/
 /.lavish/windows-and-sync.html
 /.lavish/wasync-theme.css
 /wasync
+
+approve.token

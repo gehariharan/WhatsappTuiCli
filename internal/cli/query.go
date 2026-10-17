@@ -21,9 +21,10 @@ import (
 const queryUsage = `Usage: wasync [--data-dir PATH] query COMMAND
 
   groups [--enabled] [--json]
-  messages --group GROUP_ID [--since RFC3339] [--until RFC3339]
+  chats [--enabled] [--json]
+  messages --chat CHAT_ID [--since RFC3339] [--until RFC3339]
            [--sender SENDER_ID] [--limit 50] [--cursor CURSOR] [--json]
-  search "phrase" [--group GROUP_ID] [--since RFC3339] [--until RFC3339]
+  search "phrase" [--chat CHAT_ID] [--since RFC3339] [--until RFC3339]
            [--sender SENDER_ID] [--limit 50] [--cursor CURSOR] [--json]
   status [--json]
 
@@ -41,7 +42,7 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		return err
 	}
 	command := args[0]
-	if command != "groups" && command != "messages" && command != "search" && command != "status" {
+	if command != "groups" && command != "chats" && command != "messages" && command != "search" && command != "status" {
 		return fmt.Errorf("unknown query command %q; use wasync query --help", command)
 	}
 	fs := a.flags("query " + command)
@@ -50,11 +51,12 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	var enabled bool
 	var group, since, until, sender, cursor string
 	limit := 50
-	if command == "groups" {
+	if command == "groups" || command == "chats" {
 		fs.BoolVar(&enabled, "enabled", false, "only groups with capture enabled")
 	}
 	if command == "messages" || command == "search" {
-		fs.StringVar(&group, "group", "", "WhatsApp group ID")
+		fs.StringVar(&group, "group", "", "WhatsApp group ID (legacy alias for --chat)")
+		fs.StringVar(&group, "chat", "", "group or direct chat ID")
 		fs.StringVar(&since, "since", "", "inclusive RFC3339 timestamp")
 		fs.StringVar(&until, "until", "", "exclusive RFC3339 timestamp")
 		fs.StringVar(&sender, "sender", "", "exact sender ID")
@@ -89,7 +91,7 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		return fmt.Errorf("search requires a phrase of 1 to 1024 bytes")
 	}
 	if command == "messages" && group == "" {
-		return fmt.Errorf("messages requires --group GROUP_ID; list IDs with wasync query groups")
+		return fmt.Errorf("messages requires --chat CHAT_ID (or --group); list IDs with wasync query chats")
 	}
 	if limit < 1 || limit > 200 {
 		return fmt.Errorf("--limit must be between 1 and 200")
@@ -123,15 +125,15 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	if account == nil {
 		return fmt.Errorf("no account in the archive; start wasync and pair first")
 	}
-	if command == "groups" || command == "status" {
+	if command == "groups" || command == "chats" || command == "status" {
 		groups, err := store.GroupSummaries(ctx, account.ID)
 		if err != nil {
 			return err
 		}
-		if command == "groups" {
+		if command == "groups" || command == "chats" {
 			items := make([]query.Group, 0, len(groups))
 			for _, g := range groups {
-				if !enabled || g.Enabled {
+				if (command == "chats" || storage.ChatKind(g.ID) == "group") && (!enabled || g.Enabled) {
 					items = append(items, query.FormatGroup(g))
 				}
 			}
@@ -141,10 +143,16 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		if err != nil {
 			return err
 		}
-		status.GroupCount = len(groups)
+		status.ChatCount = len(groups)
 		for _, g := range groups {
 			if g.Enabled {
-				status.EnabledGroups++
+				status.EnabledChats++
+			}
+			if storage.ChatKind(g.ID) == "group" {
+				status.GroupCount++
+				if g.Enabled {
+					status.EnabledGroups++
+				}
 			}
 			status.MessageCount += g.MessageCount
 		}

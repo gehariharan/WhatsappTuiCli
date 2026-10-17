@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -37,7 +38,7 @@ func TestReadOnlySeesActiveWALAndRejectsWrites(t *testing.T) {
 }
 func TestReadOnlyDoesNotCreateOrMigrate(t *testing.T) {
 	ctx := context.Background()
-	dir := t.TempDir()
+	dir := privateTestDir(t)
 	missing := filepath.Join(dir, "missing.db")
 	if _, err := OpenReadOnly(ctx, missing); err == nil {
 		t.Fatal("missing archive accepted")
@@ -61,6 +62,9 @@ func TestReadOnlyDoesNotCreateOrMigrate(t *testing.T) {
 	if err = s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 2 {
 		t.Fatal("read-only opener migrated schema")
 	}
+	if runtime.GOOS == "windows" {
+		return
+	} // Windows DACL behavior is exercised in windowscheck.
 	if err = os.Chmod(path, 0644); err != nil {
 		t.Fatal(err)
 	}

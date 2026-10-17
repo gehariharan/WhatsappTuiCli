@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/processlock"
 	"whatsappsync/internal/query"
 	"whatsappsync/internal/storage"
@@ -19,7 +20,10 @@ import (
 
 func queryFixture(t *testing.T) (*App, *bytes.Buffer, *storage.Store, int64, string) {
 	t.Helper()
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
 	writer, err := storage.Open(ctx, filepath.Join(dir, "archive.db"))
 	if err != nil {

@@ -29,6 +29,11 @@ type Observation struct {
 	HistoryMessages int64
 }
 type Client struct {
+	mediaRoot       string
+	mediaEnabled    bool
+	mediaQueue      chan mediaJob
+	mediaCancel     context.CancelFunc
+	mediaDone       chan struct{}
 	anchorMu        sync.Mutex
 	anchors         map[string]types.MessageInfo
 	historyCancel   context.CancelFunc
@@ -84,12 +89,18 @@ func Open(ctx context.Context, path string, log *slog.Logger) (*Client, error) {
 	return c, nil
 }
 func (c *Client) Close() error {
+	if c.mediaCancel != nil {
+		c.mediaCancel()
+	}
 	if c.historyCancel != nil {
 		c.historyCancel()
 	}
 	c.client.Disconnect()
 	if c.historyDone != nil {
 		<-c.historyDone
+	}
+	if c.mediaDone != nil {
+		<-c.mediaDone
 	}
 	return errors.Join(c.finishCapture(), c.container.Close())
 }

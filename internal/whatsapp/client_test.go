@@ -12,10 +12,11 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"whatsappsync/internal/localfs"
 )
 
 func TestUnpairedSessionReopensWithoutNetwork(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "session.db")
+	path := filepath.Join(privateTestDir(t), "session.db")
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx := context.Background()
 	for range 2 {
@@ -55,7 +56,7 @@ func TestLifecycleAndObservationDiscardPayloads(t *testing.T) {
 
 func TestSavedDeviceCredentialsSurviveRestart(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "session.db")
+	path := filepath.Join(privateTestDir(t), "session.db")
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	c, err := Open(ctx, path, log)
 	if err != nil {
@@ -87,4 +88,13 @@ func TestSavedDeviceCredentialsSurviveRestart(t *testing.T) {
 	if !bytes.Equal(noise, c.client.Store.NoiseKey.Priv[:]) {
 		t.Fatal("device keys were regenerated")
 	}
+}
+
+func privateTestDir(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

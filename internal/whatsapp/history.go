@@ -18,7 +18,7 @@ const historyPageSize = 50
 // Cursor metadata is cached in RAM and persisted separately from message bodies.
 // This bootstraps groups enabled after history delivery, including after restart.
 func (c *Client) rememberAnchor(info types.MessageInfo) {
-	if info.Chat.Server != types.GroupServer || info.ID == "" || info.Timestamp.Unix() <= 0 {
+	if !SupportedChat(info.Chat) || info.ID == "" || info.Timestamp.Unix() <= 0 {
 		return
 	}
 	c.anchorMu.Lock()
@@ -32,7 +32,7 @@ func (c *Client) rememberAnchor(info types.MessageInfo) {
 		return
 	}
 	if !exists || info.Timestamp.After(old.Timestamp) {
-		c.anchors[key] = types.MessageInfo{MessageSource: types.MessageSource{Chat: info.Chat, IsGroup: true, IsFromMe: info.IsFromMe}, ID: info.ID, Timestamp: info.Timestamp}
+		c.anchors[key] = types.MessageInfo{MessageSource: types.MessageSource{Chat: info.Chat, IsGroup: info.Chat.Server == types.GroupServer, IsFromMe: info.IsFromMe}, ID: info.ID, Timestamp: info.Timestamp}
 	}
 }
 func (c *Client) rememberEventAnchors(evt any) {
@@ -44,7 +44,7 @@ func (c *Client) rememberEventAnchors(evt any) {
 	case *events.HistorySync:
 		for _, conv := range e.Data.GetConversations() {
 			jid, err := types.ParseJID(conv.GetID())
-			if err != nil || jid.Server != types.GroupServer {
+			if err != nil || !SupportedChat(jid) {
 				continue
 			}
 			for _, item := range conv.GetMessages() {
@@ -52,7 +52,7 @@ func (c *Client) rememberEventAnchors(evt any) {
 				if web.GetMessage() == nil || unwrap(web.GetMessage()).GetProtocolMessage() != nil {
 					continue
 				}
-				c.rememberAnchor(types.MessageInfo{MessageSource: types.MessageSource{Chat: jid, IsGroup: true, IsFromMe: web.GetKey().GetFromMe()}, ID: web.GetKey().GetID(), Timestamp: time.Unix(int64(web.GetMessageTimestamp()), 0)})
+				c.rememberAnchor(types.MessageInfo{MessageSource: types.MessageSource{Chat: jid, IsGroup: jid.Server == types.GroupServer, IsFromMe: web.GetKey().GetFromMe()}, ID: web.GetKey().GetID(), Timestamp: time.Unix(int64(web.GetMessageTimestamp()), 0)})
 			}
 		}
 	}
@@ -124,7 +124,7 @@ func (c *Client) historyStep(ctx context.Context) error {
 		return p.store.WaitForHistoryAnchor(ctx, account, job.GroupID)
 	}
 	jid, err := types.ParseJID(job.GroupID)
-	if err != nil || jid.Server != types.GroupServer {
+	if err != nil || !SupportedChat(jid) {
 		return fmt.Errorf("invalid history group JID")
 	}
 	own, err := p.store.Account(ctx)
@@ -143,7 +143,7 @@ func (c *Client) historyStep(ctx context.Context) error {
 	if err != nil || !started {
 		return err
 	}
-	info := types.MessageInfo{MessageSource: types.MessageSource{Chat: jid, IsGroup: true, IsFromMe: anchor.FromMe}, ID: anchor.ID, Timestamp: anchor.Timestamp}
+	info := types.MessageInfo{MessageSource: types.MessageSource{Chat: jid, IsGroup: jid.Server == types.GroupServer, IsFromMe: anchor.FromMe}, ID: anchor.ID, Timestamp: anchor.Timestamp}
 	message := c.client.BuildHistorySyncRequest(&info, historyPageSize)
 	sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	// Equivalent to SendPeerMessage, with a preassigned ID so even a fast response
@@ -212,14 +212,26 @@ func (c *Client) persistEventAnchors(evt any, account int64) error {
 	groups := make(map[string]bool)
 	switch e := evt.(type) {
 	case *events.Message:
-		if e.Info.Chat.Server == types.GroupServer {
+		if SupportedChat(e.Info.Chat) {
 			groups[e.Info.Chat.String()] = true
 		}
 	case *events.HistorySync:
 		for _, conv := range e.Data.GetConversations() {
 			jid, err := types.ParseJID(conv.GetID())
-			if err == nil && jid.Server == types.GroupServer {
+			if err == nil && SupportedChat(jid) {
 				groups[jid.String()] = true
+			}
+		}
+	}
+	for chat := range groups {
+		jid, _ := types.ParseJID(chat)
+		if jid.Server != types.GroupServer {
+			enabled, err := c.capture.store.IsEnabled(c.capture.ctx, account, chat)
+			if err != nil {
+				return err
+			}
+			if !enabled {
+				delete(groups, chat)
 			}
 		}
 	}

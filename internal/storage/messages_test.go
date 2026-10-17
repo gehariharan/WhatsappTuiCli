@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"whatsappsync/internal/localfs"
 )
 
 func captureStore(t *testing.T) (*Store, int64) {
 	t.Helper()
-	s, err := Open(context.Background(), filepath.Join(t.TempDir(), "archive.db"))
+	s, err := Open(context.Background(), filepath.Join(privateTestDir(t), "archive.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +170,7 @@ func TestKeysetPaginationSearchExpiryAndPurge(t *testing.T) {
 }
 func TestMigrationFromPhaseOnePreservesPreferences(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "archive.db")
+	path := filepath.Join(privateTestDir(t), "archive.db")
 	db, err := sql.Open("sqlite3", DSN(path))
 	if err != nil {
 		t.Fatal(err)
@@ -220,4 +221,13 @@ func TestCaptureRunAndHistoryRecovery(t *testing.T) {
 	if err = s.db.QueryRow("SELECT count(*) FROM sync_gaps WHERE account_id=?", id).Scan(&gaps); err != nil || gaps != 1 {
 		t.Fatal("downtime was not marked uncertain")
 	}
+}
+
+func privateTestDir(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

@@ -152,7 +152,7 @@ func TestFilteringQDoesNotQuitAndPasteIsBounded(t *testing.T) {
 
 func TestMouseCheckboxSelectsAndTogglesIntendedGroup(t *testing.T) {
 	m, f := fixtureModel()
-	_, cmd := update(m, tea.MouseClickMsg{X: 5, Y: 6, Button: tea.MouseLeft})
+	_, cmd := update(m, tea.MouseClickMsg{X: 5, Y: 9, Button: tea.MouseLeft})
 	if cmd == nil {
 		t.Fatal("checkbox click did not toggle capture")
 	}
@@ -179,5 +179,74 @@ func TestHistoryRetryTargetsOpenGroup(t *testing.T) {
 	}
 	if !strings.Contains(historyRequestLabel("no_progress"), "unknown") {
 		t.Fatal("empty response claims complete history")
+	}
+}
+
+func (f *fakeBackend) ToggleMany(_ int64, ids []string, enabled bool) error {
+	f.requested = strings.Join(ids, ",")
+	f.enabled = enabled
+	return nil
+}
+func TestBulkSelectionRequiresConfirmationAndScopesCategory(t *testing.T) {
+	m, f := fixtureModel()
+	m.snapshot.Groups = append(m.snapshot.Groups, storage.Group{ID: "555@lid", Name: "Direct"})
+	m, cmd := update(m, tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft})
+	if cmd != nil || m.confirm != "enable-all" || len(m.confirmIDs) != 2 {
+		t.Fatal("bulk mouse control did not prepare group-only confirmation")
+	}
+	m, cmd = update(m, key("y"))
+	if cmd == nil {
+		t.Fatal("confirmed bulk not scheduled")
+	}
+	cmd()
+	if f.requested != "1@g.us,2@g.us" || !f.enabled {
+		t.Fatal("bulk included a direct chat or missed groups")
+	}
+	m, _ = update(m, operationMsg{kind: "bulk"})
+	m, _ = update(m, tea.KeyPressMsg{Code: tea.KeyTab})
+	m, _ = update(m, key("N"))
+	if len(m.confirmIDs) != 1 || m.confirmIDs[0] != "555@lid" {
+		t.Fatal("direct category did not scope bulk change")
+	}
+	m, _ = update(m, key("n"))
+	if m.confirm != "" {
+		t.Fatal("bulk cancel failed")
+	}
+}
+func TestPairingQRFitsWithoutArchiveChrome(t *testing.T) {
+	m, _ := fixtureModel()
+	m.width = 80
+	m.height = 40
+	// A 35-row code fits 40 terminal rows when unused archive chrome is removed.
+	m.qr = strings.Repeat(strings.Repeat("█", 69)+"\n", 34) + strings.Repeat("█", 69)
+	screen := m.View().Content
+	if !strings.Contains(screen, "Scan this QR") || strings.Contains(screen, "QR needs") {
+		t.Fatal("fitting QR was hidden")
+	}
+	if strings.Contains(screen, "Alpha") {
+		t.Fatal("cached groups shown on pairing screen")
+	}
+}
+
+func (f *fakeBackend) ApproveAction(_ int64, id string) error { f.requested = id; return nil }
+func TestAgentRequestNeedsTypedConfirmation(t *testing.T) {
+	m, f := fixtureModel()
+	m.confirm = "agent-action"
+	m.confirmID = "00000000000000000000000000123456"
+	m, cmd := update(m, key("y"))
+	if cmd != nil || f.requested != "" {
+		t.Fatal("one keystroke approved an agent request")
+	}
+	m.confirmDraft = ""
+	for _, r := range "DELETE 123456" {
+		m, _ = update(m, key(string(r)))
+	}
+	_, cmd = update(m, key("enter"))
+	if cmd == nil {
+		t.Fatal("typed confirmation did not schedule approval")
+	}
+	cmd()
+	if f.requested != "00000000000000000000000000123456" {
+		t.Fatal("wrong approval request executed")
 	}
 }

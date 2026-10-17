@@ -15,6 +15,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mdp/qrterminal/v3"
+	"whatsappsync/internal/approval"
 	"whatsappsync/internal/storage"
 )
 
@@ -54,6 +55,7 @@ type Model struct {
 	cursor                           int
 	filter                           string
 	enabledOnly                      bool
+	chatType                         string
 	mode                             string
 	editing                          string
 	search                           string
@@ -69,11 +71,13 @@ type Model struct {
 	qr                               string
 	confirm, confirmID               string
 	confirmIDs                       []string
+	confirmDraft                     string
+	confirmRequest                   *approval.Request
 	help                             bool
 }
 
 func NewModel(s backend) Model {
-	return Model{session: s, width: 100, height: 30, mode: "groups", notice: "Connecting using your saved session…"}
+	return Model{session: s, width: 100, height: 30, mode: "groups", chatType: "group", notice: "Connecting using your saved session…"}
 }
 func tick() tea.Cmd { return tea.Tick(2*time.Second, func(t time.Time) tea.Msg { return tickMsg(t) }) }
 func (m Model) loadSnapshot() tea.Cmd {
@@ -93,6 +97,9 @@ func (m Model) loadPage() tea.Cmd {
 func (m Model) filtered() []storage.Group {
 	groups := make([]storage.Group, 0)
 	for _, g := range m.snapshot.Groups {
+		if m.chatType != "all" && storage.ChatKind(g.ID) != m.chatType {
+			continue
+		}
 		if m.enabledOnly && !g.Enabled {
 			continue
 		}
@@ -135,6 +142,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case snapshotMsg:
 		selected, _ := m.selected()
 		m.snapshot = v.snapshot
+		if m.confirm == "" && !m.writeBusy && !m.networkBusy && m.editing == "" && v.snapshot.Pending != nil {
+			m.confirm = "agent-action"
+			m.confirmID = v.snapshot.Pending.ID
+			m.confirmDraft = ""
+			m.confirmRequest = v.snapshot.Pending
+		}
 		if v.err != nil {
 			m.notice = "Archive read failed: " + v.err.Error()
 		}
@@ -161,7 +174,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch v.kind {
 		case "connect", "refresh":
 			m.networkBusy = false
-		case "toggle", "bulk", "purge", "history":
+		case "toggle", "bulk", "purge", "history", "clear-message", "agent-action", "revoke-message", "delete-whatsapp-chat", "action-rejected":
 			m.writeBusy = false
 		}
 		if v.err != nil {
@@ -174,6 +187,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "connect":
 				m.qr = ""
 				m.notice = "Capture is active for enabled groups. History completeness is unknown."
+			case "agent-action", "revoke-message", "delete-whatsapp-chat":
+				m.notice = "Confirmed action finished. Inspect WhatsApp for remote changes; local chat deletion retains the archive."
+			case "action-rejected":
+				m.notice = "Destructive request rejected; no action performed."
+			case "clear-message":
+				m.notice = "Message content removed locally. WhatsApp was not changed."
+				m.pageBusy = true
+				return m, m.loadPage()
 			case "bulk":
 				m.notice = "Group preferences saved. Enabled groups queue available history automatically."
 			case "toggle":
@@ -231,15 +252,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if mouse.X >= listWidth || mouse.Y < 5 {
 			return m, nil
 		}
+		firstRow := 5
 		rows := max(m.height-14, 1)
+		if m.mode == "groups" {
+			firstRow = 8
+			rows = max(m.height-17, 1)
+			if mouse.Y == 5 {
+				if mouse.X >= 2 && mouse.X < 16 {
+					return m.Update(tea.KeyPressMsg{Code: 'A', Text: "A"})
+				}
+				if mouse.X >= 17 && mouse.X < 27 {
+					return m.Update(tea.KeyPressMsg{Code: 'N', Text: "N"})
+				}
+			}
+			if mouse.Y == 6 {
+				return m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+			}
+		}
+		if mouse.Y < firstRow {
+			return m, nil
+		}
 		cursor, count := m.cursor, len(m.filtered())
 		if m.mode == "messages" {
 			cursor = m.pageCursor
 			count = len(m.page.Items)
 		}
 		start := max(cursor-rows+1, 0)
-		index := start + mouse.Y - 5
-		if index < 0 || index >= count || mouse.Y-5 >= rows {
+		index := start + mouse.Y - firstRow
+		if index < 0 || index >= count || mouse.Y-firstRow >= rows {
 			return m, nil
 		}
 		if m.mode == "messages" {
@@ -276,6 +316,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		if m.confirm != "" {
+			if m.confirm == "agent-action" && key != "n" && key != "esc" {
+				expected := "DELETE " + m.confirmID[max(0, len(m.confirmID)-6):]
+				if key == "enter" && m.confirmDraft == expected {
+					key = "y"
+				} else {
+					if key == "backspace" && len(m.confirmDraft) > 0 {
+						m.confirmDraft = m.confirmDraft[:len(m.confirmDraft)-1]
+					} else if key == "space" || key == " " {
+						m.confirmDraft += " "
+					} else if v.Text != "" {
+						m.confirmDraft = truncateRunes(m.confirmDraft+oneLine(v.Text), 64)
+					}
+					return m, nil
+				}
+			}
 			if key == "y" {
 				kind, id, account := m.confirm, m.confirmID, m.snapshot.Account
 				m.confirm = ""
@@ -290,6 +345,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						return operationMsg{"bulk", bulk.ToggleMany(account, m.confirmIDs, kind == "enable-all")}
 					}
+					if kind == "agent-action" {
+						approver, ok := m.session.(interface{ ApproveAction(int64, string) error })
+						if !ok {
+							return operationMsg{kind, fmt.Errorf("approval unavailable")}
+						}
+						return operationMsg{kind, approver.ApproveAction(account, id)}
+					}
+					if kind == "revoke-message" {
+						remote, ok := m.session.(interface {
+							RevokeMessage(int64, string, string) error
+						})
+						if !ok {
+							return operationMsg{kind, fmt.Errorf("revocation unavailable")}
+						}
+						return operationMsg{kind, remote.RevokeMessage(account, m.groupID, id)}
+					}
+					if kind == "delete-whatsapp-chat" {
+						remote, ok := m.session.(interface{ DeleteWhatsAppChat(int64, string) error })
+						if !ok {
+							return operationMsg{kind, fmt.Errorf("remote deletion unavailable")}
+						}
+						return operationMsg{kind, remote.DeleteWhatsAppChat(account, id)}
+					}
+					if kind == "clear-message" {
+						cleaner, ok := m.session.(interface {
+							ClearMessage(int64, string, string) error
+						})
+						if !ok {
+							return operationMsg{kind, fmt.Errorf("local message cleanup unavailable")}
+						}
+						return operationMsg{kind, cleaner.ClearMessage(account, m.groupID, id)}
+					}
 					if kind == "logout" {
 						return operationMsg{kind, m.session.Logout()}
 					}
@@ -297,6 +384,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if key == "n" || key == "esc" {
+				if m.confirm == "agent-action" {
+					id, account := m.confirmID, m.snapshot.Account
+					m.confirm = ""
+					m.writeBusy = true
+					return m, func() tea.Msg {
+						rejector, ok := m.session.(interface{ RejectAction(int64, string) error })
+						if !ok {
+							return operationMsg{"action-rejected", fmt.Errorf("rejection unavailable")}
+						}
+						return operationMsg{"action-rejected", rejector.RejectAction(account, id)}
+					}
+				}
 				m.confirm = ""
 			}
 			return m, nil
@@ -372,6 +471,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.draft = m.search
 			}
+		case "tab":
+			if m.mode == "groups" {
+				switch m.chatType {
+				case "group":
+					m.chatType = "direct"
+				case "direct":
+					m.chatType = "all"
+				default:
+					m.chatType = "group"
+				}
+				m.cursor = 0
+			}
 		case "e":
 			if m.mode == "groups" {
 				m.enabledOnly = !m.enabledOnly
@@ -434,6 +545,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.networkBusy = true
 				return m, m.connect()
 			}
+		case "X":
+			if m.mode == "messages" && !m.writeBusy && !m.networkBusy && m.pageCursor < len(m.page.Items) {
+				if !m.page.Items[m.pageCursor].FromMe {
+					m.notice = "Only your own archived messages can be revoked"
+				} else {
+					m.confirm = "revoke-message"
+					m.confirmID = m.page.Items[m.pageCursor].MessageID
+				}
+			}
+		case "W":
+			if m.mode == "groups" && !m.writeBusy && !m.networkBusy {
+				if chat, ok := m.selected(); ok {
+					m.confirm = "delete-whatsapp-chat"
+					m.confirmID = chat.ID
+				}
+			}
+		case "d":
+			if m.mode == "messages" && !m.writeBusy && m.pageCursor < len(m.page.Items) {
+				m.confirm = "clear-message"
+				m.confirmID = m.page.Items[m.pageCursor].MessageID
+			}
 		case "D":
 			if g, ok := m.selected(); ok && m.mode == "groups" && !m.writeBusy {
 				m.confirm = "purge"
@@ -443,6 +575,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.mode == "groups" && !m.writeBusy && !m.networkBusy {
 				m.confirmIDs = nil
 				for _, group := range m.snapshot.Groups {
+					if m.chatType != "all" && storage.ChatKind(group.ID) != m.chatType {
+						continue
+					}
 					m.confirmIDs = append(m.confirmIDs, group.ID)
 				}
 				if len(m.confirmIDs) > 0 {
@@ -524,7 +659,14 @@ func panel(title, body string, width, height int) string {
 func (m Model) View() tea.View {
 	w, h := m.width, m.height
 	content := ""
-	if w < 40 || h < 12 {
+	if m.qr != "" {
+		qrW, qrH := lipgloss.Size(m.qr)
+		if qrW <= w && qrH+2 <= h {
+			content = accent.Render(clip("WhatsApp → Linked Devices → Link a Device", w)) + "\n" + m.qr + "\n" + dim.Render(clip("Scan this QR · q cancel · QR refreshes automatically", w))
+		} else {
+			content = fmt.Sprintf("Link your device\nQR needs %d columns × %d rows.\nReduce terminal font size or enlarge the window.\nq cancels pairing.", qrW, qrH+2)
+		}
+	} else if w < 40 || h < 12 {
 		content = "wasync\nResize terminal to at least 40 columns × 12 rows.\nq quit"
 	} else {
 		enabled, total := 0, int64(0)
@@ -538,7 +680,7 @@ func (m Model) View() tea.View {
 		if state == "" {
 			state = "connecting"
 		}
-		header := accent.Render("  wasync") + dim.Render("  /  personal group archive")
+		header := accent.Render("  wasync") + dim.Render("  /  personal chat archive")
 		status := fmt.Sprintf("  %s   ·   %d enabled   ·   %d archived   ·   +%d writes this session", state, enabled, total, m.snapshot.Status.Stored)
 		if m.snapshot.APIURL != "" {
 			status += "   ·   API " + m.snapshot.APIURL
@@ -546,25 +688,30 @@ func (m Model) View() tea.View {
 		top := header + "\n" + dim.Render(clip(status, w)) + "\n"
 		bodyHeight := h - 9
 		if m.help {
-			content = top + panel("KEYBOARD", "↑/↓ or j/k  Move selection\nMouse wheel  Scroll list\nPgUp/PgDn, Home/End  Jump\nSpace  Enable/disable selected group\nA/N  Enable/disable all cached groups (confirmation)\nEnter  Browse archived messages\n/  Filter groups or search message text\ne  Show enabled groups only\nr  Refresh group metadata\nh  Retry older history for this group\nc  Connect/pair again\nD  Purge a group's archive (confirmation)\nL  Unlink device and quit (confirmation)\n\nMessages: n/p older/newer page · R latest\nCtrl+D / Ctrl+U scroll selected message body\nEsc  Back/clear filter · q quit (keeps session linked)\n?  Close help", w, bodyHeight)
-		} else if m.qr != "" {
-			qrW, qrH := lipgloss.Size(m.qr)
-			if qrW > w-4 || qrH > bodyHeight-4 {
-				content = top + panel("LINK YOUR DEVICE", fmt.Sprintf("Scan the QR after resizing this terminal.\nNeeded: at least %d columns × %d rows.\n\nWhatsApp → Linked Devices → Link a Device\nq cancels pairing.", qrW+4, qrH+13), w, bodyHeight)
-			} else {
-				content = top + panel("LINK YOUR DEVICE", m.qr, w, bodyHeight)
-			}
+			content = top + panel("KEYBOARD", "↑/↓ or j/k  Move selection\nMouse wheel  Scroll list\nPgUp/PgDn, Home/End  Jump\nSpace  Enable/disable selected chat\nTab  Groups / Direct / All\nA/N  Enable/disable category (confirmation)\nEnter  Browse archived messages\n/  Filter groups or search message text\ne  Show enabled groups only\nr  Refresh group metadata\nh  Retry older history for this group\nc  Connect/pair again\nd  Clear selected message locally (confirmation)\nX  Revoke your message in WhatsApp (confirmation)\nW  Delete WhatsApp chat state (confirmation)\nD  Purge local chat archive (confirmation)\nL  Unlink device and quit (confirmation)\n\nMessages: n/p older/newer page · R latest\nCtrl+D / Ctrl+U scroll selected message body\nEsc  Back/clear filter · q quit (keeps session linked)\n?  Close help", w, bodyHeight)
+		} else if m.confirm != "" {
+			description := m.confirmDescription()
+			content = top + panel("CONFIRM DESTRUCTIVE ACTION", ansi.Hardwrap(description, w-6, false), w, bodyHeight)
 		} else if m.mode == "messages" {
 			content = top + m.messageView(w, bodyHeight)
 		} else {
 			content = top + m.groupsView(w, bodyHeight)
 		}
 		prompt := m.notice
+		if m.confirm == "agent-action" {
+			prompt = "Type the exact confirmation shown above · n / Esc reject"
+		}
 		if m.snapshot.Status.Error != "" {
 			prompt = m.snapshot.Status.Error
 		}
+		if m.confirm == "revoke-message" || m.confirm == "delete-whatsapp-chat" {
+			prompt = "y approve this exact action · n / Esc reject"
+		}
+		if m.confirm == "clear-message" {
+			prompt = "Delete this message content and download from wasync only? y confirm · n cancel"
+		}
 		if m.confirm == "purge" {
-			prompt = "Disable capture and delete this group's archived data? y confirm · n cancel"
+			prompt = "Disable capture and delete this chat's local archive and downloads? y confirm · n cancel"
 		}
 		if m.confirm == "logout" {
 			prompt = "Unlink this WhatsApp device and quit? y confirm · n cancel"
@@ -574,14 +721,14 @@ func (m Model) View() tea.View {
 			if m.confirm == "disable-all" {
 				action = "Disable capture for"
 			}
-			prompt = fmt.Sprintf("%s all %d cached groups? y confirm · n cancel", action, len(m.confirmIDs))
+			prompt = fmt.Sprintf("%s all %d chats in this category? y confirm · n cancel", action, len(m.confirmIDs))
 		}
 		if m.editing != "" {
 			prompt = "/ " + clean(m.draft) + "▏   Enter apply · Esc done"
 		}
 		hint := "Space toggle · A/N all/none · L logout · Enter messages · ? help · q quit"
 		if m.mode == "messages" {
-			hint = "↑↓ select   Enter full text   / search   n/p page   h history   Esc back   q quit"
+			hint = "q quit · L logout · Enter full text · d clear locally · / search · n/p page · Esc back"
 		}
 		content += "\n" + warning.Render(clip("  "+oneLine(prompt), w)) + "\n" + dim.Render(clip("  "+hint, w)) + "\n" + dim.Render(clip("  History is best-effort. Reconnecting does not prove missed messages were recovered.", w))
 	}
@@ -595,7 +742,7 @@ func (m Model) View() tea.View {
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
-	v.WindowTitle = "wasync — local group archive"
+	v.WindowTitle = "wasync — local chat archive"
 	return v
 }
 func (m Model) groupsView(width, height int) string {
@@ -604,7 +751,7 @@ func (m Model) groupsView(width, height int) string {
 	if width >= 90 {
 		listWidth = width * 3 / 5
 	}
-	rows := max(height-5, 1)
+	rows := max(height-8, 1)
 	start := 0
 	if m.cursor >= rows {
 		start = m.cursor - rows + 1
@@ -627,13 +774,14 @@ func (m Model) groupsView(width, height int) string {
 		lines = append(lines, line)
 	}
 	if len(groups) == 0 {
-		lines = append(lines, "No matching groups.", "Clear the filter or refresh discovery.")
+		lines = append(lines, "No matching chats.", "Direct chats appear from history/live events.")
 	}
-	title := fmt.Sprintf("GROUPS  %d/%d", len(groups), len(m.snapshot.Groups))
+	title := fmt.Sprintf("%s CHATS  %d", strings.ToUpper(m.chatType), len(groups))
 	if m.filter != "" {
 		title += "  / " + oneLine(m.filter)
 	}
-	left := panel(title, strings.Join(lines, "\n"), listWidth, height)
+	toolbar := accent.Render("[A Select all]  [N None]") + "\n" + dim.Render("Tab: Groups / Direct / All · "+m.chatType) + "\n\n"
+	left := panel(title, toolbar+strings.Join(lines, "\n"), listWidth, height)
 	if width < 90 {
 		return left
 	}
@@ -780,4 +928,30 @@ func historyRequestLabel(state string) string {
 	default:
 		return "History state: " + state
 	}
+}
+
+func (m Model) confirmDescription() string {
+	kind, chat, message := m.confirm, m.groupID, m.confirmID
+	if kind == "agent-action" && m.confirmRequest != nil {
+		request := m.confirmRequest
+		kind, chat, message = request.Kind, request.Chat, request.Message
+	}
+	if kind == "purge" || kind == "delete-whatsapp-chat" {
+		chat = m.confirmID
+	}
+	scope := "Local wasync archive only. WhatsApp will not change."
+	switch kind {
+	case "revoke-message":
+		scope = "WHATSAPP: delete your message for everyone, subject to WhatsApp permissions/time limits. Local content will also be cleared after acknowledgement."
+	case "delete-whatsapp-chat":
+		scope = "WHATSAPP: delete chat state for your account through the last locally known message. This does not delete other participants' copies or leave a group. Your local archive is retained."
+	case "logout":
+		scope = "Unlink this device in WhatsApp and quit. Local archives remain."
+	case "enable-all", "disable-all":
+		scope = "Change capture for the category shown. Existing archived data remains."
+	}
+	if m.confirm == "agent-action" {
+		return oneLine(kind) + "\n\n" + scope + "\n\nChat: " + oneLine(chat) + "\nMessage: " + oneLine(message) + "\n\nType DELETE " + m.confirmID[max(0, len(m.confirmID)-6):] + " then Enter to approve.\n> " + oneLine(m.confirmDraft) + "\nn / Esc reject"
+	}
+	return oneLine(kind) + "\n\n" + scope + "\n\nChat: " + oneLine(chat) + "\nMessage: " + oneLine(message) + "\n\nThis action requires your confirmation.\ny approve · n reject"
 }

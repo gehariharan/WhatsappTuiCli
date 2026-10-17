@@ -34,8 +34,8 @@ func TestNormalizeTextRepliesMediaAndPrivacy(t *testing.T) {
 		t.Fatalf("media metadata leaked secrets %+v", m)
 	}
 	e.Info.Chat = types.NewJID("123", types.DefaultUserServer)
-	if _, ok = Normalize(e, "live", time.Now()); ok {
-		t.Fatal("private chat normalized")
+	if _, ok = Normalize(e, "live", time.Now()); !ok {
+		t.Fatal("direct chat was not normalized")
 	}
 }
 func TestNormalizeMutationsAndEphemeralBoundaries(t *testing.T) {
@@ -76,7 +76,7 @@ func TestNormalizeMutationsAndEphemeralBoundaries(t *testing.T) {
 }
 func TestHistoryAndLiveUseSameConsentAndDedup(t *testing.T) {
 	ctx := context.Background()
-	s, err := storage.Open(ctx, filepath.Join(t.TempDir(), "archive.db"))
+	s, err := storage.Open(ctx, filepath.Join(privateTestDir(t), "archive.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestHistoryAndLiveUseSameConsentAndDedup(t *testing.T) {
 	if err = s.SetEnabled(ctx, account, []string{"123@g.us"}, true); err != nil {
 		t.Fatal(err)
 	}
-	c, err := Open(ctx, filepath.Join(t.TempDir(), "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c, err := Open(ctx, filepath.Join(privateTestDir(t), "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,5 +122,55 @@ func TestHistoryAndLiveUseSameConsentAndDedup(t *testing.T) {
 	}
 	if !c.client.SynchronousAck {
 		t.Fatal("acks can precede handler completion")
+	}
+}
+
+func TestDiagnosticLoginKeepsAnchorWithoutArchivingEnabledBodies(t *testing.T) {
+	ctx := context.Background()
+	dir := privateTestDir(t)
+	store, err := storage.Open(ctx, filepath.Join(dir, "archive.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	account, err := store.UseAccount(ctx, "synthetic@lid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SaveGroups(ctx, account, []storage.Group{{ID: "123@g.us", Name: "One"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.SetEnabled(ctx, account, []string{"123@g.us"}, true); err != nil {
+		t.Fatal(err)
+	}
+	client, err := Open(ctx, filepath.Join(dir, "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if err = client.EnableDiscovery(ctx, store); err != nil {
+		t.Fatal(err)
+	}
+	// Synthetic authenticated account, without any WhatsApp network connection.
+	client.capture.account.Store(account)
+	message := fixture(&waE2E.Message{Conversation: proto.String("never archive diagnostic body")})
+	if !client.handleEvent(message) {
+		t.Fatal("discovery event failed")
+	}
+	anchor, err := store.KnownHistoryAnchor(ctx, account, "123@g.us")
+	if err != nil || anchor.ID != message.Info.ID {
+		t.Fatal("group anchor not saved", err)
+	}
+	page, err := store.Messages(ctx, account, "123@g.us", storage.MessageQuery{Limit: 5})
+	if err != nil || len(page.Items) != 0 {
+		t.Fatal("diagnostic mode archived a body", err)
+	}
+	message.Info.Chat = types.NewJID("555", types.HiddenUserServer)
+	if !client.handleEvent(message) {
+		t.Fatal("direct discovery failed")
+	}
+	direct, err := store.KnownHistoryAnchor(ctx, account, message.Info.Chat.String())
+	if err != nil || direct.ID != "" {
+		t.Fatal("disabled direct anchor persisted", err)
 	}
 }

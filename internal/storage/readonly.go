@@ -57,6 +57,8 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 type ArchiveSnapshot struct {
 	AccountID            int64      `json:"account_id"`
 	Connection           string     `json:"connection"`
+	ChatCount            int        `json:"chat_count"`
+	EnabledChats         int        `json:"enabled_chats"`
 	GroupCount           int        `json:"group_count"`
 	EnabledGroups        int        `json:"enabled_groups"`
 	MessageCount         int64      `json:"archived_messages"`

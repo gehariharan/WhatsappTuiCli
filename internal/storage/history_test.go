@@ -131,7 +131,7 @@ func TestHistoryProgressAndInterruptedRequestResume(t *testing.T) {
 	}
 }
 func TestMigrationQueuesPreviouslyEnabledGroups(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "archive.db")
+	path := filepath.Join(privateTestDir(t), "archive.db")
 	s, err := Open(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
