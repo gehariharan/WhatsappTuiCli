@@ -28,7 +28,7 @@ Name: addtopath; Description: "Add wasync to your user PATH (open a new terminal
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\wasync"; Filename: "{app}\wasync.exe"; WorkingDir: "{userprofile}"
+Name: "{group}\wasync"; Filename: "{app}\wasync.exe"; WorkingDir: "{app}"
 
 [Code]
 function HasPath(Value, Item: String): Boolean;
