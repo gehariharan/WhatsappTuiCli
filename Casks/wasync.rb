@@ -4,9 +4,9 @@ require_relative "../lib/wasync_github_release_download_strategy"
 cask "wasync" do
   arch arm: "arm64", intel: "amd64"
 
-  version "0.1.0-preview.5"
-  sha256 arm:   "647a6320747807e35ceb81ee8078ea71b7808bb0ba82958c683ff246eb848449",
-         intel: "a3f979789f78280a0c968e7f46c80aa174ebe3d7807184da42daf767577124f6"
+  version "0.1.0-preview.20261017074247"
+  sha256 arm:   "ad93408960acff4ebe9388eb3f17555b22cc4daef8b29ca1d4f28ba655166f33",
+         intel: "3536448ac2eae7be1dda48863e31574e802648d54c3f0677d6e0efc494f65e7d"
 
   url "https://github.com/gehariharan/WhatsappTuiCli/releases/download/v#{version}/wasync_#{version}_darwin_#{arch}.tar.gz",
       using: WasyncGitHubReleaseDownloadStrategy
