@@ -23,6 +23,8 @@ concurrency:
 
 jobs:
   version:
+    permissions:
+      contents: write
     runs-on: ubuntu-22.04
     outputs:
       value: ${{ steps.version.outputs.value }}
@@ -31,6 +33,7 @@ jobs:
       - name: Validate release version
         id: version
         env:
+          GH_TOKEN: ${{ github.token }}
           REQUESTED_VERSION: ${{ inputs.version }}
           PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
         shell: bash
@@ -39,6 +42,19 @@ jobs:
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9][A-Za-z0-9.-]*)?$ ]]; then
             echo "Invalid version" >&2
             exit 1
+          fi
+          # Create the immutable release tag while this commit is still HEAD.
+          # A later release upload then needs only the normal contents permission.
+          tag="v$version"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            existing="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)"
+            if [[ "$existing" != "$GITHUB_SHA" ]]; then
+              echo "Release tag already points to a different commit" >&2
+              exit 1
+            fi
+          else
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" --method POST \
+              -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" >/dev/null
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
           echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
@@ -127,7 +143,7 @@ jobs:
           The generated wasync.rb is a binary-only Homebrew cask. Private releases use GitHub CLI authentication.
           Installation preserves existing per-user archives and pairing credentials.
           NOTES
-          gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" \
+          gh release create "$tag" --draft --prerelease --verify-tag \
             --title "wasync $PACKAGE_VERSION" --notes-file dist/release/RELEASE_NOTES.md \
             dist/release/*.tar.gz dist/release/*.pkg dist/release/checksums.txt dist/release/wasync.rb
       - name: Publish prerelease for Homebrew
@@ -191,4 +207,3 @@ jobs:
           # Explicitly test this unsigned preview. Production signing is separate.
           brew install --cask --no-quarantine gehariharan/tap/wasync
           python3 scripts/smoke-installed.py "$(brew --prefix)/bin/wasync" "$PACKAGE_VERSION" "$EXPECTED_ARCHITECTURE"
-

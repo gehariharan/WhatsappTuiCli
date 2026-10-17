@@ -99,7 +99,7 @@ func Start(addr, dir string, store *storage.Store, status func() whatsapp.Captur
 }
 
 func (s *Server) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := s.HTTP.Shutdown(ctx); err != nil {
 		return errors.Join(err, s.HTTP.Close())
