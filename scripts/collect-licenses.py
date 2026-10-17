@@ -8,7 +8,7 @@ import sys
 
 output = Path(sys.argv[1])
 output.mkdir(parents=True, exist_ok=True)
-raw = subprocess.check_output(["go", "list", "-tags", "sqlite_fts5", "-deps", "-json", "./cmd/wasync"], text=True)
+raw = subprocess.check_output(["go", "list", "-tags", "sqlite_fts5", "-deps", "-json", "./cmd/wasync"], text=True, encoding="utf-8")
 decoder = json.JSONDecoder()
 modules = {}
 while raw.strip():
@@ -26,6 +26,6 @@ for name, module in sorted(modules.items()):
     for source in Path(module["Dir"]).iterdir():
         if source.is_file() and source.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT")):
             shutil.copyfile(source, destination / source.name)
-goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True).strip())
+goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True, encoding="utf-8").strip())
 shutil.copyfile(goroot / "LICENSE", output / "GO_LICENSE")
 (output / "DEPENDENCIES.txt").write_text("\n".join(index) + "\n", encoding="utf-8")
