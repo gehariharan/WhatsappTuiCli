@@ -35,7 +35,7 @@ pkgutil --check-signature "$name.pkg" > package-signature.txt
 grep -Fq 'Developer ID Installer: Xaurum Fintech Private Limited (57V379V642)' package-signature.txt
 xcrun stapler validate "$name.pkg"
 spctl --assess --type install --verbose=2 "$name.pkg"
-spctl --assess --type execute --verbose=2 archive/wasync
+codesign --verify --strict --verbose=2 -R='notarized' --check-notarization archive/wasync
 pkgutil --expand-full "$name.pkg" expanded
 cmp archive/wasync expanded/Payload/usr/local/bin/wasync
 # Exercise the exact signed executable with a quarantine attribute intact.

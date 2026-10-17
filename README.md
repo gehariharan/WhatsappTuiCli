@@ -671,6 +671,11 @@ does not make credentials available to later connections.
    matching archive/installer executables, signs and notarizes both architectures,
    validates Gatekeeper acceptance, and replaces the four assets only after all
    checks succeed. No executable is launched during signing.
+   For first-time signing-key approval, run this from Terminal directly on the
+   signing Mac and choose Always Allow for the signing tools when prompted.
+   SSH cannot present those approval dialogs. CLI notarization is validated with
+   `codesign --verify -R='notarized' --check-notarization`; `spctl --type execute`
+   expects an app bundle. Installer validation uses `spctl --type install`.
 3. Retrieve the signed assets. Recompute aggregate checksums and regenerate the
    cask with `scripts/homebrew-cask.py` (include `--private` for this repository).
    Replace these assets, `checksums.txt`, and `wasync.rb` in the **draft only**.

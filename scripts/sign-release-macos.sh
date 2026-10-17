@@ -13,7 +13,7 @@ assets="$(cd "$assets" && pwd)"
 : "${WASYNC_NOTARY_PROFILE:?Set the notarytool profile}"
 : "${WASYNC_SIGNING_KEYCHAIN:?Set the signing Keychain path}"
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+trap 'result=$?; if [[ $result == 0 ]]; then rm -rf "$work"; else printf "Signing stopped; diagnostic files retained in %s\n" "$work" >&2; fi' EXIT
 
 # Unlock and use credentials in this same SSH session. Password input is handled
 # by security's terminal prompt, never an argument or a script variable.
@@ -47,7 +47,9 @@ for architecture in arm64 amd64; do
     --keychain "$WASYNC_SIGNING_KEYCHAIN" \
     --sign "$WASYNC_INSTALLER_IDENTITY" --timestamp "$work/$name.pkg"
   bash "$scripts_dir/notarize.sh" "$WASYNC_NOTARY_PROFILE" "$binary" "$work/$name.pkg"
-  spctl --assess --type execute --verbose=2 "$binary"
+  # spctl's execute assessment expects an app bundle and rejects standalone
+  # Mach-O tools even when notarized. Require Apple's ticket for the CLI itself.
+  codesign --verify --strict --verbose=2 -R='notarized' --check-notarization "$binary"
   tar -czf "$work/$name.tar.gz" -C "$work/$architecture" wasync README.md THIRD_PARTY_LICENSES
 done
 # Replace inputs only after both architectures pass signing and notarization.
