@@ -22,11 +22,10 @@ For automated runners, pass a repository-scoped token as `GH_TOKEN`; the private
 release download strategy delegates authentication to `gh`. No token goes in a
 URL or cask. Homebrew verifies the downloaded archive's SHA-256 checksum.
 
-Preview binaries have ad hoc signatures, not Apple Developer ID signatures, and
-are not notarized. macOS may block execution after installation. The cask keeps
-Homebrew's normal protection; no hook changes quarantine or Gatekeeper policy.
-Review trusted developer builds in System Settings → Privacy & Security. General
-public distribution still needs Developer ID signing and notarization.
+Releases from `0.1.0-preview.5` onward are Developer ID signed and notarized.
+The cask keeps Homebrew's normal protection; no hook changes quarantine or
+Gatekeeper policy. Earlier unsigned/ad hoc previews may be blocked by macOS;
+upgrade to a signed release.
 
 The E2E workflow has an explicit unsigned-preview test option limited to
 GitHub-hosted runners. It is not part of this installer and does not prove that
@@ -46,5 +45,9 @@ per-user WhatsApp credentials, group preferences and the local archive. Do not u
 `--zap` if you intend to retain your data (this cask defines no zap action).
 
 The main application's release workflow updates this tap with a deploy key
-restricted to this repository. Source and release notes:
+restricted to this repository. Pushes to the application's `main` branch build,
+sign, notarize, verify and publish new preview installers automatically, then
+update this tap and run Homebrew E2E on Intel and Apple Silicon. Signing uses
+the maintainer's Mac runner, which must be online and logged in.
+Source and release notes:
 https://github.com/gehariharan/WhatsappTuiCli
