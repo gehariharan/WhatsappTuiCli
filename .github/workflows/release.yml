@@ -1,6 +1,14 @@
 name: Build prebuilt installers
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      publish:
+        type: boolean
+        default: false
   push:
     tags: ["v[0-9]*"]
   workflow_dispatch:
@@ -35,7 +43,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_VERSION: ${{ inputs.version }}
-          PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+          PUBLISH: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || inputs.publish }}
         shell: bash
         run: |
           version="${REQUESTED_VERSION:-${GITHUB_REF_NAME#v}}"

@@ -9,6 +9,16 @@ case "$architecture" in arm64) cpu=arm64;; amd64) cpu=x86_64;; *) exit 1;; esac
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
+# Apple's ticket service can drop connections. Retry checks, retaining failure
+# when all attempts fail; never skip a failed signature or ticket requirement.
+retry_check() {
+  local attempt result=1
+  for attempt in 1 2 3; do
+    if "$@"; then return 0; else result=$?; fi
+    if [[ "$attempt" != 3 ]]; then sleep 3; fi
+  done
+  return "$result"
+}
 if [[ "$(gh release view "v$version" --json isDraft --jq .isDraft)" != true ]]; then
   echo 'Only draft releases may be published by this workflow.' >&2; exit 1
 fi
@@ -33,9 +43,9 @@ codesign --verify --strict \
   -R='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "57V379V642"' archive/wasync
 pkgutil --check-signature "$name.pkg" > package-signature.txt
 grep -Fq 'Developer ID Installer: Xaurum Fintech Private Limited (57V379V642)' package-signature.txt
-xcrun stapler validate "$name.pkg"
-spctl --assess --type install --verbose=2 "$name.pkg"
-codesign --verify --strict --verbose=2 -R='notarized' --check-notarization archive/wasync
+retry_check xcrun stapler validate "$name.pkg"
+retry_check spctl --assess --type install --verbose=2 "$name.pkg"
+retry_check codesign --verify --strict --verbose=2 -R='notarized' --check-notarization archive/wasync
 pkgutil --expand-full "$name.pkg" expanded
 cmp archive/wasync expanded/Payload/usr/local/bin/wasync
 # Exercise the exact signed executable with a quarantine attribute intact.

@@ -1,0 +1,110 @@
+name: Release main updates
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize releases and never interrupt notarization. GitHub retains only the
+# newest pending run if multiple pushes arrive while a release is running.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-22.04
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Choose increasing preview version
+        id: version
+        run: echo "value=0.1.0-preview.$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.version.outputs.value }}
+      publish: false
+    secrets: inherit
+
+  sign:
+    needs: [version, build]
+    runs-on: [self-hosted, macOS, ARM64, wasync-signing]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist/signing
+      - name: Sign and notarize both Mac architectures
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+          WASYNC_CODESIGN_IDENTITY: 'Developer ID Application: Xaurum Fintech Private Limited (57V379V642)'
+          WASYNC_INSTALLER_IDENTITY: 'Developer ID Installer: Xaurum Fintech Private Limited (57V379V642)'
+          WASYNC_NOTARY_PROFILE: wasync-notary
+          WASYNC_SIGNING_UNATTENDED: '1'
+        run: |
+          export WASYNC_SIGNING_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+          caffeinate -i bash scripts/sign-release-macos.sh "$PACKAGE_VERSION" dist/signing
+      - name: Generate signed checksums and Homebrew cask
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
+        run: |
+          extra=()
+          if [[ "$PRIVATE_REPOSITORY" == true ]]; then extra+=(--private); fi
+          python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/signing dist/signing/wasync.rb "${extra[@]}"
+          cd dist/signing
+          shasum -a 256 ./*.tar.gz ./*.pkg > checksums.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-release
+          path: |
+            dist/signing/*darwin*.tar.gz
+            dist/signing/*darwin*.pkg
+            dist/signing/checksums.txt
+            dist/signing/wasync.rb
+          if-no-files-found: error
+          retention-days: 14
+
+  update-draft:
+    needs: [version, sign]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: signed-release
+          path: dist/signed
+      - name: Replace draft assets with signed packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: |
+          if [[ "$(gh release view "v$PACKAGE_VERSION" --json isDraft --jq .isDraft)" != true ]]; then
+            echo 'Refusing to overwrite a published release.' >&2
+            exit 1
+          fi
+          gh release upload "v$PACKAGE_VERSION" dist/signed/* --clobber
+
+  publish:
+    needs: [version, update-draft]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-signed.yml
+    with:
+      version: ${{ needs.version.outputs.value }}
+    secrets: inherit

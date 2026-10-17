@@ -17,7 +17,9 @@ trap 'result=$?; if [[ $result == 0 ]]; then rm -rf "$work"; else printf "Signin
 
 # Unlock and use credentials in this same SSH session. Password input is handled
 # by security's terminal prompt, never an argument or a script variable.
-security unlock-keychain "$WASYNC_SIGNING_KEYCHAIN"
+if [[ "${WASYNC_SIGNING_UNATTENDED:-0}" != 1 ]]; then
+  security unlock-keychain "$WASYNC_SIGNING_KEYCHAIN"
+fi
 xcrun notarytool history --keychain-profile "$WASYNC_NOTARY_PROFILE" \
   --keychain "$WASYNC_SIGNING_KEYCHAIN" --output-format json > "$work/history.json"
 for architecture in arm64 amd64; do

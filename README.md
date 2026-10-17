@@ -555,6 +555,60 @@ The original design and risk review are saved in
 
 ## Maintainer release packaging
 
+### Automatic releases from main
+
+Every push to `main` runs **Release main updates**:
+
+1. Choose a unique increasing version, `0.1.0-preview.YYYYMMDDHHMMSS` (UTC).
+2. Test and build native macOS and Linux packages for Intel and ARM64 on GitHub
+   runners, then create an unpublished draft.
+3. Sign and notarize both Mac architectures on the repository-scoped
+   `wasync-sakthi-air` runner using its existing Developer ID keys and
+   `wasync-notary` login-Keychain profile.
+4. Verify signatures, notarization, installer tickets, checksums and signed
+   executable behavior on fresh Intel and Apple Silicon runners.
+5. Publish the prerelease, update `gehariharan/homebrew-tap`, and test real
+   Homebrew installations on both Mac architectures with quarantine enabled.
+
+The Air must be awake, online and logged in as the signing user, with its login
+Keychain unlocked. Signing runs as a user LaunchAgent in that desktop session.
+The job prevents idle sleep while signing, but does not wake an offline Mac or
+unlock a locked Keychain. After reboot, log in again. Jobs wait for an offline
+runner; a failed build or signing check leaves a draft and keeps the tap on the
+previous published version. Homebrew checks run after publication and report
+failures in Actions. Do not run untrusted pull-request code on the signing runner.
+
+The workflow uses existing local Apple credentials; no Apple private key or
+password is exported to GitHub. First-time signing-tool approvals must be
+completed in Terminal on the Air. The runner starts at login and reconnects
+automatically. Its installation is outside this repository at
+`~/wasync-actions-runner` on the Air.
+
+For a new installation:
+
+```sh
+gh auth login
+brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
+brew install --cask gehariharan/tap/wasync
+```
+
+For an existing installation:
+
+```sh
+brew update
+brew upgrade --cask gehariharan/tap/wasync
+wasync version
+```
+
+The repositories remain private, so users need authorized GitHub access. Homebrew
+updates the executable when requested; installation and upgrades preserve local
+archives, group preferences and pairing credentials. The workflow also supports
+manual dispatch to retry a release without a new commit.
+Releases run one at a time; if several pushes arrive during a release, GitHub
+keeps the newest pending push and may supersede earlier pending runs.
+
+### Manual packaging
+
 Run on each target platform with Go, a C compiler, Python 3 and the platform's
 packaging tools installed:
 
@@ -590,7 +644,8 @@ The reusable Homebrew E2E workflow can also be run independently against an
 existing release. Its explicit `allow_unsigned_preview` option removes quarantine
 only from the installed test executable on a disposable GitHub-hosted runner.
 The cask itself never disables quarantine. This option is false by default for
-manual runs and true for the current unsigned preview release pipeline.
+manual runs and the signed automatic pipeline. The older explicit unsigned
+preview publication path sets it to true.
 The jobs install the actual release archive and validate the installed binary's
 version and native architecture, concurrent read-only JSON queries, FTS5 search,
 pagination, graceful shutdown, and offline TUI rendering/exit with synthetic data.
@@ -605,8 +660,8 @@ WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
 ```
 
 Unsigned builds use an ad hoc binary signature, which is not a Developer ID
-signature. CI currently creates unsigned previews; importing signing credentials,
-Apple notarization and ticket stapling remain release setup work. Never commit
+signature. The build stage creates unsigned drafts; the automatic release
+pipeline signs and notarizes them on the Air before publication. Never commit
 certificates or signing credentials. Before publishing, inspect the package
 contents and signatures, verify the checksum, and validate installation on each
 supported platform. No installer launches WhatsApp, starts capture or creates
@@ -639,9 +694,9 @@ is passed in a script argument or committed to Git.
 The raw CLI executable cannot hold a stapled ticket. Its code hash is registered
 by notarization; Homebrew downloads the same signed executable and Gatekeeper
 uses Apple's notarization lookup. The `.pkg` carries its own stapled ticket.
-Signing/notarization still needs to be exercised with the real Developer ID
-certificates before publishing a signed release. A signed release must run the
-Homebrew E2E workflow with `allow_unsigned_preview=false`.
+Both architectures in `0.1.0-preview.5` were accepted by Apple's notary service,
+with signed executable/archive matching and stapled installer tickets verified.
+A signed release must run Homebrew E2E with `allow_unsigned_preview=false`.
 
 Apple references: [Developer ID certificates](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/)
 and [Customizing the notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
@@ -687,5 +742,6 @@ does not make credentials available to later connections.
 
 The signed publication workflow is separate from the older unsigned-preview
 publication option. It requires no Apple passwords or private keys in GitHub
-Actions. One interactive Keychain unlock on the signing Mac is required per
-signing session. Initial real-certificate validation is still pending.
+Actions. Manual SSH signing requires an interactive Keychain unlock in that
+session. The automatic pipeline sets `WASYNC_SIGNING_UNATTENDED=1` and runs in
+the logged-in desktop session, using its already-unlocked Keychain.
