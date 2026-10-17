@@ -17,8 +17,9 @@ $cert = $null
 $trusted = $null
 $oldData = $env:WASYNC_DATA_DIR
 $policyPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
-$oldPolicy = Get-ItemProperty -Path $policyPath -ErrorAction SilentlyContinue |
- ForEach-Object { $_.PSObject.Properties['AllowAllTrustedApps'] } | ForEach-Object { $_.Value }
+$oldPolicy = $null
+$policyKey = Get-ItemProperty -Path $policyPath -ErrorAction SilentlyContinue
+if ($policyKey -and $policyKey.PSObject.Properties['AllowAllTrustedApps']) { $oldPolicy = $policyKey.AllowAllTrustedApps }
 try {
  # Only the CI machine trusts this short-lived, nonexportable test certificate.
  $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=WasyncMSIXTest' -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy NonExportable -NotAfter (Get-Date).AddDays(2)
