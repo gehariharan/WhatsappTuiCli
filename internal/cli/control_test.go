@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -130,4 +131,36 @@ func TestStandaloneSyncConnectsOnceAndReleasesDevice(t *testing.T) {
 		t.Fatal("sync left device locked", err)
 	}
 	lock.Close()
+}
+
+func TestOwnerSyncReturnsLargeSelectionAsOneJSONDocument(t *testing.T) {
+	app, output, store, _, dir := queryFixture(t)
+	chats := make([]storage.Group, 500)
+	for i := range chats {
+		chats[i] = storage.Group{ID: fmt.Sprintf("%d@g.us", i+1), Name: strings.Repeat("Synthetic group ", 16), Enabled: true, HistoryState: "unknown"}
+	}
+	server, err := api.StartControlled("127.0.0.1:0", dir, store, nil, nil, nil, func(context.Context, whatsapp.SyncInput) (whatsapp.SyncResult, error) {
+		return whatsapp.SyncResult{Connection: "online", Chats: chats, Completeness: "unknown"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	if err = app.Run(context.Background(), []string{"--data-dir", dir, "--api-addr", strings.TrimPrefix(server.URL, "http://"), "sync", "--wait", "0s"}); err != nil {
+		t.Fatal(err)
+	}
+	if output.Len() <= 64<<10 {
+		t.Fatal("fixture did not exercise large response")
+	}
+	var response whatsapp.SyncResult
+	if err = json.Unmarshal(output.Bytes(), &response); err != nil || len(response.Chats) != len(chats) {
+		t.Fatalf("large selection lost: %d %v", len(response.Chats), err)
+	}
+}
+func TestCommandResponseRejectsOversizeExplicitly(t *testing.T) {
+	var out bytes.Buffer
+	err := printCommandJSON(&out, strings.NewReader(strings.Repeat(" ", (4<<20)+1)))
+	if err == nil || !strings.Contains(err.Error(), "exceeds 4 MiB") || out.Len() != 0 {
+		t.Fatalf("oversize response: %v %q", err, out.String())
+	}
 }

@@ -142,9 +142,13 @@ func (a *App) runActionStatus(ctx context.Context, cfg config.Config, args []str
 	return nil
 }
 func printCommandJSON(out io.Writer, body io.Reader) error {
-	data, err := io.ReadAll(io.LimitReader(body, 64<<10))
+	const maxResponse = 4 << 20
+	data, err := io.ReadAll(io.LimitReader(body, maxResponse+1))
 	if err != nil {
 		return err
+	}
+	if len(data) > maxResponse {
+		return fmt.Errorf("command response exceeds 4 MiB; use read-only query commands for paginated results")
 	}
 	var value any
 	if err = json.Unmarshal(data, &value); err != nil {
