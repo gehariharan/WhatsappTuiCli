@@ -3,12 +3,17 @@ package storage
 import (
 	"context"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestDiscoveryPreservesAllowlistAndAccountIsolation(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(privateTestDir(t), "archive ?# test.db")
+	name := "archive ?# test.db"
+	if runtime.GOOS == "windows" {
+		name = "archive # test.db" // '?' is not a legal Windows filename character
+	}
+	path := filepath.Join(privateTestDir(t), name)
 	s, err := Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
