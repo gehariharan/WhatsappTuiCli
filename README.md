@@ -801,8 +801,8 @@ $env:PATH = 'C:/msys64/ucrt64/bin;' + $env:PATH
   primary phone online; **h** retries a failed history request. Neither enabling
   nor reconnecting guarantees complete history or recovery of downtime messages.
 
-Schema version 4 adds cursor metadata; version 5 adds persistent media policies. Start the updated TUI once to migrate an
-older archive before running read-only queries with the updated executable.
+Schema version 4 adds cursor metadata; version 5 adds persistent media policies.
+Start the updated TUI once to migrate an older archive before running read-only queries with the updated executable.
 Group and direct chats share the archive while preserving legacy `group_id` keys
 and group-only listing commands; use `chat_id` and the `chats` commands for both.
 
@@ -855,6 +855,10 @@ only signed requests (headers `X-Wasync-Time`, `X-Wasync-Nonce`, `X-Wasync-Signa
 a plaintext bearer token is rejected there. Keep the token private.
 
 ## Optional media and document downloads
+
+The global flag below enables automatic downloads for chats whose saved policy is
+`inherit`; per-chat policies and one-time downloads are covered in
+[Per-chat media policies](#per-chat-media-policies-and-one-time-downloads).
 
 ```sh
 wasync --download-media
