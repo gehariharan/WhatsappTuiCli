@@ -3,13 +3,9 @@
 Prebuilt Intel and Apple Silicon executables for macOS 15 or later. No Go or C
 compiler is required. Each Mac downloads its native architecture automatically.
 
-This preview tap and its release assets are private. Use a GitHub account with
-access to `gehariharan/homebrew-tap` and `gehariharan/WhatsappTuiCli`:
+The tap and release assets are public. No GitHub account or compiler is needed:
 
 ```sh
-brew install gh
-gh auth login
-gh auth setup-git
 brew tap gehariharan/tap
 # Homebrew versions with tap trust:
 brew trust --cask gehariharan/tap/wasync
@@ -18,9 +14,9 @@ wasync version
 wasync
 ```
 
-For automated runners, pass a repository-scoped token as `GH_TOKEN`; the private
-release download strategy delegates authentication to `gh`. No token goes in a
-URL or cask. Homebrew verifies the downloaded archive's SHA-256 checksum.
+Homebrew verifies the downloaded archive's SHA-256 checksum. Public downloads
+use ordinary HTTPS without authentication. The legacy private-release download
+helper remains available for private forks; the public cask does not use it.
 
 Releases from `0.1.0-preview.5` onward are Developer ID signed and notarized.
 The cask keeps Homebrew's normal protection; no hook changes quarantine or
