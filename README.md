@@ -7,7 +7,78 @@ written in Go using [whatsmeow](https://github.com/tulir/whatsmeow) and
 The executable is named **`wasync`**: launch it for the terminal UI, or use
 **`wasync query …`** for read-only JSON queries from local agents.
 
-## Build and launch
+## Install a prebuilt package
+
+End users do not need Go, Xcode Command Line Tools, or a C compiler. The native
+release workflow produces these downloads:
+
+| Platform | Download | Installation |
+| --- | --- | --- |
+| macOS 15+, Apple Silicon | `wasync_VERSION_darwin_arm64.pkg` | Open the package and follow Installer |
+| macOS 15+, Intel | `wasync_VERSION_darwin_amd64.pkg` | Open the package and follow Installer |
+| Linux x86-64, glibc 2.35+ | `wasync_VERSION_linux_amd64.tar.gz` | Extract and install the executable on PATH |
+| Linux ARM64, glibc 2.35+ | `wasync_VERSION_linux_arm64.tar.gz` | Extract and install the executable on PATH |
+
+The release workflow creates **draft prereleases** for maintainer review. It has
+not been run or published as part of the initial packaging setup. Downloadable
+published versions will appear on the
+[GitHub Releases page](https://github.com/gehariharan/WhatsappTuiCli/releases).
+The repository is currently private, so downloads require an account with access.
+
+On macOS the package installs `/usr/local/bin/wasync` and dependency notices under
+`/usr/local/share/wasync`. It asks for administrator approval. After installation,
+open Terminal and run:
+
+```sh
+wasync version
+wasync
+# From another terminal, for agents:
+wasync query groups --enabled
+```
+
+If an earlier manual or Homebrew installation is still on PATH, check
+`command -v wasync`. This package installs `/usr/local/bin/wasync`; use that
+explicit path to verify it, and keep only one installation method active.
+
+Preview packages are **unsigned and not notarized**; macOS may block downloaded
+installers. General public distribution still needs Apple Developer signing and
+notarization. The packaging script supports signing identities described below;
+it does not remove quarantine or bypass Gatekeeper.
+
+Linux users can extract the matching archive and install without administrator
+access:
+
+```sh
+tar -xzf wasync_VERSION_linux_amd64.tar.gz
+mkdir -p "$HOME/.local/bin"
+install -m 755 wasync "$HOME/.local/bin/wasync"
+export PATH="$HOME/.local/bin:$PATH"
+wasync version
+```
+
+The `checksums.txt` release asset contains SHA-256 hashes of each download. On
+Linux use `sha256sum --ignore-missing -c checksums.txt` in the download directory;
+on macOS compare `shasum -a 256 FILE.pkg` with its line in `checksums.txt`.
+Quit capture before upgrading. Installers only replace program files; archives,
+allowlists and pairing state remain in the per-user data directory. The package
+rejects the wrong CPU architecture, unsupported macOS versions and an existing
+`/usr/local/bin/wasync` symlink owned by another installation method.
+
+### Homebrew installation
+
+Each draft release also generates `wasync.rb`, a Homebrew **cask** that installs
+the prebuilt macOS executable and verifies the archive checksum. It performs no
+source build. Once that cask is published to `gehariharan/homebrew-tap` and its
+release URLs are publicly accessible, the installation command will be:
+
+```sh
+brew install --cask gehariharan/tap/wasync
+```
+
+The tap is not published yet. Public downloads and Apple signing/notarization
+must be configured before advertising this as a general public installer.
+
+## Build and launch (development)
 
 Requires macOS or Linux, Go 1.27.1 or newer (the project selects Go 1.27.2), and a
 C compiler. On macOS, install the Xcode Command Line Tools if needed.
@@ -465,3 +536,43 @@ or sharing conversations. There are no features for posting messages to conversa
 AI processing, attachment downloads or application web frontend in this phase.
 The original design and risk review are saved in
 [the HTML design artifact](.lavish/whatsapp-sync-design.html).
+
+## Maintainer release packaging
+
+Run on each target platform with Go, a C compiler, Python 3 and the platform's
+packaging tools installed:
+
+```sh
+scripts/package.sh 0.1.0-preview.1
+```
+
+Outputs are written under `dist/VERSION/OS_ARCH/` (ignored by Git). Each build
+contains version, commit and timestamp metadata, dependency license notices, a
+compressed executable archive and checksums. macOS builds additionally contain
+a native `.pkg`. The build compiles SQLite with FTS5 enabled and embeds the
+result in the executable; it requires no separately installed SQLite package.
+Linux executables use the build platform's libc, so the workflow uses Ubuntu
+22.04 (glibc 2.35). macOS builds target macOS 15 or later.
+
+`.github/workflows/release.yml` builds on native Intel and ARM runners for macOS
+and Linux. Run **Build prebuilt installers** manually with a version, or push a
+`vVERSION` tag. All four platforms must build before the workflow creates a draft
+prerelease with archives, macOS installers, aggregate checksums and the generated
+Homebrew cask. It does not publish the draft, change repository visibility, or
+update another repository. Existing releases are not overwritten.
+
+A local build can optionally use existing signing identities from your Keychain:
+
+```sh
+WASYNC_CODESIGN_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' \
+WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
+  scripts/package.sh 0.1.0
+```
+
+Unsigned builds use an ad hoc binary signature, which is not a Developer ID
+signature. CI currently creates unsigned previews; importing signing credentials,
+Apple notarization and ticket stapling remain release setup work. Never commit
+certificates or signing credentials. Before publishing, inspect the package
+contents and signatures, verify the checksum, and validate installation on each
+supported platform. No installer launches WhatsApp, starts capture or creates
+credentials during installation.

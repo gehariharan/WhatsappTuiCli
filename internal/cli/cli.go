@@ -20,6 +20,7 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"golang.org/x/term"
 	"whatsappsync/internal/api"
+	"whatsappsync/internal/buildinfo"
 	"whatsappsync/internal/config"
 	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/processlock"
@@ -65,6 +66,7 @@ Usage: wasync [--data-dir PATH] [--timeout 3m] [--api-addr 127.0.0.1:8787] [--no
   groups disable GROUP_ID                    Disable capture preference
   status                                     Inspect local pairing state
   query [groups|messages|search|status]       Read-only JSON queries for agents
+  version                                    Show installed build information
 
 The TUI captures enabled groups and imports history when WhatsApp delivers it.
 Login/observation commands remain diagnostics and discard message bodies.
@@ -82,6 +84,7 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 		return err
 	}
 	root := a.flags("wasync")
+	showVersion := root.Bool("version", false, "show installed build information")
 	root.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "dedicated private data directory")
 	root.DurationVar(&cfg.Timeout, "timeout", cfg.Timeout, "overall command timeout, including selection and observation")
 	root.StringVar(&cfg.APIAddr, "api-addr", cfg.APIAddr, "local API loopback address")
@@ -94,6 +97,20 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 		return err
 	}
 	args = root.Args()
+	if *showVersion {
+		if len(args) != 0 {
+			return fmt.Errorf("usage: wasync --version")
+		}
+		_, err := fmt.Fprintln(a.Out, buildinfo.String())
+		return err
+	}
+	if len(args) > 0 && args[0] == "version" {
+		if len(args) != 1 {
+			return fmt.Errorf("usage: wasync version")
+		}
+		_, err := fmt.Fprintln(a.Out, buildinfo.String())
+		return err
+	}
 	if len(args) == 0 {
 		args = []string{"tui"}
 	}

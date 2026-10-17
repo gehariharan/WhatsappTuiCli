@@ -1,0 +1,120 @@
+name: Build prebuilt installers
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version (e.g. 0.1.0-preview.1); creates a draft prerelease"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installers-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-22.04
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Validate release version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          version="${REQUESTED_VERSION:-${GITHUB_REF_NAME#v}}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9][A-Za-z0-9.-]*)?$ ]]; then
+            echo "Invalid version" >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: darwin_arm64
+          - runner: macos-15-intel
+            platform: darwin_amd64
+          - runner: ubuntu-22.04
+            platform: linux_amd64
+          - runner: ubuntu-22.04-arm
+            platform: linux_arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build native release packages
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: bash scripts/package.sh "$PACKAGE_VERSION"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/${{ needs.version.outputs.value }}/${{ matrix.platform }}/*
+          if-no-files-found: error
+          retention-days: 14
+
+  draft-release:
+    needs: [version, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist/release
+      - name: Generate Homebrew cask and checksums
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: |
+          python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/release/wasync.rb
+          cd dist/release
+          sha256sum ./*.tar.gz ./*.pkg > checksums.txt
+      - name: Create draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        shell: bash
+        run: |
+          tag="v$PACKAGE_VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "A release for $tag already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+          cat > dist/release/RELEASE_NOTES.md <<'NOTES'
+          Prebuilt preview packages. No Go compiler is required on the user's computer.
+
+          - macOS 15+: download the matching darwin_arm64 (Apple Silicon) or darwin_amd64 (Intel) .pkg and open it. Then run `wasync` in Terminal.
+          - Linux: download the matching linux archive; extract and install the executable into a directory on PATH. Builds target glibc 2.35 or newer.
+          - `wasync query --help` documents the agent query interface.
+          - Verify downloads against checksums.txt.
+
+          These preview macOS packages are unsigned and not notarized. The maintainer must configure Apple Developer signing and notarization before general public distribution.
+          The generated wasync.rb is a binary-only Homebrew cask for a tap once release assets are publicly accessible.
+          Installation preserves existing per-user archives and pairing credentials.
+          NOTES
+          gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" \
+            --title "wasync $PACKAGE_VERSION" --notes-file dist/release/RELEASE_NOTES.md \
+            dist/release/*.tar.gz dist/release/*.pkg dist/release/checksums.txt dist/release/wasync.rb

@@ -15,3 +15,10 @@ device.lock
 .env
 .env.*
 !.env.example
+
+# Generated release packages
+/dist/
+
+# Python packaging helper caches
+__pycache__/
+*.pyc
