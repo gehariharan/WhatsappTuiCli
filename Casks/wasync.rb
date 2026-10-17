@@ -14,7 +14,7 @@ cask "wasync" do
   desc "Local WhatsApp group archive with a terminal UI and agent query CLI"
   homepage "https://github.com/gehariharan/WhatsappTuiCli"
 
-  depends_on macos: ">= :sequoia"
+  depends_on macos: :sequoia
 
   depends_on formula: "gh"
 

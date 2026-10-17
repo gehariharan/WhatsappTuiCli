@@ -23,15 +23,14 @@ release download strategy delegates authentication to `gh`. No token goes in a
 URL or cask. Homebrew verifies the downloaded archive's SHA-256 checksum.
 
 Preview binaries have ad hoc signatures, not Apple Developer ID signatures, and
-are not notarized. The normal install keeps Homebrew's quarantine protection.
-If macOS blocks this unsigned preview, the explicit testing-only installation is:
+are not notarized. macOS may block execution after installation. The cask keeps
+Homebrew's normal protection; no hook changes quarantine or Gatekeeper policy.
+Review trusted developer builds in System Settings → Privacy & Security. General
+public distribution still needs Developer ID signing and notarization.
 
-```sh
-brew install --cask --no-quarantine gehariharan/tap/wasync
-```
-
-That flag disables quarantine for this installation; it is not a signing fix.
-Public production installers still require Developer ID signing and notarization.
+The E2E workflow has an explicit unsigned-preview test option limited to
+GitHub-hosted runners. It is not part of this installer and does not prove that
+an unsigned download will run on an unmodified user's Mac.
 
 Agent queries work alongside the TUI and return JSON:
 
