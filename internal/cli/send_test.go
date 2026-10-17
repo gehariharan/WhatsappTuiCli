@@ -59,7 +59,10 @@ func TestSendReusesOwnerAndCleanupOnlyQueuesApproval(t *testing.T) {
 	app, output, store, account, dir := queryFixture(t)
 	queue := &approval.Queue{}
 	var calls atomic.Int32
-	server, err := api.StartWithApprovals("127.0.0.1:0", dir, store, nil, queue, func(context.Context, whatsapp.SendInput) (whatsapp.SendResult, error) {
+	server, err := api.StartWithApprovals("127.0.0.1:0", dir, store, nil, queue, func(ctx context.Context, _ whatsapp.SendInput) (whatsapp.SendResult, error) {
+		if _, limited := ctx.Deadline(); limited {
+			t.Error("owner imposed a short send deadline")
+		}
 		calls.Add(1)
 		return whatsapp.SendResult{Status: "server_acknowledged", MessageID: "fake"}, nil
 	})

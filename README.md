@@ -829,7 +829,8 @@ wasync send --to '123456789@g.us' --file ./photo.png --type image --text 'Captio
 wasync send --to '15551234567@s.whatsapp.net' --file ./report.pdf --type document
 ```
 
-Sending supports text/URLs, JPEG/PNG images and documents up to 25 MiB. The default
+Sending supports text/URLs, JPEG/PNG images and documents. WhatsApp determines
+which sizes and formats it accepts; wasync adds no fixed file-size cap. The default
 attachment type is document. Rich link-preview generation is not implemented.
 Output is JSON with `result.status` and `result.message_id`. A server acknowledgement
 is not proof of delivery or reading. An unknown outcome must be checked in WhatsApp
@@ -866,14 +867,13 @@ WASYNC_DOWNLOAD_MEDIA=1 wasync
 Images, documents, videos, audio/voice notes and ordinary WebP stickers are
 eligible in enabled chats. Lottie stickers retain metadata only. Downloads run in
 a bounded background queue and
-use whatsmeow's authenticated decryption and integrity checking. Each file is
-limited to 25 MiB and stored under the private `media/ACCOUNT/CHAT_HASH/` directory.
+use whatsmeow's authenticated decryption and integrity checking. Files are streamed to disk without a wasync-specific size cap and stored under the private `media/ACCOUNT/CHAT_HASH/` directory.
 Sender filenames are never used as paths. Attachment metadata gains
 `download_state`, `local_path` and `relative_path`, visible in message queries.
 `relative_path` is authoritative relative to the current data directory’s `media/`
 root, so moving your archive preserves file identity; `local_path` records the
 absolute path at download time. States such as
-`failed`, `queue_full` and `skipped_size` describe incomplete attempts; downloads
+`failed`, `queue_full` and `invalid_metadata` describe incomplete attempts; downloads
 are best effort and require available WhatsApp media. Missing files are not
 retrieved merely by searching the local archive.
 
@@ -1156,7 +1156,39 @@ or indexed internally; text search covers message text and attachment captions, 
 PDF/OCR/document contents or metadata-only filenames/titles. Files are never opened or executed automatically.
 
 Media downloads remain explicitly enabled with `--download-media` or
-`WASYNC_DOWNLOAD_MEDIA=1`. The 25 MiB bound, allowlist, expiry/view-once exclusions,
+`WASYNC_DOWNLOAD_MEDIA=1`. The allowlist, expiry/view-once exclusions,
 deletion cleanup and best-effort history limits also apply to video, voice notes,
 audio and stickers. Installing an update does not recover previously discarded
 media download keys; WhatsApp must deliver the original attachment metadata again.
+
+
+## Media size and download selection
+
+Wasync has no fixed 25 MiB sending or download limit. Uploads use whatsmeow's
+streaming encryption/upload API; downloads write to disk and verify the message's
+advertised length plus upstream cryptographic integrity. WhatsApp's current
+service/type limits and media availability still apply; removing an application
+cap does not make WhatsApp accept an unsupported file. Cancellation and normal
+network/protocol failures remain possible. Large transfers need disk space for
+temporary encrypted data in addition to their final file.
+
+Download selection currently has two layers:
+
+- Enable capture for the groups/direct chats you want to archive.
+- Add `--download-media` (or `WASYNC_DOWNLOAD_MEDIA=1`) to download eligible
+  attachments from **all enabled chats**. Omit it to keep metadata only.
+
+There is currently no independent per-chat media preference or per-message
+manual-download command. Disabling chat capture stops its downloads too. Starting
+with media downloads enabled does not recover discarded download keys from old
+metadata-only records; the original media metadata must be delivered again.
+
+For a long explicit upload, increase the CLI's command timeout, for example:
+
+```sh
+wasync --timeout 30m send --to CHAT_ID --file ./large-report.pdf
+```
+
+The running owner's authenticated send route honors client cancellation rather
+than imposing the ordinary short query timeout. Only an explicit send invocation
+uploads a file; enabling downloads never sends a conversation message.

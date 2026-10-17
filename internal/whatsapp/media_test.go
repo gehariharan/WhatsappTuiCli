@@ -19,9 +19,10 @@ func TestMediaDownloadBoundIncludesCopyFastPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer file.Close()
-	bounded := &boundedMediaFile{File: file}
+	const declaredSize = 32 << 20
+	bounded := &boundedMediaFile{File: file, limit: declaredSize + 64}
 	// TeeReader matches the upstream download path. io.Copy selects ReaderFrom.
-	source := io.TeeReader(bytes.NewReader(make([]byte, MaxAttachmentSize+1024)), io.Discard)
+	source := io.TeeReader(bytes.NewReader(make([]byte, declaredSize+1024)), io.Discard)
 	_, err = io.Copy(bounded, source)
 	if err == nil {
 		t.Fatal("oversized media bypassed the bounded writer")
@@ -30,7 +31,10 @@ func TestMediaDownloadBoundIncludesCopyFastPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Size() > MaxAttachmentSize+64 {
+	if info.Size() <= 25<<20 {
+		t.Fatal("valid media above the old 25 MiB cap was not written")
+	}
+	if info.Size() > declaredSize+64 {
 		t.Fatalf("wrote %d bytes beyond limit", info.Size())
 	}
 	if _, err = bounded.WriteAt([]byte("x"), int64(^uint64(0)>>1)); err == nil {
