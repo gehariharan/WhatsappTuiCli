@@ -1,0 +1,66 @@
+name: Homebrew installation E2E
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      allow_unsigned_preview:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing published release version (without v)"
+        required: true
+        default: "0.1.0-preview.3"
+        type: string
+      allow_unsigned_preview:
+        description: "CI-only quarantine exception for this unsigned preview (not a signing test)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install prebuilt release from the private tap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_ANALYTICS: '1'
+          HOMEBREW_NO_ASK: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        shell: bash
+        run: |
+          source scripts/tap-ssh.sh
+          trap 'rm -rf "$tap_ssh_dir"' EXIT
+          brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
+          if brew help trust >/dev/null 2>&1; then brew trust --cask gehariharan/tap/wasync; fi
+          brew install --cask gehariharan/tap/wasync
+      - name: Explicit CI-only exception for unsigned preview
+        if: inputs.allow_unsigned_preview
+        run: bash scripts/test-unsigned-preview.sh
+      - name: Exercise installed binary, concurrent queries and offline TUI
+        env:
+          PACKAGE_VERSION: ${{ inputs.version }}
+          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        run: python3 scripts/smoke-installed.py "$(brew --prefix)/bin/wasync" "$PACKAGE_VERSION" "$EXPECTED_ARCHITECTURE"

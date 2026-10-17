@@ -12,3 +12,15 @@ chmod 600 "$tap_ssh_dir/key"
 gh api meta --jq '.ssh_keys[] | "github.com " + .' > "$tap_ssh_dir/known_hosts"
 printf -v GIT_SSH_COMMAND 'ssh -i %q -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%q' "$tap_ssh_dir/key" "$tap_ssh_dir/known_hosts"
 export GIT_SSH_COMMAND
+
+# Homebrew deliberately sanitizes GIT_SSH_COMMAND; its supported override is a config path.
+cat > "$tap_ssh_dir/config" <<CONFIG
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile "$tap_ssh_dir/key"
+  IdentitiesOnly yes
+  StrictHostKeyChecking yes
+  UserKnownHostsFile "$tap_ssh_dir/known_hosts"
+CONFIG
+export HOMEBREW_SSH_CONFIG_PATH="$tap_ssh_dir/config"

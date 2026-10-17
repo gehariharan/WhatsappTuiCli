@@ -82,17 +82,17 @@ brew trust --cask gehariharan/tap/wasync
 brew install --cask gehariharan/tap/wasync
 ```
 
-These previews are not Developer ID signed or notarized. The normal install
-retains Homebrew quarantine protection. If macOS blocks the unsigned preview,
-the explicit testing-only command is:
+These previews are not Developer ID signed or notarized. macOS can block their
+execution. Homebrew's quarantine behavior is preserved; no cask hook disables
+Gatekeeper. Apple Developer signing and notarization remain necessary for a
+normal public installer experience. Both repositories remain private.
 
-```sh
-brew install --cask --no-quarantine gehariharan/tap/wasync
-```
-
-That flag disables quarantine for this installation and is not a signing fix.
-Public downloads and Apple signing/notarization must be configured before
-advertising a general public installer. The tap and application remain private.
+On a trusted development machine, review the blocked application in macOS
+System Settings → Privacy & Security. Do not assume installation alone proves
+that macOS will allow the unsigned executable. Existing manual launchers may
+precede the Homebrew binary; check `command -v wasync` and use
+`/usr/local/bin/wasync` on Intel or `/opt/homebrew/bin/wasync` on Apple Silicon to
+select the installed release explicitly.
 
 ## Build and launch (development)
 
@@ -586,8 +586,12 @@ their temporary `GITHUB_TOKEN` for assets in the application repository. Private
 Homebrew downloads invoke `gh`; authentication is not embedded in casks, URLs,
 or cache metadata. Do not print or commit either credential.
 
-The Homebrew E2E jobs explicitly use `--no-quarantine` for these unsigned previews.
-They install the actual release archive and validate the installed binary's
+The reusable Homebrew E2E workflow can also be run independently against an
+existing release. Its explicit `allow_unsigned_preview` option removes quarantine
+only from the installed test executable on a disposable GitHub-hosted runner.
+The cask itself never disables quarantine. This option is false by default for
+manual runs and true for the current unsigned preview release pipeline.
+The jobs install the actual release archive and validate the installed binary's
 version and native architecture, concurrent read-only JSON queries, FTS5 search,
 pagination, graceful shutdown, and offline TUI rendering/exit with synthetic data.
 They do not link a real WhatsApp account or claim to validate Apple notarization.

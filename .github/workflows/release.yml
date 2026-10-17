@@ -175,35 +175,8 @@ jobs:
   homebrew-e2e:
     needs: [version, publish-tap]
     if: needs.version.outputs.publish == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            architecture: arm64
-          - runner: macos-15-intel
-            architecture: amd64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - name: Install from the private tap and query a synthetic archive
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
-          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
-          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
-          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
-          HOMEBREW_NO_AUTO_UPDATE: '1'
-          HOMEBREW_NO_ANALYTICS: '1'
-        shell: bash
-        run: |
-          source scripts/tap-ssh.sh
-          trap 'rm -rf "$tap_ssh_dir"' EXIT
-          brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
-          if brew help trust >/dev/null 2>&1; then brew trust --cask gehariharan/tap/wasync; fi
-          # Explicitly test this unsigned preview. Production signing is separate.
-          brew install --cask --no-quarantine gehariharan/tap/wasync
-          python3 scripts/smoke-installed.py "$(brew --prefix)/bin/wasync" "$PACKAGE_VERSION" "$EXPECTED_ARCHITECTURE"
+    uses: ./.github/workflows/homebrew-e2e.yml
+    with:
+      version: ${{ needs.version.outputs.value }}
+      allow_unsigned_preview: true
+    secrets: inherit
