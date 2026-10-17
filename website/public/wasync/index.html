@@ -61,6 +61,7 @@
         <p class="fine download-note">Use Homebrew or the .pkg installer as your installation method. Quit capture before upgrading; your archive and pairing state stay in your user data directory.</p>
         <details><summary>Linux downloads &amp; setup</summary><p><a href="./download/linux-amd64">Linux x86-64 ↓</a> · <a href="./download/linux-arm64">Linux ARM64 ↓</a> · glibc 2.35 or newer</p><p>Extract the archive and install the executable on your PATH:</p><pre><code>mkdir -p "$HOME/.local/bin"
 install -m 755 wasync "$HOME/.local/bin/wasync"
+export PATH="$HOME/.local/bin:$PATH"
 wasync</code></pre></details>
         <p class="release-status" id="release-status" aria-live="polite">Latest builds and checksums are available on <a href="https://github.com/gehariharan/WhatsappTuiCli/releases">GitHub Releases</a>.</p>
         <p id="copy-status" class="sr-only" aria-live="polite"></p>
