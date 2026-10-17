@@ -9,6 +9,10 @@ on:
         description: "Package version (e.g. 0.1.0-preview.1); creates a draft prerelease"
         required: true
         type: string
+      publish:
+        description: "Publish the private prerelease, update the tap, and run Homebrew E2E checks"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,11 +26,13 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       value: ${{ steps.version.outputs.value }}
+      publish: ${{ steps.version.outputs.publish }}
     steps:
       - name: Validate release version
         id: version
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
+          PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
         shell: bash
         run: |
           version="${REQUESTED_VERSION:-${GITHUB_REF_NAME#v}}"
@@ -35,6 +41,7 @@ jobs:
             exit 1
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
@@ -60,6 +67,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Test storage, filtering, and integration
+        run: go test -tags sqlite_fts5 ./...
       - name: Build native release packages
         env:
           PACKAGE_VERSION: ${{ needs.version.outputs.value }}
@@ -71,7 +80,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  draft-release:
+  release:
     needs: [version, build]
     runs-on: ubuntu-22.04
     permissions:
@@ -88,8 +97,11 @@ jobs:
       - name: Generate Homebrew cask and checksums
         env:
           PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
         run: |
-          python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/release/wasync.rb
+          extra=()
+          if [[ "$PRIVATE_REPOSITORY" == "true" ]]; then extra+=(--private); fi
+          python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/release/wasync.rb "${extra[@]}"
           cd dist/release
           sha256sum ./*.tar.gz ./*.pkg > checksums.txt
       - name: Create draft prerelease
@@ -112,9 +124,71 @@ jobs:
           - Verify downloads against checksums.txt.
 
           These preview macOS packages are unsigned and not notarized. The maintainer must configure Apple Developer signing and notarization before general public distribution.
-          The generated wasync.rb is a binary-only Homebrew cask for a tap once release assets are publicly accessible.
+          The generated wasync.rb is a binary-only Homebrew cask. Private releases use GitHub CLI authentication.
           Installation preserves existing per-user archives and pairing credentials.
           NOTES
           gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" \
             --title "wasync $PACKAGE_VERSION" --notes-file dist/release/RELEASE_NOTES.md \
             dist/release/*.tar.gz dist/release/*.pkg dist/release/checksums.txt dist/release/wasync.rb
+      - name: Publish prerelease for Homebrew
+        if: needs.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: gh release edit "v$PACKAGE_VERSION" --draft=false --prerelease
+
+  publish-tap:
+    needs: [version, release]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Download release cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: gh release download "v$PACKAGE_VERSION" --pattern wasync.rb --dir dist/release
+      - name: Update tap with repository-scoped deploy key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
+        run: bash scripts/publish-tap.sh dist/release
+
+  homebrew-e2e:
+    needs: [version, publish-tap]
+    if: needs.version.outputs.publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+          - runner: macos-15-intel
+            architecture: amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install from the private tap and query a synthetic archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_ANALYTICS: '1'
+        shell: bash
+        run: |
+          source scripts/tap-ssh.sh
+          trap 'rm -rf "$tap_ssh_dir"' EXIT
+          brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
+          if brew help trust >/dev/null 2>&1; then brew trust --cask gehariharan/tap/wasync; fi
+          # Explicitly test this unsigned preview. Production signing is separate.
+          brew install --cask --no-quarantine gehariharan/tap/wasync
+          python3 scripts/smoke-installed.py "$(brew --prefix)/bin/wasync" "$PACKAGE_VERSION" "$EXPECTED_ARCHITECTURE"
+

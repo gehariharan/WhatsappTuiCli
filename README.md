@@ -19,9 +19,10 @@ release workflow produces these downloads:
 | Linux x86-64, glibc 2.35+ | `wasync_VERSION_linux_amd64.tar.gz` | Extract and install the executable on PATH |
 | Linux ARM64, glibc 2.35+ | `wasync_VERSION_linux_arm64.tar.gz` | Extract and install the executable on PATH |
 
-The release workflow creates **draft prereleases** for maintainer review. It has
-not been run or published as part of the initial packaging setup. Downloadable
-published versions will appear on the
+The release workflow builds native Intel/Apple Silicon macOS packages and
+Linux packages. Manual builds can remain drafts; publishing also updates the
+Homebrew tap and runs installation checks on both Mac architectures. Downloadable
+versions appear on the
 [GitHub Releases page](https://github.com/gehariharan/WhatsappTuiCli/releases).
 The repository is currently private, so downloads require an account with access.
 
@@ -66,17 +67,32 @@ rejects the wrong CPU architecture, unsupported macOS versions and an existing
 
 ### Homebrew installation
 
-Each draft release also generates `wasync.rb`, a Homebrew **cask** that installs
-the prebuilt macOS executable and verifies the archive checksum. It performs no
-source build. Once that cask is published to `gehariharan/homebrew-tap` and its
-release URLs are publicly accessible, the installation command will be:
+Each release generates `wasync.rb`, a Homebrew **cask** that installs the
+prebuilt native macOS executable and verifies its archive checksum. It performs
+no source build. The private tap uses GitHub CLI authentication for release
+downloads; use an account with access to both repositories:
 
 ```sh
+brew install gh
+gh auth login
+gh auth setup-git
+brew tap gehariharan/tap
+# On Homebrew versions with tap trust:
+brew trust --cask gehariharan/tap/wasync
 brew install --cask gehariharan/tap/wasync
 ```
 
-The tap is not published yet. Public downloads and Apple signing/notarization
-must be configured before advertising this as a general public installer.
+These previews are not Developer ID signed or notarized. The normal install
+retains Homebrew quarantine protection. If macOS blocks the unsigned preview,
+the explicit testing-only command is:
+
+```sh
+brew install --cask --no-quarantine gehariharan/tap/wasync
+```
+
+That flag disables quarantine for this installation and is not a signing fix.
+Public downloads and Apple signing/notarization must be configured before
+advertising a general public installer. The tap and application remain private.
 
 ## Build and launch (development)
 
@@ -556,10 +572,25 @@ Linux executables use the build platform's libc, so the workflow uses Ubuntu
 
 `.github/workflows/release.yml` builds on native Intel and ARM runners for macOS
 and Linux. Run **Build prebuilt installers** manually with a version, or push a
-`vVERSION` tag. All four platforms must build before the workflow creates a draft
-prerelease with archives, macOS installers, aggregate checksums and the generated
-Homebrew cask. It does not publish the draft, change repository visibility, or
-update another repository. Existing releases are not overwritten.
+`vVERSION` tag. All four platforms must pass tests and build before the workflow
+creates a prerelease with archives, macOS installers, aggregate checksums and the
+generated Homebrew cask. A manual run defaults to a draft. Set its `publish` input
+to true, or push a version tag, to publish the prerelease, update the private
+`gehariharan/homebrew-tap` repository, and run Homebrew installation checks on
+Intel and Apple Silicon. Existing releases are not overwritten. No workflow
+changes repository visibility.
+
+`HOMEBREW_TAP_SSH_KEY` is an encrypted Actions secret containing a write deploy
+key restricted to the tap. It is not a personal GitHub token. Release jobs use
+their temporary `GITHUB_TOKEN` for assets in the application repository. Private
+Homebrew downloads invoke `gh`; authentication is not embedded in casks, URLs,
+or cache metadata. Do not print or commit either credential.
+
+The Homebrew E2E jobs explicitly use `--no-quarantine` for these unsigned previews.
+They install the actual release archive and validate the installed binary's
+version and native architecture, concurrent read-only JSON queries, FTS5 search,
+pagination, graceful shutdown, and offline TUI rendering/exit with synthetic data.
+They do not link a real WhatsApp account or claim to validate Apple notarization.
 
 A local build can optionally use existing signing identities from your Keychain:
 

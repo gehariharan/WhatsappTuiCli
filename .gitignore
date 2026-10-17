@@ -22,3 +22,11 @@ device.lock
 # Python packaging helper caches
 __pycache__/
 *.pyc
+
+# Signing credentials and provisioning material
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
