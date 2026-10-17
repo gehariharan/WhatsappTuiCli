@@ -210,12 +210,14 @@ func (h *handler) routes() http.Handler {
 				}
 				requiredToken = h.approveToken
 			}
-			if r.Header.Get("X-Wasync-Signature") != "" {
-				if !h.authenticateSend(w, r, requiredToken) {
-					return
-				}
-				requiredToken = ""
+			if requiredToken == "" || r.Header.Get("X-Wasync-Signature") == "" {
+				fail(w, 401, "signed request required")
+				return
 			}
+			if !h.authenticateSend(w, r, requiredToken) {
+				return
+			}
+			requiredToken = ""
 		}
 		if requiredToken != "" && r.Header.Get("X-Wasync-Signature") != "" {
 			if !h.authenticateSend(w, r, requiredToken) {

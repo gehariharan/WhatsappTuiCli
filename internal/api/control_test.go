@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -92,9 +94,28 @@ func TestSendCredentialIsSeparateAndSignedRequestsCannotReplay(t *testing.T) {
 	}
 	// The sending credential can enqueue, but cannot execute an approval.
 	requestBody, _ := json.Marshal(approval.Input{Kind: "purge-chat", Chat: "one@g.us"})
+	sign := func(req *http.Request, token string, body []byte) {
+		stamp := strconv.FormatInt(time.Now().Unix(), 10)
+		nonceBytes := make([]byte, 16)
+		rand.Read(nonceBytes)
+		nonce := hex.EncodeToString(nonceBytes)
+		req.Header.Set("X-Wasync-Time", stamp)
+		req.Header.Set("X-Wasync-Nonce", nonce)
+		req.Header.Set("X-Wasync-Signature", SignCommand(token, stamp, nonce, req.Method, req.URL.Path, body))
+	}
 	req, _ := http.NewRequest("POST", server.URL+"/api/actions", bytes.NewReader(requestBody))
 	req.Header.Set("Authorization", "Bearer "+controlToken)
 	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != 401 || queue.Pending(account) != nil {
+		t.Fatal("plaintext bearer queued an action")
+	}
+	req, _ = http.NewRequest("POST", server.URL+"/api/actions", bytes.NewReader(requestBody))
+	sign(req, controlToken, requestBody)
+	response, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +125,7 @@ func TestSendCredentialIsSeparateAndSignedRequestsCannotReplay(t *testing.T) {
 	}
 	pending := queue.Pending(account)
 	req, _ = http.NewRequest("POST", server.URL+"/api/actions/"+pending.ID+"/approve", nil)
-	req.Header.Set("Authorization", "Bearer "+controlToken)
+	sign(req, controlToken, nil)
 	response, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

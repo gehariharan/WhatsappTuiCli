@@ -844,8 +844,9 @@ Existing `/api/groups` lists groups only. Explicit sending uses authenticated
 `file` is an absolute local path and `type` is `image` or `document`. The separate `send.token` permits explicit sends, including reading the requested
 local attachment. The archive `api.token` cannot send. CLI commands sign requests
 with the send credential, bind the signature to the method/path/body and reject
-replays; they do not transmit the credential. Manual REST callers can use the
-separate send token as a bearer credential. Keep it private.
+replays; they do not transmit the credential. Send, sync and action routes accept
+only signed requests (headers `X-Wasync-Time`, `X-Wasync-Nonce`, `X-Wasync-Signature`);
+a plaintext bearer token is rejected there. Keep the token private.
 
 ## Optional image and document downloads
 
