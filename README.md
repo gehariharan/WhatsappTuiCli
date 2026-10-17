@@ -442,6 +442,9 @@ All commands use the same private data directory, normally:
 
 - macOS: `~/Library/Application Support/wasync`
 - Linux: `$XDG_CONFIG_HOME/wasync` or `~/.config/wasync`
+- Windows EXE/ZIP: `%APPDATA%\wasync`
+- Windows Microsoft Store build: `%USERPROFILE%\.wasync` (see
+  [Store archive location and migration](#store-archive-location-and-migration))
 
 Override it using `WASYNC_DATA_DIR` or the global `--data-dir` flag; flags win.
 Global flags precede the command.
