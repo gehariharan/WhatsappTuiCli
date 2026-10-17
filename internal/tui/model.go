@@ -579,7 +579,7 @@ func (m Model) View() tea.View {
 		if m.editing != "" {
 			prompt = "/ " + clean(m.draft) + "▏   Enter apply · Esc done"
 		}
-		hint := "↑↓ scroll   Space toggle   A/N all/none   L logout   Enter messages   / filter   h history   ? help   q quit"
+		hint := "Space toggle · A/N all/none · L logout · Enter messages · ? help · q quit"
 		if m.mode == "messages" {
 			hint = "↑↓ select   Enter full text   / search   n/p page   h history   Esc back   q quit"
 		}

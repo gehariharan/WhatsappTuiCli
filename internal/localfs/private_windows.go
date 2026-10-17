@@ -17,7 +17,7 @@ func privateSecurity() (*windows.SECURITY_DESCRIPTOR, *windows.SID, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	sd, err := windows.SecurityDescriptorFromString("D:P(A;OICI;FA;;;" + user.User.Sid.String() + ")(A;OICI;FA;;;SY)")
+	sd, err := windows.SecurityDescriptorFromString("O:" + user.User.Sid.String() + "D:P(A;OICI;FA;;;" + user.User.Sid.String() + ")(A;OICI;FA;;;SY)")
 	return sd, user.User.Sid, err
 }
 
@@ -29,7 +29,7 @@ func secureHandle(h windows.Handle, sid *windows.SID, sd *windows.SECURITY_DESCR
 	if info.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
 		return fmt.Errorf("refusing a reparse point in private storage")
 	}
-	existing, err := windows.GetSecurityInfo(h, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION)
+	existing, err := windows.GetSecurityInfo(h, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION)
 	if err != nil {
 		return err
 	}
@@ -39,6 +39,9 @@ func secureHandle(h windows.Handle, sid *windows.SID, sd *windows.SECURITY_DESCR
 	}
 	if !owner.Equals(sid) {
 		return fmt.Errorf("private storage must be owned by the current user")
+	}
+	if err = checkPrivateACL(existing, sid); err != nil {
+		return err
 	}
 	acl, _, err := sd.DACL()
 	if err != nil {
@@ -132,6 +135,10 @@ func CheckPrivateFile(path string) error {
 	if !owner.Equals(user.User.Sid) {
 		return fmt.Errorf("archive must be owned by the current user")
 	}
+	return checkPrivateACL(sd, user.User.Sid)
+}
+
+func checkPrivateACL(sd *windows.SECURITY_DESCRIPTOR, userSID *windows.SID) error {
 	acl, _, err := sd.DACL()
 	if err != nil {
 		return err
@@ -148,7 +155,7 @@ func CheckPrivateFile(path string) error {
 			return fmt.Errorf("archive has an unsupported access rule")
 		}
 		sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
-		if !sid.Equals(user.User.Sid) && !sid.IsWellKnown(windows.WinLocalSystemSid) {
+		if !sid.Equals(userSID) && !sid.IsWellKnown(windows.WinLocalSystemSid) {
 			return fmt.Errorf("archive is accessible by another Windows identity")
 		}
 	}
