@@ -88,7 +88,7 @@ select the installed release explicitly.
 
 ## Build and launch (development)
 
-Requires macOS or Linux, Go 1.27.1 or newer (the project selects Go 1.27.2), and a
+Requires macOS, Linux, or Windows x64, Go 1.27.1 or newer (the project selects Go 1.27.2), and a
 C compiler. On macOS, install the Xcode Command Line Tools if needed.
 
 ```sh
@@ -175,16 +175,15 @@ Groups already enabled when upgrading are queued on the next launch too.
    **h**, which asks the phone for more history.
 
 The request requires a genuine known message ID and timestamp. Wasync uses its
-oldest local message, or a metadata-only cursor observed during this running
-session. For an empty group with no known cursor, the UI says **Waiting for a
+oldest local message, or a metadata-only cursor previously supplied by WhatsApp. For an empty group with no known cursor, the UI says **Waiting for a
 known message**. Once a new message is observed in that group, historical requests
 start automatically. A single newly captured message is enough to bootstrap the
 first request.
 
 Only message ID, group ID, direction and timestamp cursor metadata may be kept
-in RAM for unselected groups; their message bodies are never archived. These
-transient cursors are discarded when wasync exits. Selected groups' request
-cursors and job states are persisted so pagination can resume after restarting.
+in the local cursor table for unselected groups; their message bodies are never
+archived. These cursors survive restarts. Selected groups' request cursors and job
+states are also persisted so pagination can resume after restarting.
 
 Disabling a group stops further requests and ignores its content on delivery.
 Empty/repeated pages stop the attempt as **No older page returned (coverage
@@ -742,3 +741,57 @@ the logged-in desktop session, using its already-unlocked Keychain.
 
 wasync is open source under the [MIT license](LICENSE). Dependencies retain
 their own licenses; prebuilt archives and installers include third-party notices.
+
+
+## Windows installer (preview)
+
+The release workflow builds Windows 10/11 x64 using a native Windows runner,
+CGO SQLite with FTS5, and a statically linked MinGW runtime. Downloads:
+
+- `wasync_VERSION_windows_amd64-setup.exe`: per-user Inno Setup installer.
+- `wasync_VERSION_windows_amd64.zip`: portable executable and license notices.
+
+Run Setup, then open **wasync** from the Start menu or open a new terminal and
+run `wasync`. The installer offers a user PATH entry and requires no administrator
+access. Quit wasync before upgrading. Uninstall removes program files and its
+PATH entry; it preserves `%APPDATA%\wasync`, including the archive and device
+session. The portable ZIP uses the same data directory unless `--data-dir` is set.
+Local data uses a private Windows ACL for your user and SYSTEM; concurrent capture
+uses an exclusive Windows file lock. Native Windows ARM64 is not yet packaged.
+
+**Windows previews are unsigned while Microsoft Artifact Signing is being set up.**
+Signing for macOS remains unchanged. Windows release signing is a separate step
+and is not yet configured; signing credentials are never bundled in downloads.
+
+Maintainers can build using Go, Python 3, MinGW GCC and Inno Setup 6:
+
+```powershell
+$env:CC = 'C:/msys64/ucrt64/bin/gcc.exe'
+$env:PATH = 'C:/msys64/ucrt64/bin;' + $env:PATH
+./scripts/package-windows.ps1 -Version 0.1.0-preview.1
+```
+
+## Bulk selection, logout, and historical sync
+
+- **A** enables all currently discovered groups, after confirming the count.
+- **N** disables all currently discovered groups, after confirmation. These commands
+  apply to the whole account list even when a name filter is active.
+- `wasync groups enable --all` and `wasync groups disable --all` provide the same
+  operations from the CLI. Newly discovered groups remain disabled.
+- **L**, then **y**, unlinks the device and exits; `wasync logout` does the same
+  after quitting the TUI. **q** quits while keeping the pairing session.
+- Enabling queues history immediately. A background worker checks the local queue
+  every two seconds, requesting pages of 50 from the primary phone when online.
+  Live messages arrive through WhatsApp events; chat contents are not polled.
+- Metadata-only history anchors (group ID, message ID, timestamp and direction)
+  now survive restarts, including for groups whose capture is disabled. Message
+  bodies from disabled groups are still discarded. Purging clears the stored
+  anchor for that group; future WhatsApp deliveries may supply a new one.
+- With no known message anchor, history waits for WhatsApp to supply one. Keep the
+  primary phone online; **h** retries a failed history request. Neither enabling
+  nor reconnecting guarantees complete history or recovery of downtime messages.
+
+Schema version 4 adds cursor metadata. Start the updated TUI once to migrate an
+older archive before running read-only queries with the updated executable.
+Sending conversation messages and archiving direct chats are not yet implemented;
+whatsmeow supports them, and they are separate follow-up features.

@@ -62,8 +62,8 @@ Usage: wasync [--data-dir PATH] [--timeout 3m] [--api-addr 127.0.0.1:8787] [--no
   login [--select=true|false] [--observe 30s]  Pair or reuse session, discover groups
   logout                                     Unlink device; preserve cached groups
   groups list [--refresh] [--json]            List cached groups; optionally connect
-  groups enable GROUP_ID                     Save capture allowlist preference
-  groups disable GROUP_ID                    Disable capture preference
+  groups enable GROUP_ID|--all               Enable selected or all cached groups
+  groups disable GROUP_ID|--all              Disable capture preference
   status                                     Inspect local pairing state
   query [groups|messages|search|status]       Read-only JSON queries for agents
   version                                    Show installed build information
@@ -344,10 +344,10 @@ func (a *App) parseGroups(args []string) (action, error) {
 		}, nil
 	case "enable", "disable":
 		if len(args) != 2 {
-			return nil, fmt.Errorf("usage: wasync groups %s GROUP_ID", args[0])
+			return nil, fmt.Errorf("usage: wasync groups %s GROUP_ID|--all", args[0])
 		}
 		jid, err := types.ParseJID(args[1])
-		if err != nil || jid.Server != types.GroupServer || jid.User == "" || jid.String() != args[1] {
+		if args[1] != "--all" && (err != nil || jid.Server != types.GroupServer || jid.User == "" || jid.String() != args[1]) {
 			return nil, fmt.Errorf("expected a group JID such as 123456789@g.us")
 		}
 		enable := args[0] == "enable"
@@ -360,10 +360,21 @@ func (a *App) parseGroups(args []string) (action, error) {
 			if account == nil {
 				return fmt.Errorf("no discovered account; run wasync login first")
 			}
-			if err = s.SetEnabled(ctx, account.ID, []string{id}, enable); err != nil {
+			ids := []string{id}
+			if id == "--all" {
+				groups, e := s.Groups(ctx, account.ID)
+				if e != nil {
+					return e
+				}
+				ids = nil
+				for _, group := range groups {
+					ids = append(ids, group.ID)
+				}
+			}
+			if err = s.SetEnabled(ctx, account.ID, ids, enable); err != nil {
 				return err
 			}
-			fmt.Fprintf(a.Out, "Saved group %s enabled=%t. Launch wasync to capture messages.\n", id, enable)
+			fmt.Fprintf(a.Out, "Saved %d group preference(s), enabled=%t. Launch wasync to capture messages; enabling queues available history.\n", len(ids), enable)
 			return nil
 		}, nil
 	default:

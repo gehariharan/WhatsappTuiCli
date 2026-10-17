@@ -68,6 +68,7 @@ type Model struct {
 	notice                           string
 	qr                               string
 	confirm, confirmID               string
+	confirmIDs                       []string
 	help                             bool
 }
 
@@ -160,7 +161,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch v.kind {
 		case "connect", "refresh":
 			m.networkBusy = false
-		case "toggle", "purge", "history":
+		case "toggle", "bulk", "purge", "history":
 			m.writeBusy = false
 		}
 		if v.err != nil {
@@ -173,6 +174,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "connect":
 				m.qr = ""
 				m.notice = "Capture is active for enabled groups. History completeness is unknown."
+			case "bulk":
+				m.notice = "Group preferences saved. Enabled groups queue available history automatically."
 			case "toggle":
 				m.notice = "Preference saved. Enabling queues older history automatically."
 			case "history":
@@ -278,6 +281,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirm = ""
 				m.writeBusy = true
 				return m, func() tea.Msg {
+					if kind == "enable-all" || kind == "disable-all" {
+						bulk, ok := m.session.(interface {
+							ToggleMany(int64, []string, bool) error
+						})
+						if !ok {
+							return operationMsg{"bulk", fmt.Errorf("bulk selection unavailable")}
+						}
+						return operationMsg{"bulk", bulk.ToggleMany(account, m.confirmIDs, kind == "enable-all")}
+					}
 					if kind == "logout" {
 						return operationMsg{kind, m.session.Logout()}
 					}
@@ -427,6 +439,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirm = "purge"
 				m.confirmID = g.ID
 			}
+		case "A", "N":
+			if m.mode == "groups" && !m.writeBusy && !m.networkBusy {
+				m.confirmIDs = nil
+				for _, group := range m.snapshot.Groups {
+					m.confirmIDs = append(m.confirmIDs, group.ID)
+				}
+				if len(m.confirmIDs) > 0 {
+					m.confirm = "enable-all"
+					if key == "N" {
+						m.confirm = "disable-all"
+					}
+				}
+			}
 		case "L":
 			if !m.networkBusy && !m.writeBusy {
 				m.confirm = "logout"
@@ -521,7 +546,7 @@ func (m Model) View() tea.View {
 		top := header + "\n" + dim.Render(clip(status, w)) + "\n"
 		bodyHeight := h - 9
 		if m.help {
-			content = top + panel("KEYBOARD", "↑/↓ or j/k  Move selection\nMouse wheel  Scroll list\nPgUp/PgDn, Home/End  Jump\nSpace  Enable/disable selected group\nEnter  Browse archived messages\n/  Filter groups or search message text\ne  Show enabled groups only\nr  Refresh group metadata\nh  Retry older history for this group\nc  Connect/pair again\nD  Purge a group's archive (confirmation)\nL  Unlink device and quit (confirmation)\n\nMessages: n/p older/newer page · R latest\nCtrl+D / Ctrl+U scroll selected message body\nEsc  Back/clear filter · q quit (keeps session linked)\n?  Close help", w, bodyHeight)
+			content = top + panel("KEYBOARD", "↑/↓ or j/k  Move selection\nMouse wheel  Scroll list\nPgUp/PgDn, Home/End  Jump\nSpace  Enable/disable selected group\nA/N  Enable/disable all cached groups (confirmation)\nEnter  Browse archived messages\n/  Filter groups or search message text\ne  Show enabled groups only\nr  Refresh group metadata\nh  Retry older history for this group\nc  Connect/pair again\nD  Purge a group's archive (confirmation)\nL  Unlink device and quit (confirmation)\n\nMessages: n/p older/newer page · R latest\nCtrl+D / Ctrl+U scroll selected message body\nEsc  Back/clear filter · q quit (keeps session linked)\n?  Close help", w, bodyHeight)
 		} else if m.qr != "" {
 			qrW, qrH := lipgloss.Size(m.qr)
 			if qrW > w-4 || qrH > bodyHeight-4 {
@@ -544,10 +569,17 @@ func (m Model) View() tea.View {
 		if m.confirm == "logout" {
 			prompt = "Unlink this WhatsApp device and quit? y confirm · n cancel"
 		}
+		if m.confirm == "enable-all" || m.confirm == "disable-all" {
+			action := "Enable capture and queue available history for"
+			if m.confirm == "disable-all" {
+				action = "Disable capture for"
+			}
+			prompt = fmt.Sprintf("%s all %d cached groups? y confirm · n cancel", action, len(m.confirmIDs))
+		}
 		if m.editing != "" {
 			prompt = "/ " + clean(m.draft) + "▏   Enter apply · Esc done"
 		}
-		hint := "↑↓ scroll   Space toggle   Enter messages   / filter   h history   ? help   q quit"
+		hint := "↑↓ scroll   Space toggle   A/N all/none   L logout   Enter messages   / filter   h history   ? help   q quit"
 		if m.mode == "messages" {
 			hint = "↑↓ select   Enter full text   / search   n/p page   h history   Esc back   q quit"
 		}

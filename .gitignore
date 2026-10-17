@@ -33,3 +33,8 @@ __pycache__/
 
 # Cloudflare local state
 .wrangler/
+
+# Local feature-review drafts
+/.lavish/windows-and-sync.html
+/.lavish/wasync-theme.css
+/wasync

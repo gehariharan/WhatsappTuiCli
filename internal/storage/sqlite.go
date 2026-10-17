@@ -8,6 +8,8 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"net/url"
+	"path/filepath"
+	"runtime"
 	"time"
 	"whatsappsync/internal/localfs"
 )
@@ -20,6 +22,9 @@ var migration2 string
 
 //go:embed migrations/003_history_jobs.sql
 var migration3 string
+
+//go:embed migrations/004_history_anchors.sql
+var migration4 string
 
 type Store struct{ db *sql.DB }
 type Group struct {
@@ -42,7 +47,7 @@ type Account struct {
 
 // DSN uses URL encoding so paths containing ?, #, or spaces are literal filenames.
 func DSN(path string) string {
-	u := url.URL{Scheme: "file", Path: path}
+	u := url.URL{Scheme: "file", Path: sqlitePath(path)}
 	q := u.Query()
 	q.Set("_foreign_keys", "on")
 	q.Set("_busy_timeout", "5000")
@@ -89,7 +94,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	migrations := []string{migration1, migration2, migration3}
+	migrations := []string{migration1, migration2, migration3, migration4}
 	if version > len(migrations) {
 		return fmt.Errorf("archive schema %d is newer than supported schema %d", version, len(migrations))
 	}
@@ -210,3 +215,14 @@ func (s *Store) SetEnabled(ctx context.Context, account int64, ids []string, ena
 
 // Ping checks archive readiness without reading message content.
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
+
+// SQLite file URIs require a slash before Windows drive letters.
+func sqlitePath(path string) string {
+	if runtime.GOOS == "windows" {
+		path = filepath.ToSlash(path)
+		if filepath.VolumeName(path) != "" {
+			path = "/" + path
+		}
+	}
+	return path
+}

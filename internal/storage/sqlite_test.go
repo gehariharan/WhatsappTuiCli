@@ -98,7 +98,7 @@ func TestMigrationRejectsNewerSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec("PRAGMA user_version=4"); err != nil {
+	if _, err = s.db.Exec("PRAGMA user_version=99"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

@@ -15,8 +15,8 @@ import (
 
 const historyPageSize = 50
 
-// Only cursor metadata is retained in RAM for unselected groups. This helps
-// bootstrap a group enabled after a pairing-history event without archiving it.
+// Cursor metadata is cached in RAM and persisted separately from message bodies.
+// This bootstraps groups enabled after history delivery, including after restart.
 func (c *Client) rememberAnchor(info types.MessageInfo) {
 	if info.Chat.Server != types.GroupServer || info.ID == "" || info.Timestamp.Unix() <= 0 {
 		return
@@ -104,6 +104,13 @@ func (c *Client) historyStep(ctx context.Context) error {
 	}
 	if local.ID != "" && (anchor.ID == "" || local.Timestamp.Before(anchor.Timestamp)) {
 		anchor = local
+	}
+	if anchor.ID == "" {
+		known, e := p.store.KnownHistoryAnchor(ctx, account, job.GroupID)
+		if e != nil {
+			return e
+		}
+		anchor = known
 	}
 	if anchor.ID == "" {
 		c.anchorMu.Lock()
@@ -200,3 +207,29 @@ func (c *Client) finishHistoryPage(ctx context.Context, e *events.HistorySync) e
 // historySender is injected only by local tests; production wraps the library's
 // typed send API and is restricted by historyStep to its own-device request.
 type historySender func(context.Context, types.JID, *waE2E.Message, whatsmeow.SendRequestExtra) error
+
+func (c *Client) persistEventAnchors(evt any, account int64) error {
+	groups := make(map[string]bool)
+	switch e := evt.(type) {
+	case *events.Message:
+		if e.Info.Chat.Server == types.GroupServer {
+			groups[e.Info.Chat.String()] = true
+		}
+	case *events.HistorySync:
+		for _, conv := range e.Data.GetConversations() {
+			jid, err := types.ParseJID(conv.GetID())
+			if err == nil && jid.Server == types.GroupServer {
+				groups[jid.String()] = true
+			}
+		}
+	}
+	anchors := make(map[string]storage.HistoryAnchor)
+	c.anchorMu.Lock()
+	for group := range groups {
+		if info, ok := c.anchors[group]; ok {
+			anchors[group] = storage.HistoryAnchor{ID: info.ID, Timestamp: info.Timestamp, FromMe: info.IsFromMe}
+		}
+	}
+	c.anchorMu.Unlock()
+	return c.capture.store.SaveHistoryAnchors(c.capture.ctx, account, anchors)
+}

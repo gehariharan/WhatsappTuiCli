@@ -65,7 +65,7 @@ jobs:
           if [[ "$PRIVATE_REPOSITORY" == true ]]; then extra+=(--private); fi
           python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/signing dist/signing/wasync.rb "${extra[@]}"
           cd dist/signing
-          shasum -a 256 ./*.tar.gz ./*.pkg > checksums.txt
+          shasum -a 256 ./*.tar.gz ./*.pkg ./*.zip ./*.exe > checksums.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-release

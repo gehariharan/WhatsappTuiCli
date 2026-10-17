@@ -262,6 +262,9 @@ func (s *Store) PurgeGroup(ctx context.Context, account int64, group string) err
 	if _, err = tx.ExecContext(ctx, "DELETE FROM messages WHERE account_id=? AND group_id=?", account, group); err != nil {
 		return err
 	}
+	if _, err = tx.ExecContext(ctx, "DELETE FROM history_anchors WHERE account_id=? AND group_id=?", account, group); err != nil {
+		return err
+	}
 	if _, err = tx.ExecContext(ctx, "DELETE FROM history_jobs WHERE account_id=? AND group_id=?", account, group); err != nil {
 		return err
 	}

@@ -94,8 +94,43 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  windows:
+    needs: version
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Prepare native Windows packaging tools
+        shell: pwsh
+        run: |
+          & C:/msys64/usr/bin/bash.exe -lc 'pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc'
+          if ($LASTEXITCODE -ne 0) { throw 'C compiler installation failed' }
+          'C:/msys64/ucrt64/bin' | Out-File -FilePath $env:GITHUB_PATH -Append
+          'CC=C:/msys64/ucrt64/bin/gcc.exe' | Out-File -FilePath $env:GITHUB_ENV -Append
+          if (-not (Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          }
+      - name: Build Windows executable, portable ZIP and installer
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: ./scripts/package-windows.ps1 -Version $env:PACKAGE_VERSION
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-windows_amd64
+          path: dist/${{ needs.version.outputs.value }}/windows_amd64/*
+          if-no-files-found: error
+          retention-days: 14
+
   release:
-    needs: [version, build]
+    needs: [version, build, windows]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -117,7 +152,7 @@ jobs:
           if [[ "$PRIVATE_REPOSITORY" == "true" ]]; then extra+=(--private); fi
           python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/release/wasync.rb "${extra[@]}"
           cd dist/release
-          sha256sum ./*.tar.gz ./*.pkg > checksums.txt
+          sha256sum ./*.tar.gz ./*.pkg ./*.zip ./*.exe > checksums.txt
       - name: Create draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -143,4 +178,4 @@ jobs:
           NOTES
           gh release create "$tag" --draft --prerelease --verify-tag \
             --title "wasync $PACKAGE_VERSION" --notes-file dist/release/RELEASE_NOTES.md \
-            dist/release/*.tar.gz dist/release/*.pkg dist/release/checksums.txt dist/release/wasync.rb
+            dist/release/*.tar.gz dist/release/*.pkg dist/release/*.zip dist/release/*.exe dist/release/checksums.txt dist/release/wasync.rb

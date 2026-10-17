@@ -126,3 +126,8 @@ func (s *Session) Logout() error {
 func (s *Session) RequestHistory(account int64, group string) error {
 	return s.store.QueueHistory(s.ctx, account, group)
 }
+
+// ToggleMany applies the exact group set shown at confirmation time atomically.
+func (s *Session) ToggleMany(account int64, ids []string, enabled bool) error {
+	return s.store.SetEnabled(s.ctx, account, ids, enabled)
+}

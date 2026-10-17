@@ -7,13 +7,14 @@ import (
 	"net/url"
 	"os"
 	"time"
+	"whatsappsync/internal/localfs"
 )
 
 // OpenReadOnly opens an existing archive without migrations, chmods, or a
 // capture lock. Keep normal WAL coordination enabled so active commits are seen.
 func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
-		info, err := os.Lstat(path + suffix)
+		_, err := os.Lstat(path + suffix)
 		if suffix != "" && os.IsNotExist(err) {
 			continue
 		}
@@ -23,11 +24,11 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-			return nil, fmt.Errorf("archive and sidecars must be regular private files (0600)")
+		if err = localfs.CheckPrivateFile(path + suffix); err != nil {
+			return nil, err
 		}
 	}
-	u := url.URL{Scheme: "file", Path: path}
+	u := url.URL{Scheme: "file", Path: sqlitePath(path)}
 	q := u.Query()
 	q.Set("mode", "ro")
 	q.Set("_query_only", "true")
@@ -42,8 +43,8 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	if err = db.PingContext(ctx); err == nil {
 		err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version)
 	}
-	if err == nil && version != 3 {
-		err = fmt.Errorf("archive schema %d is incompatible with query schema 3; run the matching wasync version and start the TUI to migrate older archives", version)
+	if err == nil && version != 4 {
+		err = fmt.Errorf("archive schema %d is incompatible with query schema 4; run the matching wasync version and start the TUI to migrate older archives", version)
 	}
 	if err != nil {
 		db.Close()

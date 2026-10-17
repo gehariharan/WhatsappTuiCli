@@ -127,3 +127,41 @@ func (s *Store) FinishHistoryRequest(ctx context.Context, account int64, job His
  AND EXISTS(SELECT 1 FROM groups WHERE account_id=? AND group_id=? AND sync_enabled=1)`, state, anchor.ID, anchor.Timestamp.UnixMilli(), anchor.FromMe, returned, message, time.Now().UnixMilli(), account, job.GroupID, job.RequestID, account, job.GroupID)
 	return err
 }
+
+// SaveHistoryAnchors retains only cursor metadata, never message content.
+func (s *Store) SaveHistoryAnchors(ctx context.Context, account int64, anchors map[string]HistoryAnchor) error {
+	if len(anchors) == 0 {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for group, anchor := range anchors {
+		if anchor.ID == "" || anchor.Timestamp.Unix() <= 0 {
+			continue
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO history_anchors(account_id,group_id,message_id,timestamp,is_from_me) VALUES(?,?,?,?,?)
+   ON CONFLICT(account_id,group_id) DO UPDATE SET message_id=excluded.message_id,timestamp=excluded.timestamp,is_from_me=excluded.is_from_me
+   WHERE excluded.timestamp>history_anchors.timestamp`, account, group, anchor.ID, anchor.Timestamp.UnixMilli(), anchor.FromMe)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) KnownHistoryAnchor(ctx context.Context, account int64, group string) (HistoryAnchor, error) {
+	var anchor HistoryAnchor
+	var stamp int64
+	err := s.db.QueryRowContext(ctx, "SELECT message_id,timestamp,is_from_me FROM history_anchors WHERE account_id=? AND group_id=?", account, group).Scan(&anchor.ID, &stamp, &anchor.FromMe)
+	if err == sql.ErrNoRows {
+		return anchor, nil
+	}
+	if err != nil {
+		return anchor, err
+	}
+	anchor.Timestamp = time.UnixMilli(stamp)
+	return anchor, nil
+}

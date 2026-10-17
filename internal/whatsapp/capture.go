@@ -101,6 +101,9 @@ func (c *Client) captureEvent(evt any) error {
 		}
 	}
 	account := p.account.Load()
+	if err := c.persistEventAnchors(evt, account); err != nil {
+		return err
+	}
 	switch e := evt.(type) {
 	case *events.Connected:
 		return p.store.Resume(p.ctx, account)
