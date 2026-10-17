@@ -41,10 +41,10 @@ If an earlier manual or Homebrew installation is still on PATH, check
 `command -v wasync`. This package installs `/usr/local/bin/wasync`; use that
 explicit path to verify it, and keep only one installation method active.
 
-Preview packages are **unsigned and not notarized**; macOS may block downloaded
-installers. General public distribution still needs Apple Developer signing and
-notarization. The packaging script supports signing identities described below;
-it does not remove quarantine or bypass Gatekeeper.
+Starting with `0.1.0-preview.5`, macOS executables use Developer ID Application
+signatures and Apple notarization. Installers use Developer ID Installer
+signatures and include validated stapled notarization tickets. Older previews
+were unsigned/ad hoc. No installer removes quarantine or bypasses Gatekeeper.
 
 Linux users can extract the matching archive and install without administrator
 access:
@@ -82,14 +82,9 @@ brew trust --cask gehariharan/tap/wasync
 brew install --cask gehariharan/tap/wasync
 ```
 
-These previews are not Developer ID signed or notarized. macOS can block their
-execution. Homebrew's quarantine behavior is preserved; no cask hook disables
-Gatekeeper. Apple Developer signing and notarization remain necessary for a
-normal public installer experience. Both repositories remain private.
-
-On a trusted development machine, review the blocked application in macOS
-System Settings → Privacy & Security. Do not assume installation alone proves
-that macOS will allow the unsigned executable. Existing manual launchers may
+Releases from `0.1.0-preview.5` onward are Developer ID signed and notarized.
+Homebrew's quarantine behavior is preserved; no cask hook disables Gatekeeper.
+Both repositories remain private. Existing manual launchers may
 precede the Homebrew binary; check `command -v wasync` and use
 `/usr/local/bin/wasync` on Intel or `/opt/homebrew/bin/wasync` on Apple Silicon to
 select the installed release explicitly.
@@ -588,7 +583,9 @@ For a new installation:
 
 ```sh
 gh auth login
-brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
+gh auth setup-git
+brew tap gehariharan/tap
+brew trust --cask gehariharan/tap/wasync # on Homebrew versions with tap trust
 brew install --cask gehariharan/tap/wasync
 ```
 
