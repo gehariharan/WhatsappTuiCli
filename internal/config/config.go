@@ -9,10 +9,12 @@ import (
 )
 
 type Config struct {
-	DataDir string
-	Timeout time.Duration
-	APIAddr string
-	NoAPI   bool
+	DataDir            string
+	Timeout            time.Duration
+	APIAddr            string
+	NoAPI              bool
+	DownloadMedia      bool
+	PairingFullHistory bool
 }
 
 func Default() (Config, error) {

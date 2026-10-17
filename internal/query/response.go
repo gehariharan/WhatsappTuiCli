@@ -8,6 +8,7 @@ import (
 )
 
 type Group struct {
+	Kind                 string     `json:"chat_kind"`
 	ID                   string     `json:"id"`
 	Name                 string     `json:"name"`
 	Enabled              bool       `json:"sync_enabled"`
@@ -20,13 +21,14 @@ type Group struct {
 }
 
 func FormatGroup(g storage.Group) Group {
-	return Group{g.ID, g.Name, g.Enabled, g.MessageCount, g.LastMessage, g.HistoryState, g.HistoryRequest, g.HistoryBatchMessages, g.GapCount}
+	return Group{storage.ChatKind(g.ID), g.ID, g.Name, g.Enabled, g.MessageCount, g.LastMessage, g.HistoryState, g.HistoryRequest, g.HistoryBatchMessages, g.GapCount}
 }
 
 type Message struct {
 	ID         int64           `json:"id"`
 	AccountID  int64           `json:"account_id"`
 	GroupID    string          `json:"group_id"`
+	ChatID     string          `json:"chat_id"`
 	MessageID  string          `json:"message_id"`
 	SenderID   string          `json:"sender_id"`
 	SenderAlt  string          `json:"sender_alt,omitempty"`
@@ -48,5 +50,5 @@ func FormatMessage(account int64, m storage.Message) Message {
 	if json.Valid([]byte(m.Media)) {
 		media = json.RawMessage(m.Media)
 	}
-	return Message{m.ID, account, m.GroupID, m.MessageID, m.SenderID, m.SenderAlt, m.Timestamp, m.Type, m.Text, m.FromMe, m.ReplyTo, media, m.Source, m.EditedAt, m.DeletedAt, m.ExpiresAt, m.ReceivedAt}
+	return Message{m.ID, account, m.GroupID, m.GroupID, m.MessageID, m.SenderID, m.SenderAlt, m.Timestamp, m.Type, m.Text, m.FromMe, m.ReplyTo, media, m.Source, m.EditedAt, m.DeletedAt, m.ExpiresAt, m.ReceivedAt}
 }

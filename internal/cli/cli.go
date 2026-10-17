@@ -20,6 +20,7 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"golang.org/x/term"
 	"whatsappsync/internal/api"
+	"whatsappsync/internal/approval"
 	"whatsappsync/internal/buildinfo"
 	"whatsappsync/internal/config"
 	"whatsappsync/internal/localfs"
@@ -40,6 +41,9 @@ type Client interface {
 	Observation() whatsapp.Observation
 }
 type App struct {
+	Approve     func(int64, string) error
+	Sync        whatsapp.Syncer
+	Approvals   *approval.Queue
 	In          io.Reader
 	Out, Err    io.Writer
 	Interactive bool
@@ -64,8 +68,15 @@ Usage: wasync [--data-dir PATH] [--timeout 3m] [--api-addr 127.0.0.1:8787] [--no
   groups list [--refresh] [--json]            List cached groups; optionally connect
   groups enable GROUP_ID|--all               Enable selected or all cached groups
   groups disable GROUP_ID|--all              Disable capture preference
+  chats list|enable|disable                   Manage group and direct chat capture
+  clean --chat CHAT_ID (--message-id ID|--all)  Request local cleanup; human CLI/TUI approval
+  delete --chat CHAT_ID --scope SCOPE        Request WhatsApp deletion; human CLI/TUI approval
+  sync [--wait 30s] [--history] [--chat ID]    Capture now, reusing any running owner
+  actions approve REQUEST_ID                 Interactive typed approval, no --yes
+  actions status REQUEST_ID                  Inspect a pending/completed request
+  send --to CHAT_ID --text TEXT               Explicitly send one text message
   status                                     Inspect local pairing state
-  query [groups|messages|search|status]       Read-only JSON queries for agents
+  query [groups|chats|messages|search|status]       Read-only JSON queries for agents
   version                                    Show installed build information
 
 The TUI captures enabled groups and imports history when WhatsApp delivers it.
@@ -88,6 +99,8 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 	root.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "dedicated private data directory")
 	root.DurationVar(&cfg.Timeout, "timeout", cfg.Timeout, "overall command timeout, including selection and observation")
 	root.StringVar(&cfg.APIAddr, "api-addr", cfg.APIAddr, "local API loopback address")
+	root.BoolVar(&cfg.PairingFullHistory, "pairing-full-history", os.Getenv("WASYNC_PAIRING_FULL_HISTORY") == "1", "ask for fuller pairing-time history (best effort; new pairing only)")
+	root.BoolVar(&cfg.DownloadMedia, "download-media", os.Getenv("WASYNC_DOWNLOAD_MEDIA") == "1", "download images/documents from enabled chats (25 MiB each; local plaintext)")
 	root.BoolVar(&cfg.NoAPI, "no-api", false, "disable the API alongside the TUI")
 	root.Usage = func() { fmt.Fprint(a.Out, usage) }
 	if err = root.Parse(args); err != nil {
@@ -122,6 +135,18 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 	if err != nil {
 		return err
 	}
+	if args[0] == "actions" {
+		return a.runActionStatus(parent, cfg, args[1:])
+	}
+	if args[0] == "clean" || args[0] == "delete" {
+		return a.runDestructiveRequest(parent, cfg, args)
+	}
+	if args[0] == "sync" {
+		return a.runSync(parent, cfg, args[1:])
+	}
+	if args[0] == "send" {
+		return a.runSend(parent, cfg, args[1:])
+	}
 	if args[0] == "query" {
 		ctx, cancel := context.WithTimeout(parent, cfg.Timeout)
 		defer cancel()
@@ -150,6 +175,9 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 		return err
 	}
 	lock, err := processlock.Acquire(filepath.Join(cfg.DataDir, "device.lock"))
+	if errors.Is(err, processlock.ErrBusy) && (args[0] == "groups" || args[0] == "chats") {
+		return a.targetsThroughOwner(parent, cfg, args)
+	}
 	if err != nil {
 		return err
 	}
@@ -198,6 +226,13 @@ func (a *App) parse(args []string) (action, error) {
 		}
 		return func(ctx context.Context, cfg config.Config, s *storage.Store, l *slog.Logger) error {
 			return a.withClient(ctx, cfg, l, func(c Client) error {
+				if discovery, ok := c.(interface {
+					EnableDiscovery(context.Context, *storage.Store) error
+				}); ok {
+					if err := discovery.EnableDiscovery(ctx, s); err != nil {
+						return err
+					}
+				}
 				if err := c.Login(ctx, a.Out); err != nil {
 					return err
 				}
@@ -298,11 +333,14 @@ func (a *App) parse(args []string) (action, error) {
 		}, nil
 	case "groups":
 		return a.parseGroups(args[1:])
+	case "chats":
+		return a.parseTargets(args[1:], true)
 	default:
 		return nil, fmt.Errorf("unknown command %q; run wasync help", args[0])
 	}
 }
-func (a *App) parseGroups(args []string) (action, error) {
+func (a *App) parseGroups(args []string) (action, error) { return a.parseTargets(args, false) }
+func (a *App) parseTargets(args []string, allChats bool) (action, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("usage: wasync groups list|enable|disable")
 	}
@@ -340,14 +378,23 @@ func (a *App) parseGroups(args []string) (action, error) {
 			if err != nil {
 				return err
 			}
+			if !allChats {
+				filtered := groups[:0]
+				for _, g := range groups {
+					if storage.ChatKind(g.ID) == "group" {
+						filtered = append(filtered, g)
+					}
+				}
+				groups = filtered
+			}
 			return a.printGroups(groups, *jsonOut)
 		}, nil
 	case "enable", "disable":
 		if len(args) != 2 {
 			return nil, fmt.Errorf("usage: wasync groups %s GROUP_ID|--all", args[0])
 		}
-		jid, err := types.ParseJID(args[1])
-		if args[1] != "--all" && (err != nil || jid.Server != types.GroupServer || jid.User == "" || jid.String() != args[1]) {
+		jid, err := whatsapp.ParseChat(args[1])
+		if args[1] != "--all" && (err != nil || !allChats && jid.Server != types.GroupServer) {
 			return nil, fmt.Errorf("expected a group JID such as 123456789@g.us")
 		}
 		enable := args[0] == "enable"
@@ -360,6 +407,11 @@ func (a *App) parseGroups(args []string) (action, error) {
 			if account == nil {
 				return fmt.Errorf("no discovered account; run wasync login first")
 			}
+			if allChats && id != "--all" && jid.Server != types.GroupServer {
+				if err = s.SaveDiscoveredChat(ctx, account.ID, storage.Group{ID: id, Name: id}); err != nil {
+					return err
+				}
+			}
 			ids := []string{id}
 			if id == "--all" {
 				groups, e := s.Groups(ctx, account.ID)
@@ -368,7 +420,9 @@ func (a *App) parseGroups(args []string) (action, error) {
 				}
 				ids = nil
 				for _, group := range groups {
-					ids = append(ids, group.ID)
+					if allChats || storage.ChatKind(group.ID) == "group" {
+						ids = append(ids, group.ID)
+					}
 				}
 			}
 			if err = s.SetEnabled(ctx, account.ID, ids, enable); err != nil {
@@ -387,6 +441,9 @@ func (a *App) withClient(ctx context.Context, cfg config.Config, log *slog.Logge
 		return err
 	}
 	defer func() { err = errors.Join(err, c.Close()) }()
+	if history, ok := c.(interface{ ConfigurePairingHistory(bool) }); ok {
+		history.ConfigurePairingHistory(cfg.PairingFullHistory)
+	}
 	return fn(c)
 }
 func discover(ctx context.Context, s *storage.Store, c Client) (int64, []storage.Group, error) {
@@ -405,7 +462,13 @@ func discover(ctx context.Context, s *storage.Store, c Client) (int64, []storage
 		return account, nil, err
 	}
 	groups, err = s.Groups(ctx, account)
-	return account, groups, err
+	filtered := groups[:0]
+	for _, g := range groups {
+		if storage.ChatKind(g.ID) == "group" {
+			filtered = append(filtered, g)
+		}
+	}
+	return account, filtered, err
 }
 func (a *App) printGroups(groups []storage.Group, jsonOut bool) error {
 	if jsonOut {

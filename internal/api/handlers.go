@@ -13,6 +13,7 @@ import (
 
 	"whatsappsync/internal/query"
 	"whatsappsync/internal/storage"
+	"whatsappsync/internal/whatsapp"
 )
 
 type groupJSON = query.Group
@@ -26,6 +27,7 @@ func (h *handler) getStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	var account int64
 	enabled := 0
+	enabledChats := 0
 	var count int64
 	if a != nil {
 		account = a.ID
@@ -36,7 +38,10 @@ func (h *handler) getStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, g := range groups {
 			if g.Enabled {
-				enabled++
+				enabledChats++
+				if storage.ChatKind(g.ID) == "group" {
+					enabled++
+				}
 			}
 			count += g.MessageCount
 		}
@@ -53,7 +58,7 @@ func (h *handler) getStatus(w http.ResponseWriter, r *http.Request) {
 		history = s.HistoryProcessing
 		attention = s.Error != ""
 	}
-	writeJSON(w, 200, map[string]any{"connection": connection, "account_id": account, "enabled_groups": enabled, "archived_messages": count, "stored_this_run": stored, "skipped_this_run": skipped, "history_processing": history, "attention_required": attention, "history_completeness": "unknown"})
+	writeJSON(w, 200, map[string]any{"connection": connection, "account_id": account, "enabled_groups": enabled, "enabled_chats": enabledChats, "archived_messages": count, "stored_this_run": stored, "skipped_this_run": skipped, "history_processing": history, "attention_required": attention, "history_completeness": "unknown"})
 }
 func (h *handler) groups(w http.ResponseWriter, r *http.Request) {
 	a := h.account(w, r)
@@ -67,7 +72,9 @@ func (h *handler) groups(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]groupJSON, 0, len(groups))
 	for _, g := range groups {
-		items = append(items, groupDTO(g))
+		if strings.HasPrefix(r.URL.Path, "/api/chats") || storage.ChatKind(g.ID) == "group" {
+			items = append(items, groupDTO(g))
+		}
 	}
 	writeJSON(w, 200, map[string]any{"account_id": a.ID, "items": items})
 }
@@ -78,7 +85,7 @@ func (h *handler) findGroup(w http.ResponseWriter, r *http.Request, account int6
 		return nil
 	}
 	for _, g := range groups {
-		if g.ID == r.PathValue("id") {
+		if g.ID == r.PathValue("id") && (strings.HasPrefix(r.URL.Path, "/api/chats") || storage.ChatKind(g.ID) == "group") {
 			return &g
 		}
 	}
@@ -100,6 +107,19 @@ func (h *handler) enable(w http.ResponseWriter, r *http.Request) {
 	a := h.account(w, r)
 	if a == nil {
 		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/chats/") && strings.HasSuffix(r.URL.Path, "/enable") {
+		jid, err := whatsapp.ParseChat(r.PathValue("id"))
+		if err != nil {
+			fail(w, 400, "invalid chat ID")
+			return
+		}
+		if storage.ChatKind(jid.String()) == "direct" {
+			if err = h.store.SaveDiscoveredChat(r.Context(), a.ID, storage.Group{ID: jid.String(), Name: jid.String()}); err != nil {
+				fail(w, 500, "cannot cache chat")
+				return
+			}
+		}
 	}
 	g := h.findGroup(w, r, a.ID)
 	if g == nil {

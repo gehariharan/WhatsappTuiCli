@@ -8,7 +8,7 @@ import (
 
 func TestDiscoveryPreservesAllowlistAndAccountIsolation(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "archive ?# test.db")
+	path := filepath.Join(privateTestDir(t), "archive ?# test.db")
 	s, err := Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestDiscoveryPreservesAllowlistAndAccountIsolation(t *testing.T) {
 }
 func TestEnableBatchRollsBackOnUnknownGroup(t *testing.T) {
 	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "archive.db"))
+	s, err := Open(ctx, filepath.Join(privateTestDir(t), "archive.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestEnableBatchRollsBackOnUnknownGroup(t *testing.T) {
 }
 func TestMigrationRejectsNewerSchema(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "archive.db")
+	path := filepath.Join(privateTestDir(t), "archive.db")
 	s, err := Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestMigrationRejectsNewerSchema(t *testing.T) {
 }
 func TestSQLiteSettingsAndFTS5(t *testing.T) {
 	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "archive.db"))
+	s, err := Open(ctx, filepath.Join(privateTestDir(t), "archive.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

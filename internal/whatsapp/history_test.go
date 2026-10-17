@@ -23,7 +23,7 @@ import (
 func historyClient(t *testing.T) (*Client, *storage.Store, int64) {
 	t.Helper()
 	ctx := context.Background()
-	s, err := storage.Open(ctx, filepath.Join(t.TempDir(), "archive.db"))
+	s, err := storage.Open(ctx, filepath.Join(privateTestDir(t), "archive.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func historyClient(t *testing.T) (*Client, *storage.Store, int64) {
 	if err = s.SetEnabled(ctx, account, []string{"123@g.us"}, true); err != nil {
 		t.Fatal(err)
 	}
-	c, err := Open(ctx, filepath.Join(t.TempDir(), "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c, err := Open(ctx, filepath.Join(privateTestDir(t), "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,12 +219,12 @@ func TestFastHistoryResponseCannotBeOverwrittenBySendAck(t *testing.T) {
 }
 func TestHistoryWorkerClosesWithoutConnecting(t *testing.T) {
 	ctx := context.Background()
-	s, err := storage.Open(ctx, filepath.Join(t.TempDir(), "archive.db"))
+	s, err := storage.Open(ctx, filepath.Join(privateTestDir(t), "archive.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	c, err := Open(ctx, filepath.Join(t.TempDir(), "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c, err := Open(ctx, filepath.Join(privateTestDir(t), "session.db"), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

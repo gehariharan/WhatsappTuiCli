@@ -8,10 +8,12 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"whatsappsync/internal/approval"
 	"whatsappsync/internal/config"
 	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/storage"
 	"whatsappsync/internal/tui"
+	"whatsappsync/internal/whatsapp"
 )
 
 func (a *App) tuiAction(offline bool) action {
@@ -19,10 +21,17 @@ func (a *App) tuiAction(offline bool) action {
 		if !a.Interactive {
 			return fmt.Errorf("the TUI requires an interactive terminal; use wasync help for scriptable commands")
 		}
+		a.Approvals = &approval.Queue{}
 		if offline {
+			session := tui.NewSession(ctx, store, nil)
+			session.Approvals = a.Approvals
+			session.MediaRoot = filepath.Join(cfg.DataDir, "media")
+			a.Approve = session.ApproveAction
+			a.Sync = session.Sync
 			return a.withAPI(ctx, cfg, store, nil, func(ctx context.Context, url string) error {
-				session := tui.NewSession(ctx, store, nil)
 				session.APIURL = url
+				session.Approvals = a.Approvals
+				session.MediaRoot = filepath.Join(cfg.DataDir, "media")
 				return tui.Run(ctx, session, a.In, a.Out)
 			})
 		}
@@ -46,13 +55,31 @@ func (a *App) tuiAction(offline bool) action {
 		if !ok {
 			return fmt.Errorf("this client does not implement capture")
 		}
+		if history, ok := client.(interface{ ConfigurePairingHistory(bool) }); ok {
+			history.ConfigurePairingHistory(cfg.PairingFullHistory)
+		}
+		if media, ok := client.(interface{ ConfigureMedia(string, bool) }); ok {
+			media.ConfigureMedia(filepath.Join(cfg.DataDir, "media"), cfg.DownloadMedia)
+		}
 		if err = live.EnableCapture(clientCtx, store); err != nil {
 			return err
 		}
+		var send whatsapp.Sender
+		if active, ok := client.(interface {
+			Send(context.Context, whatsapp.SendInput) (whatsapp.SendResult, error)
+		}); ok {
+			send = active.Send
+		}
+		session := tui.NewSession(clientCtx, store, live)
+		session.Approvals = a.Approvals
+		session.MediaRoot = filepath.Join(cfg.DataDir, "media")
+		a.Approve = session.ApproveAction
+		a.Sync = session.Sync
 		return a.withAPI(clientCtx, cfg, store, live.Status, func(ctx context.Context, url string) error {
-			session := tui.NewSession(ctx, store, live)
 			session.APIURL = url
+			session.Approvals = a.Approvals
+			session.MediaRoot = filepath.Join(cfg.DataDir, "media")
 			return tui.Run(ctx, session, a.In, a.Out)
-		})
+		}, send)
 	}
 }

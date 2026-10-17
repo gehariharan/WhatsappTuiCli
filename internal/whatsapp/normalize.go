@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"go.mau.fi/whatsmeow/proto/waE2E"
-	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"whatsappsync/internal/storage"
 )
@@ -37,7 +36,7 @@ func unwrap(m *waE2E.Message) *waE2E.Message {
 // Normalize deliberately excludes quoted bodies, thumbnails, download URLs and
 // media decryption keys. The original sender and group identifiers remain opaque.
 func Normalize(e *events.Message, source string, now time.Time) (storage.Message, bool) {
-	if e == nil || e.Info.Chat.Server != types.GroupServer || e.Info.ID == "" || e.Message == nil {
+	if e == nil || !SupportedChat(e.Info.Chat) || e.Info.ID == "" || e.Message == nil {
 		return storage.Message{}, false
 	}
 	out := storage.Message{GroupID: e.Info.Chat.String(), MessageID: e.Info.ID, SenderID: e.Info.Sender.String(), Timestamp: e.Info.Timestamp, FromMe: e.Info.IsFromMe, Source: source, Type: "unknown"}

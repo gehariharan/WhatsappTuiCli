@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"whatsappsync/internal/api"
+	"whatsappsync/internal/approval"
 	"whatsappsync/internal/config"
 	"whatsappsync/internal/storage"
 	"whatsappsync/internal/tui"
@@ -16,11 +17,11 @@ import (
 )
 
 // withAPI closes all HTTP handlers before the caller closes the store/client.
-func (a *App) withAPI(ctx context.Context, cfg config.Config, store *storage.Store, status func() whatsapp.CaptureStatus, run func(context.Context, string) error) (result error) {
+func (a *App) withAPI(ctx context.Context, cfg config.Config, store *storage.Store, status func() whatsapp.CaptureStatus, run func(context.Context, string) error, sender ...whatsapp.Sender) (result error) {
 	if cfg.NoAPI {
 		return run(ctx, "")
 	}
-	server, err := api.Start(cfg.APIAddr, cfg.DataDir, store, status)
+	server, err := api.StartControlled(cfg.APIAddr, cfg.DataDir, store, status, a.Approvals, a.Approve, a.Sync, sender...)
 	if err != nil {
 		return err
 	}
@@ -61,12 +62,18 @@ func (a *App) serveAction(offline bool) action {
 			}
 			defer func() { result = errors.Join(result, client.Close()) }()
 			if !client.Paired() {
-				return fmt.Errorf("pair using the TUI first, or use serve --offline for archive queries")
+				return fmt.Errorf("pair using wasync login first, or use serve --offline for archive queries")
 			}
 			var ok bool
 			live, ok = client.(tui.Client)
 			if !ok {
 				return fmt.Errorf("this client does not implement capture")
+			}
+			if history, ok := client.(interface{ ConfigurePairingHistory(bool) }); ok {
+				history.ConfigurePairingHistory(cfg.PairingFullHistory)
+			}
+			if media, ok := client.(interface{ ConfigureMedia(string, bool) }); ok {
+				media.ConfigureMedia(filepath.Join(cfg.DataDir, "media"), cfg.DownloadMedia)
 			}
 			if err = live.EnableCapture(ctx, store); err != nil {
 				return err
@@ -76,6 +83,18 @@ func (a *App) serveAction(offline bool) action {
 		if live != nil {
 			status = live.Status
 		}
+		var send whatsapp.Sender
+		if active, ok := client.(interface {
+			Send(context.Context, whatsapp.SendInput) (whatsapp.SendResult, error)
+		}); ok {
+			send = active.Send
+		}
+		a.Approvals = &approval.Queue{}
+		session := tui.NewSession(ctx, store, live)
+		session.Approvals = a.Approvals
+		session.MediaRoot = filepath.Join(cfg.DataDir, "media")
+		a.Approve = session.ApproveAction
+		a.Sync = session.Sync
 		return a.withAPI(ctx, cfg, store, status, func(ctx context.Context, url string) error {
 			fmt.Fprintf(a.Out, "Local API: %s\nBearer token file: %s\n", url, filepath.Join(cfg.DataDir, "api.token"))
 			if client != nil {
@@ -106,6 +125,6 @@ func (a *App) serveAction(offline bool) action {
 					}
 				}
 			}
-		})
+		}, send)
 	}
 }

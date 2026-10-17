@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/storage"
 )
 
@@ -27,7 +28,10 @@ type fixture struct {
 func setup(t *testing.T) fixture {
 	t.Helper()
 	ctx := context.Background()
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
 	store, err := storage.Open(ctx, filepath.Join(dir, "archive.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +247,10 @@ func TestTokenAndLoopbackValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
 	token, err := loadToken(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -252,8 +259,8 @@ func TestTokenAndLoopbackValidation(t *testing.T) {
 	if err != nil || again != token || len(token) != 64 {
 		t.Fatal("token did not persist")
 	}
-	info, err := os.Stat(filepath.Join(dir, "api.token"))
-	if err != nil || info.Mode().Perm() != 0600 {
+	err = localfs.CheckPrivateFile(filepath.Join(dir, "api.token"))
+	if err != nil {
 		t.Fatal("token permissions")
 	}
 	if err = os.WriteFile(filepath.Join(dir, "api.token"), []byte("bad"), 0600); err != nil {
@@ -264,7 +271,10 @@ func TestTokenAndLoopbackValidation(t *testing.T) {
 	}
 }
 func TestNoAccountAndClosedArchive(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := localfs.EnsureDir(dir); err != nil {
+		t.Fatal(err)
+	}
 	store, err := storage.Open(context.Background(), filepath.Join(dir, "archive.db"))
 	if err != nil {
 		t.Fatal(err)

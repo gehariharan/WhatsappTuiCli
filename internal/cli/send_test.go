@@ -1,0 +1,95 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log/slog"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"whatsappsync/internal/api"
+	"whatsappsync/internal/approval"
+	"whatsappsync/internal/storage"
+
+	"whatsappsync/internal/whatsapp"
+)
+
+type fakeSendingClient struct {
+	fakeClient
+	sent    []whatsapp.SendInput
+	sendErr error
+}
+
+func (f *fakeSendingClient) Send(_ context.Context, in whatsapp.SendInput) (whatsapp.SendResult, error) {
+	f.sent = append(f.sent, in)
+	status := "server_acknowledged"
+	if f.sendErr != nil {
+		status = "unknown"
+	}
+	return whatsapp.SendResult{ChatID: in.To, MessageID: "synthetic-send", Status: status}, f.sendErr
+}
+func TestExplicitSendIsSingleAttemptAndClosesSession(t *testing.T) {
+	for _, ambiguous := range []bool{false, true} {
+		var output bytes.Buffer
+		client := &fakeSendingClient{}
+		if ambiguous {
+			client.sendErr = errors.New("ambiguous acknowledgement")
+		}
+		app := &App{Out: &output, Err: &output, OpenClient: func(context.Context, string, *slog.Logger) (Client, error) { return client, nil }}
+		err := app.Run(context.Background(), []string{"--data-dir", filepath.Join(t.TempDir(), "data"), "send", "--to", "one@g.us", "--text", "synthetic"})
+		if (err != nil) != ambiguous || len(client.sent) != 1 || !client.closed || !client.connect {
+			t.Fatalf("send lifecycle: %+v %v", client, err)
+		}
+	}
+}
+func TestInvalidSendDoesNotOpenDevice(t *testing.T) {
+	var output bytes.Buffer
+	app := &App{Out: &output, Err: &output, OpenClient: func(context.Context, string, *slog.Logger) (Client, error) {
+		t.Fatal("invalid send opened a device")
+		return nil, nil
+	}}
+	if err := app.Run(context.Background(), []string{"--data-dir", filepath.Join(t.TempDir(), "data"), "send", "--to", "status@broadcast", "--text", "no"}); err == nil {
+		t.Fatal("broadcast destination accepted")
+	}
+}
+
+func TestSendReusesOwnerAndCleanupOnlyQueuesApproval(t *testing.T) {
+	app, output, store, account, dir := queryFixture(t)
+	queue := &approval.Queue{}
+	var calls atomic.Int32
+	server, err := api.StartWithApprovals("127.0.0.1:0", dir, store, nil, queue, func(context.Context, whatsapp.SendInput) (whatsapp.SendResult, error) {
+		calls.Add(1)
+		return whatsapp.SendResult{Status: "server_acknowledged", MessageID: "fake"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	app.OpenClient = func(context.Context, string, *slog.Logger) (Client, error) {
+		t.Fatal("opened a competing client")
+		return nil, nil
+	}
+	flags := []string{"--data-dir", dir, "--api-addr", strings.TrimPrefix(server.URL, "http://")}
+	if err = app.Run(context.Background(), append(flags, "send", "--to", "one@g.us", "--text", "synthetic")); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 1 {
+		t.Fatal("owner did not receive exactly one send")
+	}
+	output.Reset()
+	if err = app.Run(context.Background(), append(flags, "clean", "--chat", "one@g.us", "--all")); err != nil {
+		t.Fatal(err)
+	}
+	if queue.Pending(account) == nil {
+		t.Fatal("cleanup request not queued")
+	}
+	page, err := store.Messages(context.Background(), account, "one@g.us", storage.MessageQuery{Limit: 5})
+	if err != nil || len(page.Items) != 3 {
+		t.Fatal("agent cleanup changed data without human approval")
+	}
+	if err = app.Run(context.Background(), append(flags, "clean", "--chat", "one@g.us", "--all", "--yes")); err == nil {
+		t.Fatal("noninteractive bypass accepted")
+	}
+}

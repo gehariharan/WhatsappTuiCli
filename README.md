@@ -1,6 +1,6 @@
 # WhatsappTuiCli
 
-A personal, local WhatsApp group archive with a **full-screen terminal UI**,
+A personal, local WhatsApp chat archive with a **full-screen terminal UI**,
 written in Go using [whatsmeow](https://github.com/tulir/whatsmeow) and
 [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
@@ -17,10 +17,11 @@ release workflow produces these downloads:
 | macOS 15+, Apple Silicon | `wasync_VERSION_darwin_arm64.pkg` | Open the package and follow Installer |
 | macOS 15+, Intel | `wasync_VERSION_darwin_amd64.pkg` | Open the package and follow Installer |
 | Linux x86-64, glibc 2.35+ | `wasync_VERSION_linux_amd64.tar.gz` | Extract and install the executable on PATH |
+| Windows 10/11 x64 | `wasync_VERSION_windows_amd64-setup.exe` or `.zip` | Per-user Setup or portable ZIP |
 | Linux ARM64, glibc 2.35+ | `wasync_VERSION_linux_arm64.tar.gz` | Extract and install the executable on PATH |
 
 The release workflow builds native Intel/Apple Silicon macOS packages and
-Linux packages. Manual builds can remain drafts; publishing also updates the
+Linux and Windows packages. Manual builds can remain drafts; publishing also updates the
 Homebrew tap and runs installation checks on both Mac architectures. Downloadable
 versions appear on the
 [GitHub Releases page](https://github.com/gehariharan/WhatsappTuiCli/releases).
@@ -460,14 +461,16 @@ encrypt data at rest.
 | --- | --- |
 | `session.db` | Whatsmeow credentials and protocol state; protect as a secret |
 | `archive.db` | Accounts, groups, messages, FTS5, sync progress, history jobs and gap records |
-| `api.token` | Local API bearer token; keep private |
+| `api.token` | Archive API bearer token; keep private |
+| `send.token` | Separate send/action-request credential; keep private |
 | `wasync.log` | Structured lifecycle logs from TUI sessions |
 | `device.lock` | Process ownership lock, retained after exit |
 | `*-wal`, `*-shm` | SQLite WAL sidecars when present |
 
 Only one wasync process owns a data directory. Manage groups in the running TUI
 or through its API. `query` commands can read the archive concurrently; quit the
-owner before using other CLI commands against that directory. The OS releases the
+owner before using other CLI commands against that directory. The explicit
+`send` command can reuse the running owner through its authenticated local API. The OS releases the
 lock after crashes. Never delete the lock file to bypass an active process or run
 copies of the same device credentials concurrently.
 
@@ -523,8 +526,7 @@ Manual account checks:
 
 1. Launch wasync and confirm it reuses your paired session and enabled group.
 2. Have someone send a text in an enabled and a disabled group. Only the enabled
-   group's message should appear in the archive. No outgoing messages are sent by
-   wasync.
+   group's message should appear in the archive. No conversation messages are sent unless you explicitly invoke `wasync send`.
 3. Toggle capture with Space; confirm subsequent messages follow the preference.
 4. Browse with Enter, search with /, and scroll long messages with Enter then ↑/↓.
 5. Restart and verify the archive and preferences persist without duplicate rows.
@@ -540,7 +542,7 @@ that replay is not guaranteed.
 This is an unofficial WhatsApp client: protocol compatibility, WhatsApp terms and
 account restriction risks apply. Obtain appropriate permission before archiving
 or sharing conversations. There are no features for posting messages to conversations, cloud services,
-AI processing, attachment downloads or application web frontend in this phase.
+AI processing or application web frontend. Attachment downloads are opt-in.
 The original design and risk review are saved in
 [the HTML design artifact](.lavish/whatsapp-sync-design.html).
 
@@ -773,9 +775,10 @@ $env:PATH = 'C:/msys64/ucrt64/bin;' + $env:PATH
 
 ## Bulk selection, logout, and historical sync
 
-- **A** enables all currently discovered groups, after confirming the count.
-- **N** disables all currently discovered groups, after confirmation. These commands
-  apply to the whole account list even when a name filter is active.
+- The top **Select all** / **None** controls support mouse clicks or **A** / **N**.
+  Confirm the count before applying. They apply to the current category, ignoring
+  name and enabled-only filters. The default Groups category affects groups only.
+- **Tab** switches Groups / Direct / All. Direct chats require explicit selection.
 - `wasync groups enable --all` and `wasync groups disable --all` provide the same
   operations from the CLI. Newly discovered groups remain disabled.
 - **L**, then **y**, unlinks the device and exits; `wasync logout` does the same
@@ -784,7 +787,9 @@ $env:PATH = 'C:/msys64/ucrt64/bin;' + $env:PATH
   every two seconds, requesting pages of 50 from the primary phone when online.
   Live messages arrive through WhatsApp events; chat contents are not polled.
 - Metadata-only history anchors (group ID, message ID, timestamp and direction)
-  now survive restarts, including for groups whose capture is disabled. Message
+  now survive restarts, including for groups whose capture is disabled. Direct-chat anchors are persisted
+  only after capture is enabled; unselected direct chats retain discovery metadata
+  (chat ID/name) but no persistent per-message cursor. Message
   bodies from disabled groups are still discarded. Purging clears the stored
   anchor for that group; future WhatsApp deliveries may supply a new one.
 - With no known message anchor, history waits for WhatsApp to supply one. Keep the
@@ -793,5 +798,233 @@ $env:PATH = 'C:/msys64/ucrt64/bin;' + $env:PATH
 
 Schema version 4 adds cursor metadata. Start the updated TUI once to migrate an
 older archive before running read-only queries with the updated executable.
-Sending conversation messages and archiving direct chats are not yet implemented;
-whatsmeow supports them, and they are separate follow-up features.
+Group and direct chats share the archive while preserving legacy `group_id` keys
+and group-only listing commands; use `chat_id` and the `chats` commands for both.
+
+
+## Direct chats and explicit sending
+
+Direct chats are discovered from WhatsApp history and live events; there is no
+promise of a complete server-side inbox listing. Metadata is cached with capture
+disabled. Phone-number JIDs (`...@s.whatsapp.net`) and privacy/LID JIDs (`...@lid`)
+may represent the same person and are retained as supplied by WhatsApp; do not
+assume they have already been merged.
+
+```sh
+wasync chats list
+wasync chats enable '15551234567@s.whatsapp.net'
+wasync query chats --enabled
+wasync query messages --chat '15551234567@s.whatsapp.net'
+wasync query search 'meeting' --chat '15551234567@s.whatsapp.net'
+
+# Each invocation explicitly sends one conversation message.
+wasync send --to '123456789@g.us' --text 'Hello'
+wasync send --to '15551234567@s.whatsapp.net' --text 'https://example.com'
+wasync send --to '123456789@g.us' --file ./photo.png --type image --text 'Caption'
+wasync send --to '15551234567@s.whatsapp.net' --file ./report.pdf --type document
+```
+
+Sending supports text/URLs, JPEG/PNG images and documents up to 25 MiB. The default
+attachment type is document. Rich link-preview generation is not implemented.
+Output is JSON with `result.status` and `result.message_id`. A server acknowledgement
+is not proof of delivery or reading. An unknown outcome must be checked in WhatsApp
+before retrying. wasync does not add an application retry loop; whatsmeow may retry
+the same protocol frame using its existing message ID.
+
+When the TUI or service owns the data directory, `send` reuses its authenticated
+local API. Supply the same `--api-addr` if you changed the default. With `--no-api`,
+quit capture before sending. When no owner runs, `send` acquires the device lock,
+reuses the paired session and closes it after the request. No test sends real
+messages automatically. Read-only `query` commands never send messages.
+
+REST aliases `/api/chats`, `/api/chats/{id}`, and the matching
+`/enable`, `/disable`, `/history`, `/messages` routes support both chat types.
+Existing `/api/groups` lists groups only. Explicit sending uses authenticated
+`POST /api/send` with JSON `{ "to": "CHAT_ID", "text": "Hello" }`; optional
+`file` is an absolute local path and `type` is `image` or `document`. The separate `send.token` permits explicit sends, including reading the requested
+local attachment. The archive `api.token` cannot send. CLI commands sign requests
+with the send credential, bind the signature to the method/path/body and reject
+replays; they do not transmit the credential. Manual REST callers can use the
+separate send token as a bearer credential. Keep it private.
+
+## Optional image and document downloads
+
+```sh
+wasync --download-media
+# Headless:
+wasync --download-media serve
+# Equivalent environment setting:
+WASYNC_DOWNLOAD_MEDIA=1 wasync
+```
+
+Only enabled chats are eligible. Downloads run in a bounded background queue and
+use whatsmeow's authenticated decryption and integrity checking. Each file is
+limited to 25 MiB and stored under the private `media/ACCOUNT/CHAT_HASH/` directory.
+Sender filenames are never used as paths. Image/document metadata gains
+`download_state`, `local_path` and `relative_path`, visible in message queries.
+`relative_path` is authoritative relative to the current data directory’s `media/`
+root, so moving your archive preserves file identity; `local_path` records the
+absolute path at download time. States such as
+`failed`, `queue_full` and `skipped_size` describe incomplete attempts; downloads
+are best effort and require available WhatsApp media. Missing files are not
+retrieved merely by searching the local archive.
+
+Decryption keys stay in memory; they are not added to archive metadata. View-once
+and disappearing attachments are not downloaded. Historical downloads require
+WhatsApp to deliver the original media metadata again; old metadata-only local
+rows cannot supply discarded decryption keys. Purging a chat in the TUI removes
+its local download directory. Observed deletions remove matching downloaded files.
+Local media files are plaintext and are never opened automatically.
+
+## Pairing-time history options verified in upstream source
+
+The pinned whatsmeow implementation supports:
+
+1. Pairing-time history notifications delivered by WhatsApp.
+2. `BuildHistorySyncRequest` / `SendPeerMessage`: on-demand pages preceding a
+   known message ID and timestamp, with 50 recommended per request.
+3. `DownloadHistorySync` and `SendHistorySyncServerErrorReceipt`: download or retry
+   a specific history notification already delivered; these do not list arbitrary
+   server history or remove the cursor requirement.
+4. The upstream `store.DeviceProps.RequireFullSync` pairing hint. To request it
+   when linking a new device, launch `wasync --pairing-full-history` (or set
+   `WASYNC_PAIRING_FULL_HISTORY=1`). It is an experimental best-effort request,
+   not a completeness guarantee. It does not replay history for an existing link.
+
+Pair using the TUI or `wasync login` to seed persistent group cursor metadata
+when WhatsApp delivers history. The `login` command discards bodies even for
+already-enabled chats; the TUI can archive enabled chats during pairing. Changing pairing hints
+never automatically logs you out or deletes your existing archive.
+
+## Encryption at rest
+
+**wasync does not encrypt `archive.db`, `session.db`, SQLite sidecars, backups or
+downloaded media.** WhatsApp's end-to-end transport encryption ends before local
+archiving. Private Unix permissions / Windows ACLs restrict other OS users; they
+do not isolate data from software running as your own user. FileVault / BitLocker
+can protect powered-off disks when enabled.
+
+An encrypted-database edition requires an encrypted SQLite implementation,
+OS-backed or passphrase-based key management, and explicit migration of both the
+archive and linked-device store. That upgrade is not included in these installers.
+Do not treat a protected directory or a separate session database as encryption.
+
+
+## Confirmed local cleanup and WhatsApp deletion
+
+In the TUI:
+
+- **d**, while browsing messages: clear that message's local archived content and
+  download, retaining a tombstone so history replay cannot restore its body.
+- **D**, in the chat list: disable capture and purge that chat's local archive and
+  downloaded files. Re-enabling later can import history again.
+- **X**, on your own archived message: request WhatsApp deletion for everyone,
+  subject to WhatsApp permissions/time limits. Local content is cleared after
+  WhatsApp acknowledges the revocation. Other participants' messages cannot be
+  revoked through this implementation.
+- **W**, in the chat list: delete WhatsApp chat state for your account through the
+  last locally known message. This does not leave a group or delete participants'
+  copies. The local archive is retained.
+
+Each operation shows an explicit scope and target confirmation. Local cleanup
+never sends a WhatsApp deletion operation. Backups and filesystem remnants may
+retain copies; cleanup is not a secure erase guarantee.
+
+Agent commands **only request** destructive operations:
+
+```sh
+wasync clean --chat '123456789@g.us' --message-id MESSAGE_ID
+wasync clean --chat '123456789@g.us' --all
+wasync delete --chat '123456789@g.us' --scope everyone --message-id MY_MESSAGE_ID
+wasync delete --chat '123456789@g.us' --scope my-whatsapp-chat
+wasync actions status REQUEST_ID
+```
+
+The TUI must be running with its command channel enabled. Requests return JSON
+`pending_human_confirmation`; submitting a request changes no archived or WhatsApp
+messages. The TUI displays the exact action and requires typing `DELETE CODE`
+shown in the dialog, then Enter. **n** rejects. There is no `--yes`. Alternatively, an interactive terminal can run
+`wasync actions approve REQUEST_ID`, inspect the exact scope and target, and type
+the displayed confirmation. Requests expire after five minutes and are
+discarded when the owning process exits. Approval cannot be replayed. Inspect request status
+before retrying; `failed_or_unknown` can include an ambiguous remote outcome.
+
+Pending requests use authenticated `POST /api/actions` and status is available
+through `GET /api/actions/{id}`, using the separate send credential. The headless
+service supports interactive CLI approval through a separate private `approve.token`.
+The query and send credentials cannot approve a request. Agents should receive
+only the query credential; filesystem access as your OS user is not a security
+boundary against a malicious agent.
+
+## Re-pairing screen
+
+After logout, the TUI hides cached groups until the newly paired account is
+authenticated. QR pairing uses a compact full-screen layout, so terminal space is
+reserved for the QR rather than archive borders and controls. If the code still
+does not fit, enlarge the terminal or reduce its font size. Archives are preserved
+across logout and re-pairing; no database deletion is needed.
+
+Download cleanup failures (for example, a file open in another Windows program)
+do not stop message capture. A background sweep retries removal of orphaned
+managed downloads at startup and every thirty seconds. Unrecognized files placed
+in the media directory are not swept. Close other programs holding downloaded
+files if cleanup remains pending.
+
+
+## Complete CLI workflow (TUI optional)
+
+```sh
+wasync login --select=false
+wasync groups list
+wasync groups enable GROUP_ID
+# Or explicitly opt in to all currently discovered groups:
+wasync groups enable --all
+wasync sync --wait 30s
+wasync sync --chat GROUP_ID --history --wait 60s
+wasync query messages --chat GROUP_ID
+wasync query search --chat GROUP_ID "keyword"
+wasync serve
+```
+
+`sync` connects for a bounded observation window (0–60 seconds), refreshes group
+metadata, captures enabled chats, and returns JSON. `--history` queues best-effort
+older-message requests; enabling a chat already queues its initial history.
+History requires a known message anchor and may remain pending after the command
+ends; use `serve` for continuous capture and history processing. This is event
+observation, not a complete cloud download or a guarantee that the latest server
+message or every downtime message has arrived. Direct chats become discoverable
+when WhatsApp supplies their metadata; they are disabled by default.
+
+While `serve` or the TUI is running, CLI selection, listing, sending and `sync`
+reuse its authenticated loopback command channel. Use the same `--data-dir` and
+`--api-addr` as the owning process. `--no-api` disables that cooperation; quit the
+owner before running a command that needs the device lock. Read-only `query`
+commands read the archive directly and remain available without a server.
+To unlink from the CLI, stop the owner and run `wasync logout`.
+
+Destructive CLI requests can be approved without opening the TUI:
+
+```sh
+wasync clean --chat CHAT_ID --all
+wasync actions status REQUEST_ID
+wasync actions approve REQUEST_ID  # interactive typed confirmation required
+```
+
+`api.token` grants archive queries and capture selection; `send.token` separately
+grants explicit sending, sync requests and queuing cleanup requests;
+`approve.token` authorizes execution after the interactive CLI confirmation.
+Keep these files private. None are printed in command output. The default
+loopback channel is local HTTP, not transport encryption.
+
+The Windows installer owns only the PATH entry it adds. A preexisting equivalent
+entry is preserved on uninstall. Close wasync before upgrading or uninstalling.
+
+Approval credentials authorize execution directly: the typed phrase is enforced
+by the interactive CLI/TUI, not by the HTTP endpoint. Do not give `approve.token`
+to agents. A holder of `send.token` can request sending any regular local file
+the owner process can read; it is a privileged credential, not a read-only API key.
+Download `queue_full`/`failed` states have no automatic retry; another delivery of
+valid WhatsApp media metadata is required to attempt them again. Sending an
+attachment to an enabled chat with downloads enabled may also download your own
+upload. Purge removes content and disables capture; discovery rows (chat ID/name)
+remain for the selection interface and may be refreshed by later WhatsApp events.
