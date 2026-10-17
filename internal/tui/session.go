@@ -119,7 +119,7 @@ func (s *Session) Purge(account int64, group string) error {
 		return err
 	}
 	if s.MediaRoot != "" {
-		return os.RemoveAll(mediafiles.Directory(s.MediaRoot, account, group))
+		return errors.Join(os.RemoveAll(mediafiles.Directory(s.MediaRoot, account, group)), os.RemoveAll(mediafiles.Directory(whatsapp.ReferenceRoot(s.MediaRoot), account, group)))
 	}
 	return nil
 }
@@ -153,7 +153,7 @@ func (s *Session) ClearMessage(account int64, chat, message string) error {
 	if err := s.store.ClearMessage(s.ctx, account, chat, message); err != nil {
 		return err
 	}
-	return mediafiles.RemoveMessage(s.MediaRoot, account, chat, message)
+	return errors.Join(mediafiles.RemoveMessage(s.MediaRoot, account, chat, message), whatsapp.RemoveMediaReference(s.MediaRoot, account, chat, message))
 }
 
 func (s *Session) RevokeMessage(account int64, chat, message string) error {
@@ -278,4 +278,21 @@ func (s *Session) RejectAction(account int64, id string) error {
 	}
 	s.Approvals.Finish(id, "rejected", nil)
 	return nil
+}
+
+func (s *Session) SetMediaPolicy(account int64, chat, mode string) error {
+	return s.store.SetMediaPolicy(s.ctx, account, chat, mode)
+}
+func (s *Session) DownloadMedia(account int64, chat, message string) error {
+	if s.client == nil || s.client.Status().AccountID != account {
+		return fmt.Errorf("connect the selected account before downloading")
+	}
+	client, ok := s.client.(interface {
+		RequestMedia(context.Context, string, string) (whatsapp.MediaResult, error)
+	})
+	if !ok {
+		return fmt.Errorf("media downloads unavailable")
+	}
+	_, err := client.RequestMedia(s.ctx, chat, message)
+	return err
 }

@@ -29,6 +29,10 @@ type Observation struct {
 	HistoryMessages int64
 }
 type Client struct {
+	mediaConnected  func() bool
+	mediaTransfer   func(context.Context, whatsmeow.DownloadableMessage, whatsmeow.File) error
+	mediaRequestMu  sync.Mutex
+	mediaPending    map[string]bool
 	mediaRoot       string
 	mediaEnabled    bool
 	mediaQueue      chan mediaJob

@@ -41,13 +41,14 @@ type Client interface {
 	Observation() whatsapp.Observation
 }
 type App struct {
-	Approve     func(int64, string) error
-	Sync        whatsapp.Syncer
-	Approvals   *approval.Queue
-	In          io.Reader
-	Out, Err    io.Writer
-	Interactive bool
-	OpenClient  func(context.Context, string, *slog.Logger) (Client, error)
+	Approve       func(int64, string) error
+	MediaDownload whatsapp.MediaDownloader
+	Sync          whatsapp.Syncer
+	Approvals     *approval.Queue
+	In            io.Reader
+	Out, Err      io.Writer
+	Interactive   bool
+	OpenClient    func(context.Context, string, *slog.Logger) (Client, error)
 }
 
 func New() *App {
@@ -74,6 +75,8 @@ Usage: wasync [--data-dir PATH] [--timeout 3m] [--api-addr 127.0.0.1:8787] [--no
   sync [--wait 30s] [--history] [--chat ID]    Capture now, reusing any running owner
   actions approve REQUEST_ID                 Interactive typed approval, no --yes
   actions status REQUEST_ID                  Inspect a pending/completed request
+  media policy --chat ID [--mode auto|manual|inherit]  Saved per-chat media setting
+  media download --chat ID --message-id ID    One-time attachment download (live owner)
   send --to CHAT_ID --text TEXT               Explicitly send one text message
   status                                     Inspect local pairing state
   query [groups|chats|messages|search|status]       Read-only JSON queries for agents
@@ -143,6 +146,9 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 	}
 	if args[0] == "sync" {
 		return a.runSync(parent, cfg, args[1:])
+	}
+	if args[0] == "media" {
+		return a.runMedia(parent, cfg, args[1:])
 	}
 	if args[0] == "send" {
 		return a.runSend(parent, cfg, args[1:])

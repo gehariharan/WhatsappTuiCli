@@ -3,6 +3,7 @@ package tui
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +48,7 @@ type pageMsg struct {
 }
 
 type Model struct {
+	mediaPolling                     bool
 	expanded                         bool
 	session                          backend
 	qrSink                           func(string)
@@ -163,7 +165,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.qr = ""
 		}
 		var cmd tea.Cmd
-		if m.mode == "messages" && m.before.ID == 0 && !m.pageBusy {
+		if m.mode == "messages" && (m.before.ID == 0 || m.mediaPolling) && !m.pageBusy {
 			m.pageBusy = true
 			cmd = m.loadPage()
 		}
@@ -174,7 +176,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch v.kind {
 		case "connect", "refresh":
 			m.networkBusy = false
-		case "toggle", "bulk", "purge", "history", "clear-message", "agent-action", "revoke-message", "delete-whatsapp-chat", "action-rejected":
+		case "media-policy", "media-download", "toggle", "bulk", "purge", "history", "clear-message", "agent-action", "revoke-message", "delete-whatsapp-chat", "action-rejected":
 			m.writeBusy = false
 		}
 		if v.err != nil {
@@ -193,6 +195,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.notice = "Destructive request rejected; no action performed."
 			case "clear-message":
 				m.notice = "Message content removed locally. WhatsApp was not changed."
+				m.pageBusy = true
+				return m, m.loadPage()
+			case "media-policy":
+				m.notice = "Media policy saved; applies across restarts. Auto affects future attachment deliveries."
+			case "media-download":
+				m.mediaPolling = true
+				m.notice = "One-time media request processed. Details show the current file state; R refreshes this page."
 				m.pageBusy = true
 				return m, m.loadPage()
 			case "bulk":
@@ -225,6 +234,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selectedID = m.page.Items[m.pageCursor].ID
 			}
 			m.page = v.page
+			if m.mediaPolling {
+				pending := false
+				for _, item := range v.page.Items {
+					var meta struct {
+						State string `json:"download_state"`
+					}
+					_ = json.Unmarshal([]byte(item.Media), &meta)
+					if meta.State == "queued" || meta.State == "downloading" {
+						pending = true
+					}
+				}
+				m.mediaPolling = pending
+			}
 			m.pageCursor = min(m.pageCursor, max(len(m.page.Items)-1, 0))
 			for i, item := range m.page.Items {
 				if item.ID == selectedID {
@@ -521,6 +543,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, func() tea.Msg { return operationMsg{"toggle", m.session.Toggle(account, g.ID, !g.Enabled)} }
 				}
 			}
+		case "m":
+			if m.writeBusy {
+				return m, nil
+			}
+			account := m.snapshot.Account
+			if m.mode == "groups" {
+				if g, ok := m.selected(); ok {
+					policy, ok := m.session.(interface {
+						SetMediaPolicy(int64, string, string) error
+					})
+					if !ok {
+						m.notice = "Media preferences unavailable"
+						return m, nil
+					}
+					next := "manual"
+					if g.MediaPolicy == "manual" {
+						next = "auto"
+					} else if g.MediaPolicy == "auto" {
+						next = "inherit"
+					}
+					m.writeBusy = true
+					for i := range m.snapshot.Groups {
+						if m.snapshot.Groups[i].ID == g.ID {
+							m.snapshot.Groups[i].MediaPolicy = next
+						}
+					}
+					return m, func() tea.Msg { return operationMsg{"media-policy", policy.SetMediaPolicy(account, g.ID, next)} }
+				}
+			} else if m.mode == "messages" && !m.pageBusy && len(m.page.Items) > m.pageCursor {
+				downloader, ok := m.session.(interface {
+					DownloadMedia(int64, string, string) error
+				})
+				if !ok {
+					m.notice = "Media downloads unavailable"
+					return m, nil
+				}
+				item := m.page.Items[m.pageCursor]
+				m.writeBusy = true
+				return m, func() tea.Msg {
+					return operationMsg{"media-download", downloader.DownloadMedia(account, item.GroupID, item.MessageID)}
+				}
+			}
 		case "h":
 			if !m.writeBusy {
 				group := ""
@@ -688,7 +752,7 @@ func (m Model) View() tea.View {
 		top := header + "\n" + dim.Render(clip(status, w)) + "\n"
 		bodyHeight := h - 9
 		if m.help {
-			content = top + panel("KEYBOARD", "↑/↓ or j/k  Move selection\nMouse wheel  Scroll list\nPgUp/PgDn, Home/End  Jump\nSpace  Enable/disable selected chat\nTab  Groups / Direct / All\nA/N  Enable/disable category (confirmation)\nEnter  Browse archived messages\n/  Filter groups or search message text\ne  Show enabled groups only\nr  Refresh group metadata\nh  Retry older history for this group\nc  Connect/pair again\nd  Clear selected message locally (confirmation)\nX  Revoke your message in WhatsApp (confirmation)\nW  Delete WhatsApp chat state (confirmation)\nD  Purge local chat archive (confirmation)\nL  Unlink device and quit (confirmation)\n\nMessages: n/p older/newer page · R latest\nCtrl+D / Ctrl+U scroll selected message body\nEsc  Back/clear filter · q quit (keeps session linked)\n?  Close help", w, bodyHeight)
+			content = top + panel("KEYBOARD", "↑/↓ or j/k  Move selection\nMouse wheel  Scroll list\nPgUp/PgDn, Home/End  Jump\nSpace  Enable/disable selected chat\nm  Cycle chat media: manual / auto / inherit\nTab  Groups / Direct / All\nA/N  Enable/disable category (confirmation)\nEnter  Browse archived messages\n/  Filter groups or search message text\ne  Show enabled groups only\nr  Refresh group metadata\nh  Retry older history for this group\nc  Connect/pair again\nd  Clear selected message locally (confirmation)\nX  Revoke your message in WhatsApp (confirmation)\nW  Delete WhatsApp chat state (confirmation)\nD  Purge local chat archive (confirmation)\nL  Unlink device and quit (confirmation)\n\nMessages: m download selected attachment once · n/p older/newer · R latest\nCtrl+D / Ctrl+U scroll selected message body\nEsc  Back/clear filter · q quit (keeps session linked)\n?  Close help", w, bodyHeight)
 		} else if m.confirm != "" {
 			description := m.confirmDescription()
 			content = top + panel("CONFIRM DESTRUCTIVE ACTION", ansi.Hardwrap(description, w-6, false), w, bodyHeight)
@@ -726,7 +790,7 @@ func (m Model) View() tea.View {
 		if m.editing != "" {
 			prompt = "/ " + clean(m.draft) + "▏   Enter apply · Esc done"
 		}
-		hint := "Space toggle · A/N all/none · L logout · Enter messages · ? help · q quit"
+		hint := "m media policy · Space toggle · A/N all/none · L logout · Enter messages · ? help · q quit"
 		if m.mode == "messages" {
 			hint = "q quit · L logout · Enter full text · d clear locally · / search · n/p page · Esc back"
 		}
@@ -807,7 +871,7 @@ func (m Model) groupsView(width, height int) string {
 				history += "\n" + oneLine(g.HistoryRequestError)
 			}
 		}
-		details = accent.Render(clip(oneLine(g.Name), width-listWidth-5)) + "\n\n" + oneLine(g.ID) + "\n\n" + enabled + fmt.Sprintf("\n%d messages archived\n\nLast message\n%s\n\n%s\n%d potential account gaps\n\nEnter to browse messages.\nh to retry older history.\nD to purge this archive.", g.MessageCount, last, history, g.GapCount)
+		details = accent.Render(clip(oneLine(g.Name), width-listWidth-5)) + "\n\n" + oneLine(g.ID) + "\n\n" + enabled + "\nMedia: " + oneLine(g.MediaPolicy) + " (m to change)" + fmt.Sprintf("\n%d messages archived\n\nLast message\n%s\n\n%s\n%d potential account gaps\n\nEnter to browse messages.\nm to cycle saved media policy.\nh to retry older history.\nD to purge this archive.", g.MessageCount, last, history, g.GapCount)
 	}
 	details = ansi.Hardwrap(details, width-listWidth-5, false)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, panel("CAPTURE DETAILS", details, width-listWidth, height))
@@ -879,7 +943,7 @@ func (m Model) detailText(width int) string {
 		if item.DeletedAt != nil {
 			body = "[Message deleted]"
 		} else if body == "" {
-			body = "[" + item.Type + " metadata only]"
+			body = "[" + item.Type + "]"
 		}
 		wrapped := strings.Split(ansi.Hardwrap(body, width-4, false), "\n")
 		offset := min(m.detailOffset, max(len(wrapped)-1, 0))

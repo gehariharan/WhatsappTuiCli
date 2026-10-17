@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"whatsappsync/internal/storage"
 )
 
 func TestRichAttachmentDetails(t *testing.T) {
@@ -23,5 +24,46 @@ func TestRichAttachmentDetails(t *testing.T) {
 	got = mediaDetails("document", `{"filename":"\u001b[31munsafe\nname"}`)
 	if strings.ContainsAny(got, "\x1b\r") || strings.Count(got, "\n") > 0 {
 		t.Fatal("terminal controls survived", got)
+	}
+}
+
+type mediaBackend struct {
+	fakeBackend
+	policy, download string
+}
+
+func (b *mediaBackend) SetMediaPolicy(_ int64, chat, mode string) error {
+	b.policy = chat + ":" + mode
+	return nil
+}
+func (b *mediaBackend) DownloadMedia(_ int64, chat, message string) error {
+	b.download = chat + ":" + message
+	return nil
+}
+func TestMediaKeysKeepPolicyAndOneTimeActionsSeparate(t *testing.T) {
+	base, _ := fixtureModel()
+	backend := &mediaBackend{fakeBackend: fakeBackend{snapshot: base.snapshot}}
+	model := NewModel(backend)
+	model.snapshot = base.snapshot
+	model, cmd := update(model, key("m"))
+	if cmd == nil {
+		t.Fatal("policy command absent")
+	}
+	model, _ = update(model, cmd())
+	if backend.policy != "1@g.us:manual" || backend.download != "" {
+		t.Fatal(backend)
+	}
+	model.mode = "messages"
+	model.groupID = "1@g.us"
+	model.pageBusy = false
+	model.writeBusy = false
+	model.page = storage.MessagePage{Items: []storage.Message{{GroupID: "1@g.us", MessageID: "file", Type: "document"}}}
+	_, cmd = update(model, key("m"))
+	if cmd == nil {
+		t.Fatal("download command absent")
+	}
+	cmd()
+	if backend.download != "1@g.us:file" || backend.policy != "1@g.us:manual" {
+		t.Fatal("one-time action changed policy", backend)
 	}
 }

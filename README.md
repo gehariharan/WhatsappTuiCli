@@ -801,7 +801,7 @@ $env:PATH = 'C:/msys64/ucrt64/bin;' + $env:PATH
   primary phone online; **h** retries a failed history request. Neither enabling
   nor reconnecting guarantees complete history or recovery of downtime messages.
 
-Schema version 4 adds cursor metadata. Start the updated TUI once to migrate an
+Schema version 4 adds cursor metadata; version 5 adds persistent media policies. Start the updated TUI once to migrate an
 older archive before running read-only queries with the updated executable.
 Group and direct chats share the archive while preserving legacy `group_id` keys
 and group-only listing commands; use `chat_id` and the `chats` commands for both.
@@ -877,10 +877,13 @@ absolute path at download time. States such as
 are best effort and require available WhatsApp media. Missing files are not
 retrieved merely by searching the local archive.
 
-Decryption keys stay in memory; they are not added to archive metadata. View-once
-and disappearing attachments are not downloaded. Historical downloads require
-WhatsApp to deliver the original media metadata again; old metadata-only local
-rows cannot supply discarded decryption keys. Purging a chat in the TUI removes
+Download keys/references for eligible attachments are kept in the separate private
+`media-refs/` credential store so one-time downloads can work after a restart. They
+are never added to archive metadata or query responses. These files are plaintext
+credentials protected by filesystem permissions/ACLs, like the device session;
+keep them private. View-once and disappearing attachments are excluded. Old
+metadata-only rows from earlier versions still require WhatsApp to deliver the
+original media metadata again. Purging a chat in the TUI removes
 its local download directory. Observed deletions remove matching downloaded files.
 Local media files are plaintext and are never opened automatically.
 
@@ -1155,8 +1158,9 @@ Documents such as PDF, Word, Excel and PowerPoint are retained as files, not par
 or indexed internally; text search covers message text and attachment captions, not
 PDF/OCR/document contents or metadata-only filenames/titles. Files are never opened or executed automatically.
 
-Media downloads remain explicitly enabled with `--download-media` or
-`WASYNC_DOWNLOAD_MEDIA=1`. The allowlist, expiry/view-once exclusions,
+Media downloads are selected by saved per-chat policies or explicit one-message
+requests. `--download-media` / `WASYNC_DOWNLOAD_MEDIA=1` enables automatic downloads
+only for chats whose policy is `inherit`. The allowlist, expiry/view-once exclusions,
 deletion cleanup and best-effort history limits also apply to video, voice notes,
 audio and stickers. Installing an update does not recover previously discarded
 media download keys; WhatsApp must deliver the original attachment metadata again.
@@ -1175,11 +1179,13 @@ temporary encrypted data in addition to their final file.
 Download selection currently has two layers:
 
 - Enable capture for the groups/direct chats you want to archive.
-- Add `--download-media` (or `WASYNC_DOWNLOAD_MEDIA=1`) to download eligible
-  attachments from **all enabled chats**. Omit it to keep metadata only.
+- Use a saved per-chat policy, a one-time message request, or
+  `--download-media` / `WASYNC_DOWNLOAD_MEDIA=1` for chats using `inherit`.
+  With no global flag and no per-chat override, attachments remain available
+  for manual download.
 
-There is currently no independent per-chat media preference or per-message
-manual-download command. Disabling chat capture stops its downloads too. Starting
+Per-chat media policies and one-time downloads are described below. Disabling
+chat capture stops its downloads too. Starting
 with media downloads enabled does not recover discarded download keys from old
 metadata-only records; the original media metadata must be delivered again.
 
@@ -1192,3 +1198,72 @@ wasync --timeout 30m send --to CHAT_ID --file ./large-report.pdf
 The running owner's authenticated send route honors client cancellation rather
 than imposing the ordinary short query timeout. Only an explicit send invocation
 uploads a file; enabling downloads never sends a conversation message.
+
+
+## Per-chat media policies and one-time downloads
+
+**Chat policies are saved configuration.** They survive restarts and are isolated
+by WhatsApp account. Capture selection remains independent and must be enabled.
+
+| Policy | Behavior |
+| --- | --- |
+| `manual` | No automatic file downloads, even with the global flag. Request individual attachments. |
+| `auto` | Automatically download newly delivered eligible attachments in this chat, without the global flag. |
+| `inherit` (default) | Follow the launch-time `--download-media` / `WASYNC_DOWNLOAD_MEDIA` setting. With that setting off, download manually. |
+
+```sh
+wasync media policy --chat CHAT_ID --mode manual
+wasync media policy --chat CHAT_ID --mode auto
+wasync media policy --chat CHAT_ID --mode inherit
+wasync media policy --chat CHAT_ID
+```
+
+Policy changes work with or without a running owner. They do not change capture
+selection, remove downloaded files, or bulk-download old attachments. The global
+flag is a setting for that process launch, not a preference written into every chat.
+An environment variable remains effective for as long as you keep it configured.
+
+**A per-message request is one-time**, and changes no policy:
+
+```sh
+# Keep the TUI or headless owner running:
+wasync serve
+# In another terminal:
+wasync media download --chat CHAT_ID --message-id WHATSAPP_MESSAGE_ID
+wasync query messages --chat CHAT_ID
+```
+
+The command returns `queued` or `already_downloaded`; queued is not a success
+receipt for the transfer. Inspect `media_metadata.download_state` for `available`,
+`queued`, `downloading`, `downloaded`, `failed`, `queue_full` or `interrupted`.
+Repeated active requests are deduplicated. Re-request an interrupted/failed file
+to retry. Commands reuse the live owner's signed local channel and `send.token`;
+read-only query commands never trigger downloads. Media-control endpoints require
+`send.token` and reject `api.token`.
+With `--no-api`, use the owner's TUI instead. Offline mode can edit policies and
+browse the archive, but cannot download from WhatsApp.
+
+In the TUI, **m** on a chat cycles `manual` → `auto` → `inherit`; **m** on a message
+requests its attachment once. Message details show the download state and local
+path. **R** refreshes the latest message page.
+
+For newly captured eligible media, the private `media-refs/ACCOUNT/CHAT_HASH/`
+store retains only the download path/key, hashes, type/size and opaque identities.
+It contains credentials, not searchable message text. Archive/API queries never
+return these secrets. Include this directory only in private backups; it is not a
+file to share with agents or other archive consumers. Same-user filesystem access
+is not isolated by directory permissions, and these credentials are not encrypted
+at rest. References can outlive remote WhatsApp media availability.
+
+Clear/purge/revoke removes corresponding references; background cleanup retries
+orphaned references after interruptions. Disabled capture preserves existing
+references and downloaded data, but downloading requires re-enabling capture.
+View-once, disappearing and edited attachment references are excluded; missing
+references require redelivery of valid original attachment metadata. This update
+does not reconstruct keys discarded by older versions or guarantee that remote
+media still exists. No fixed 25 MiB file-size cap is reintroduced.
+
+Media policies survive a local chat purge, so re-enabling capture restores the
+previous media behavior. Logout preserves references with the archived data;
+clear/purge the corresponding local data to remove them. Remote media availability
+may expire independently of either local policy or pairing status.

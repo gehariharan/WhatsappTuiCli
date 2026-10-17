@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,15 +28,19 @@ type mediaJob struct {
 	attachment whatsmeow.DownloadableMessage
 	extension  string
 	size       int64
+	manual     bool
 }
 
 func (c *Client) ConfigureMedia(root string, enabled bool) {
 	c.mediaRoot = root
 	c.mediaEnabled = enabled
 }
-func (c *Client) startMediaWorker(ctx context.Context) {
+func (c *Client) startMediaWorker(ctx context.Context) error {
 	if c.mediaRoot == "" {
-		return
+		return nil
+	}
+	if err := c.capture.store.InterruptMediaDownloads(ctx); err != nil {
+		return err
 	}
 	ctx, c.mediaCancel = context.WithCancel(ctx)
 	c.mediaQueue = make(chan mediaJob, 64)
@@ -58,15 +63,22 @@ func (c *Client) startMediaWorker(ctx context.Context) {
 				if err := c.downloadMedia(ctx, job); err != nil {
 					if _, e := c.capture.store.SetMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID, "failed", ""); e != nil && ctx.Err() == nil {
 						c.StopCapture(e)
+						c.finishMedia(job)
 						return
 					}
+				} else if err := c.capture.store.ReleaseMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID); err != nil && ctx.Err() == nil {
+					c.StopCapture(err)
+					c.finishMedia(job)
+					return
 				}
+				c.finishMedia(job)
 			}
 		}
 	}()
+	return nil
 }
 func (c *Client) queueMedia(account int64, e *events.Message, m storage.Message) error {
-	if !c.mediaEnabled || c.mediaQueue == nil || m.Kind != "" || m.ExpiresAt != nil || viewOnceEvent(e) {
+	if c.mediaQueue == nil || m.Kind != "" || m.ExpiresAt != nil || viewOnceEvent(e) {
 		return nil
 	}
 	message := unwrap(e.Message)
@@ -110,18 +122,50 @@ func (c *Client) queueMedia(account int64, e *events.Message, m storage.Message)
 		return err
 	}
 	job.size = int64(length)
-	select {
-	case c.mediaQueue <- job:
-		return nil
-	default:
-		_, err := c.capture.store.SetMediaDownload(c.capture.ctx, account, m.GroupID, m.MessageID, "queue_full", "")
+	if c.mediaRoot != "" && c.capture != nil {
+		eligible, err := c.capture.store.MediaEligible(c.capture.ctx, account, m.GroupID, m.MessageID)
+		if err != nil || !eligible {
+			return err
+		}
+		if err = c.saveMediaReference(c.capture.ctx, job); err != nil {
+			return err
+		}
+		if err = c.capture.store.MediaReferenceAvailable(c.capture.ctx, account, m.GroupID, m.MessageID); err != nil {
+			return err
+		}
+	}
+	queueCtx := context.Background()
+	if c.capture != nil {
+		queueCtx = c.capture.ctx
+	}
+	automatic, err := c.autoMedia(queueCtx, account, m.GroupID)
+	if err != nil {
 		return err
 	}
+	if !automatic {
+		return nil
+	}
+	// Saturated automatic capture records queue_full, but must not stop capture.
+	err = c.enqueueMedia(queueCtx, job)
+	if err != nil && errors.Is(err, ErrMediaQueueFull) {
+		return nil
+	}
+	return err
 }
 func (c *Client) downloadMedia(ctx context.Context, job mediaJob) error {
 	enabled, err := c.capture.store.MediaEligible(ctx, job.account, job.message.GroupID, job.message.MessageID)
 	if err != nil || !enabled {
 		return err
+	}
+	if !job.manual {
+		allowed, e := c.autoMedia(ctx, job.account, job.message.GroupID)
+		if e != nil {
+			return e
+		}
+		if !allowed {
+			_, e = c.capture.store.SetMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID, "available", "")
+			return e
+		}
 	}
 	dir, err := mediafiles.Ensure(c.mediaRoot, job.account, job.message.GroupID)
 	if err != nil {
@@ -130,10 +174,15 @@ func (c *Client) downloadMedia(ctx context.Context, job mediaJob) error {
 	hash := sha256.Sum256(job.attachment.GetFileSHA256())
 	name := fmt.Sprintf("%s-%x%s", mediafiles.Prefix(job.message.MessageID), hash, job.extension)
 	path := filepath.Join(dir, name)
-	if err = localfs.CheckPrivateFile(path); err == nil {
+	c.mediaRequestMu.Lock()
+	err = localfs.CheckPrivateFile(path)
+	if err == nil {
 		_, err = c.capture.store.SetMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID, "downloaded", path)
+		c.mediaRequestMu.Unlock()
 		return err
-	} else if !os.IsNotExist(err) {
+	}
+	c.mediaRequestMu.Unlock()
+	if !os.IsNotExist(err) {
 		return err
 	}
 	temp := path + ".part"
@@ -146,7 +195,15 @@ func (c *Client) downloadMedia(ctx context.Context, job mediaJob) error {
 		f.Close()
 		return err
 	}
-	err = c.client.DownloadToFile(ctx, job.attachment, &boundedMediaFile{File: f, limit: job.size + 64})
+	if _, err = c.capture.store.SetMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID, "downloading", ""); err != nil {
+		f.Close()
+		return err
+	}
+	transfer := c.mediaTransfer
+	if transfer == nil {
+		transfer = c.client.DownloadToFile
+	}
+	err = transfer(ctx, job.attachment, &boundedMediaFile{File: f, limit: job.size + 64})
 	if err == nil {
 		var info os.FileInfo
 		info, err = f.Stat()
@@ -169,10 +226,12 @@ func (c *Client) downloadMedia(ctx context.Context, job mediaJob) error {
 	if err != nil || !valid {
 		return err
 	}
+	c.mediaRequestMu.Lock()
+	defer c.mediaRequestMu.Unlock()
 	if err = os.Rename(temp, path); err != nil {
 		return err
 	}
-	valid, err = c.capture.store.SetMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID, "downloaded", path)
+	valid, err = c.capture.store.CompleteMediaDownload(ctx, job.account, job.message.GroupID, job.message.MessageID, path, !job.manual, c.mediaEnabled)
 	if err != nil || !valid {
 		os.Remove(path)
 	}
@@ -216,11 +275,15 @@ func (f *boundedMediaFile) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (c *Client) removeMedia(account int64, chat, message string) {
+	if err := RemoveMediaReference(c.mediaRoot, account, chat, message); err != nil {
+		c.log.Warn("media reference cleanup deferred")
+	}
 	if err := mediafiles.RemoveMessage(c.mediaRoot, account, chat, message); err != nil {
 		c.log.Warn("local media cleanup deferred; files may be open")
 	}
 }
 func (c *Client) sweepMedia(ctx context.Context) {
+	c.sweepMediaReferences(ctx)
 	err := filepath.WalkDir(c.mediaRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
