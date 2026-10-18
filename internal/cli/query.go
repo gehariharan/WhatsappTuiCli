@@ -46,7 +46,7 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		return fmt.Errorf("unknown query command %q; use wasync query --help", command)
 	}
 	fs := a.flags("query " + command)
-	fs.Usage = func() { fmt.Fprint(a.Out, queryUsage) }
+	fs.Usage = func() { _ = a.writeHelp(fs.Output(), "query "+command) }
 	jsonOutput := fs.Bool("json", true, "JSON output (default; required for query commands)")
 	var enabled bool
 	var group, since, until, sender, cursor string
@@ -70,7 +70,7 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		search = rest[0]
 		rest = rest[1:]
 	}
-	if err := fs.Parse(rest); err != nil {
+	if err := a.parseFlags(fs, rest); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}

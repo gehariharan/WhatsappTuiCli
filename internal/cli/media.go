@@ -21,9 +21,13 @@ func (a *App) runMedia(parent context.Context, cfg config.Config, args []string)
 	}
 	f := a.flags("media " + args[0])
 	chat := f.String("chat", "", "exact group/direct chat ID")
-	mode := f.String("mode", "", "persistent auto, manual or inherit policy")
-	message := f.String("message-id", "", "one-time attachment download")
-	if err := f.Parse(args[1:]); err != nil {
+	var mode, message string
+	if args[0] == "policy" {
+		f.StringVar(&mode, "mode", "", "persistent auto, manual or inherit policy")
+	} else {
+		f.StringVar(&message, "message-id", "", "one-time attachment download")
+	}
+	if err := a.parseFlags(f, args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
@@ -36,15 +40,15 @@ func (a *App) runMedia(parent context.Context, cfg config.Config, args []string)
 		return err
 	}
 	if args[0] == "policy" {
-		if *message != "" || (*mode != "" && !storage.ValidMediaPolicy(*mode)) {
+		if mode != "" && !storage.ValidMediaPolicy(mode) {
 			return fmt.Errorf("policy accepts --mode auto, manual or inherit")
 		}
-	} else if *message == "" || len(*message) > 1024 || *mode != "" {
+	} else if message == "" || len(message) > 1024 {
 		return fmt.Errorf("download requires --message-id and no --mode")
 	}
 	ctx, cancel := context.WithTimeout(parent, cfg.Timeout)
 	defer cancel()
-	body, _ := json.Marshal(map[string]string{"chat_id": *chat, "mode": *mode, "message_id": *message})
+	body, _ := json.Marshal(map[string]string{"chat_id": *chat, "mode": mode, "message_id": message})
 	if err := localfs.EnsureDir(cfg.DataDir); err != nil {
 		return err
 	}
@@ -74,8 +78,8 @@ func (a *App) runMedia(parent context.Context, cfg config.Config, args []string)
 	if account == nil {
 		return fmt.Errorf("pair and discover chats first")
 	}
-	if *mode != "" {
-		if err = store.SetMediaPolicy(ctx, account.ID, *chat, *mode); err != nil {
+	if mode != "" {
+		if err = store.SetMediaPolicy(ctx, account.ID, *chat, mode); err != nil {
 			return err
 		}
 	}

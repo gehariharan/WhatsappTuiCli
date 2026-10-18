@@ -33,7 +33,7 @@ func (a *App) runSend(ctx context.Context, cfg config.Config, args []string) (re
 	fs.StringVar(&in.Text, "text", "", "text, URL or attachment caption")
 	fs.StringVar(&in.File, "file", "", "local attachment (WhatsApp enforces supported transfer limits)")
 	fs.StringVar(&in.Type, "type", "", "image or document (default document)")
-	if err := fs.Parse(args); err != nil {
+	if err := a.parseFlags(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
