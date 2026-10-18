@@ -47,7 +47,7 @@ func (a *App) runSync(ctx context.Context, cfg config.Config, args []string) (re
 	in := whatsapp.SyncInput{}
 	fs.BoolVar(&in.History, "history", false, "queue another best-effort history request")
 	fs.StringVar(&in.Chat, "chat", "", "optional enabled chat JID")
-	if err := fs.Parse(args); err != nil {
+	if err := a.parseFlags(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}

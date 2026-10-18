@@ -25,7 +25,7 @@ func (a *App) runDestructiveRequest(ctx context.Context, cfg config.Config, args
 	fs.StringVar(&in.Message, "message-id", "", "archived message ID")
 	all := fs.Bool("all", false, "request a local chat purge")
 	scope := fs.String("scope", "", "WhatsApp scope: everyone or my-whatsapp-chat")
-	if err := fs.Parse(args[1:]); err != nil {
+	if err := a.parseFlags(fs, args[1:]); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {

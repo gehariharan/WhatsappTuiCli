@@ -77,10 +77,21 @@ Usage: wasync [--data-dir PATH] [--timeout 3m] [--api-addr 127.0.0.1:8787] [--no
   actions status REQUEST_ID                  Inspect a pending/completed request
   media policy --chat ID [--mode auto|manual|inherit]  Saved per-chat media setting
   media download --chat ID --message-id ID    One-time attachment download (live owner)
-  send --to CHAT_ID --text TEXT               Explicitly send one text message
+  send --to CHAT_ID [--text TEXT] [--file PATH --type image|document]
   status                                     Inspect local pairing state
   query [groups|chats|messages|search|status]       Read-only JSON queries for agents
   version                                    Show installed build information
+  help [COMMAND [SUBCOMMAND]]                 Detailed command help, without connecting
+  help --json                                Machine-readable command catalog for agents
+
+Global flags (before COMMAND):
+  --data-dir PATH          Dedicated private data directory
+  --timeout 3m             Overall command timeout
+  --api-addr HOST:PORT     Loopback API address (default 127.0.0.1:8787)
+  --no-api                Disable the TUI API and command channel
+  --download-media        Default automatic media downloads; per-chat policy overrides
+  --pairing-full-history  Request fuller history on NEW pairing only (best effort)
+  --version               Show installed build information
 
 The TUI captures enabled groups and imports history when WhatsApp delivers it.
 Login/observation commands remain diagnostics and discard message bodies.
@@ -90,9 +101,15 @@ Global flags precede the command. Ctrl-C cancels network operations.
 func (a *App) flags(name string) *flag.FlagSet {
 	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(a.Err)
+	f.Usage = func() { _ = a.writeHelp(f.Output(), name) }
 	return f
 }
 func (a *App) Run(parent context.Context, args []string) (result error) {
+	defer func() {
+		if errors.Is(result, flag.ErrHelp) {
+			result = nil
+		}
+	}()
 	cfg, err := config.Default()
 	if err != nil {
 		return err
@@ -105,14 +122,17 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 	root.BoolVar(&cfg.PairingFullHistory, "pairing-full-history", os.Getenv("WASYNC_PAIRING_FULL_HISTORY") == "1", "ask for fuller pairing-time history (best effort; new pairing only)")
 	root.BoolVar(&cfg.DownloadMedia, "download-media", os.Getenv("WASYNC_DOWNLOAD_MEDIA") == "1", "download images/documents/video/audio/stickers from enabled chats (local plaintext; WhatsApp transfer limits apply)")
 	root.BoolVar(&cfg.NoAPI, "no-api", false, "disable the API alongside the TUI")
-	root.Usage = func() { fmt.Fprint(a.Out, usage) }
-	if err = root.Parse(args); err != nil {
+	root.Usage = func() { fmt.Fprint(root.Output(), usage) }
+	if err = a.parseFlags(root, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
 	}
 	args = root.Args()
+	if handled, helpErr := a.dispatchHelp(args); handled {
+		return helpErr
+	}
 	if *showVersion {
 		if len(args) != 0 {
 			return fmt.Errorf("usage: wasync --version")
@@ -129,10 +149,6 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 	}
 	if len(args) == 0 {
 		args = []string{"tui"}
-	}
-	if args[0] == "help" {
-		root.Usage()
-		return nil
 	}
 	cfg, err = cfg.Validate()
 	if err != nil {
@@ -210,7 +226,7 @@ func (a *App) parse(args []string) (action, error) {
 	case "tui", "run", "serve":
 		fs := a.flags(args[0])
 		offline := fs.Bool("offline", false, "browse the local archive without a WhatsApp connection")
-		if err := fs.Parse(args[1:]); err != nil {
+		if err := a.parseFlags(fs, args[1:]); err != nil {
 			return nil, err
 		}
 		if fs.NArg() != 0 {
@@ -224,7 +240,7 @@ func (a *App) parse(args []string) (action, error) {
 		fs := a.flags("login")
 		selectGroups := fs.Bool("select", a.Interactive, "offer additive group selection in terminal")
 		observe := fs.Duration("observe", 0, "keep connection open to count events without archiving")
-		if err := fs.Parse(args[1:]); err != nil {
+		if err := a.parseFlags(fs, args[1:]); err != nil {
 			return nil, err
 		}
 		if fs.NArg() != 0 || *observe < 0 {
@@ -352,10 +368,14 @@ func (a *App) parseTargets(args []string, allChats bool) (action, error) {
 	}
 	switch args[0] {
 	case "list":
-		fs := a.flags("groups list")
+		name := "groups list"
+		if allChats {
+			name = "chats list"
+		}
+		fs := a.flags(name)
 		refresh := fs.Bool("refresh", false, "connect using saved session to refresh metadata")
 		jsonOut := fs.Bool("json", false, "print cached groups as JSON")
-		if err := fs.Parse(args[1:]); err != nil {
+		if err := a.parseFlags(fs, args[1:]); err != nil {
 			return nil, err
 		}
 		if fs.NArg() != 0 {

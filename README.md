@@ -298,6 +298,22 @@ export PATH="$HOME/.local/bin:$PATH"
 Add the PATH export to your shell configuration if needed. Reinstall the binary
 after rebuilding.
 
+Agents can discover every command without opening the archive or connecting to
+WhatsApp. Help is written to stdout and exits successfully:
+
+```sh
+wasync help --json                # versioned command catalog, usage and notes
+wasync help query messages        # detailed help for any command path
+wasync media policy --help        # equivalent command-specific help
+wasync help                      # global flags and command overview
+```
+
+Global flags such as `--data-dir` and `--timeout` must precede the command.
+`query` commands are read-only JSON interfaces; `send` explicitly sends a message,
+and `clean` / `delete` only queue requests requiring a human's interactive approval.
+Per-chat `media policy` is persistent; `media download` requests one attachment
+without changing that policy.
+
 Keep the TUI capturing in one terminal and query from another:
 
 ```sh
