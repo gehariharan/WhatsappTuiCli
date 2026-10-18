@@ -2,9 +2,9 @@
 cask "wasync" do
   arch arm: "arm64", intel: "amd64"
 
-  version "0.1.0-preview.20261017232722"
-  sha256 arm:   "64d6e8a19a480ad007e3c4d4b57942c3cdcac3bba83bdd429043af4b4eeeb43f",
-         intel: "8da73222c7ff955328b60967f79fdee0e8d9d71f84cc8859418dad40712969a4"
+  version "0.1.0-preview.20261018060349"
+  sha256 arm:   "9a0f3e5636f856678888a1408acc8479e0bb9e6e423b3d48064a86498c271bfb",
+         intel: "7b5e899c2ff8697b7e078b6dc2cfc30c443031a939877176e06bdd1e8bbdd051"
 
   url "https://github.com/gehariharan/WhatsappTuiCli/releases/download/v#{version}/wasync_#{version}_darwin_#{arch}.tar.gz"
   name "WhatsappTuiCli"
