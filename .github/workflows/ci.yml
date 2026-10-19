@@ -56,8 +56,9 @@ jobs:
         run: bash scripts/check-dist.sh 0.0.0-ci
       - name: Check the rebuild is reproducible
         run: |
-          mv dist/0.0.0-ci/SHA256SUMS first-SHA256SUMS
+          # Keep the copy outside the checkout: an untracked file marks the build dirty.
+          mv dist/0.0.0-ci/SHA256SUMS "$RUNNER_TEMP/first-SHA256SUMS"
           bash scripts/package.sh --dry-run 0.0.0-ci >/dev/null
-          diff first-SHA256SUMS dist/0.0.0-ci/SHA256SUMS
+          diff "$RUNNER_TEMP/first-SHA256SUMS" dist/0.0.0-ci/SHA256SUMS
       - name: Test the Homebrew formula generator
         run: bash scripts/test-homebrew-formula.sh
