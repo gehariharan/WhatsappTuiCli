@@ -1,0 +1,82 @@
+{
+  "data": {
+    "agent": null,
+    "agents_registry_private": true,
+    "arch": "<arch>",
+    "archive": {
+      "exists": false,
+      "readable": false,
+      "schema_version": null,
+      "supported_schema_version": "<supported_schema_version>"
+    },
+    "checks": [
+      {
+        "detail": "<detail>",
+        "fix": "",
+        "name": "version",
+        "status": "pass"
+      },
+      {
+        "detail": "data directory does not exist",
+        "fix": "wasync login",
+        "name": "data_dir",
+        "status": "fail"
+      },
+      {
+        "detail": "no archive yet",
+        "fix": "wasync login",
+        "name": "archive",
+        "status": "fail"
+      },
+      {
+        "detail": "no paired WhatsApp session",
+        "fix": "wasync login",
+        "name": "pairing",
+        "status": "fail"
+      },
+      {
+        "detail": "no wasync process is running; reads fall back to wasync query",
+        "fix": "wasync serve",
+        "name": "owner",
+        "status": "warn"
+      },
+      {
+        "detail": "not connected to WhatsApp",
+        "fix": "wasync serve",
+        "name": "health",
+        "status": "warn"
+      },
+      {
+        "detail": "agent registry is private",
+        "fix": "",
+        "name": "agents_registry",
+        "status": "pass"
+      },
+      {
+        "detail": "no active agent credential",
+        "fix": "wasync agents grant NAME --scope read.chats,read.messages",
+        "name": "agent",
+        "status": "warn"
+      },
+      {
+        "detail": "<detail>",
+        "fix": "<fix>",
+        "name": "journal",
+        "status": "<status>"
+      }
+    ],
+    "data_dir_private": false,
+    "distribution": "standalone",
+    "health": "offline",
+    "journal_available": "<journal_available>",
+    "os": "<os>",
+    "owner": {
+      "api_version": null,
+      "running": false
+    },
+    "paired": false,
+    "transport": "query",
+    "wasync_version": "<wasync_version>"
+  },
+  "request_id": "<request_id>"
+}
