@@ -1,0 +1,380 @@
+[
+  {
+    "args": [
+      "version"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "api_minor": 0,
+        "api_version": 1,
+        "archive_schema_version": 6,
+        "features": "<features>",
+        "schema_version": 6,
+        "wasync_version": "<wasync_version>"
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "groups",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "one@g.us",
+            "last_message_at": "2026-10-01T00:00:00Z",
+            "media_policy": "inherit",
+            "message_count": 3,
+            "name": "First",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          },
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "",
+            "history_state": "not_observed",
+            "id": "two@g.us",
+            "last_message_at": null,
+            "media_policy": "inherit",
+            "message_count": 0,
+            "name": "Second",
+            "potential_account_gaps": 0,
+            "sync_enabled": false
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "chats",
+      "--v1",
+      "--enabled"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "one@g.us",
+            "last_message_at": "2026-10-01T00:00:00Z",
+            "media_policy": "inherit",
+            "message_count": 3,
+            "name": "First",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "status",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "archived_messages": 3,
+        "chat_count": 2,
+        "connection": "unknown",
+        "enabled_chats": 1,
+        "enabled_groups": 1,
+        "group_count": 2,
+        "history_completeness": "unknown",
+        "last_capture_finished_at": null,
+        "last_capture_heartbeat_at": null,
+        "last_capture_run_state": "not_observed",
+        "last_discovery_at": "<last_discovery_at>",
+        "last_history_sync_at": null,
+        "last_received_at": "<last_received_at>",
+        "potential_account_gaps": 0
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "one@g.us",
+      "--limit",
+      "2",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 3,
+            "is_from_me": false,
+            "message_id": "2",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMg",
+            "sender_id": "sender@lid",
+            "source": "live",
+            "text_content": "hello archive",
+            "timestamp": "2026-10-01T00:00:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 2,
+            "is_from_me": false,
+            "message_id": "1",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMQ",
+            "sender_id": "sender@lid",
+            "source": "live",
+            "text_content": "hello archive",
+            "timestamp": "2026-10-01T00:00:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": true,
+        "next_cursor": "<next_cursor>"
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "search",
+      "hello",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 3,
+            "is_from_me": false,
+            "message_id": "2",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMg",
+            "sender_id": "sender@lid",
+            "source": "live",
+            "text_content": "hello archive",
+            "timestamp": "2026-10-01T00:00:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 2,
+            "is_from_me": false,
+            "message_id": "1",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMQ",
+            "sender_id": "sender@lid",
+            "source": "live",
+            "text_content": "hello archive",
+            "timestamp": "2026-10-01T00:00:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 1,
+            "is_from_me": false,
+            "message_id": "0",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMA",
+            "sender_id": "sender@lid",
+            "source": "live",
+            "text_content": "hello archive",
+            "timestamp": "2026-10-01T00:00:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": false,
+        "next_cursor": ""
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "search",
+      "no matches",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": []
+      },
+      "page": {
+        "has_more": false,
+        "next_cursor": ""
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--v1"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "messages requires --chat CHAT_ID (or --group); list IDs with wasync query chats",
+      "error_code": "invalid_argument",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "missing@g.us",
+      "--v1"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "group is not in the current account's archive; list IDs with wasync query groups",
+      "error_code": "not_found",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "one@g.us",
+      "--cursor",
+      "garbage",
+      "--v1"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "invalid cursor or filters changed; start again without --cursor",
+      "error_code": "invalid_cursor",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "unknown",
+      "--v1"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "unknown query command \"unknown\"; use wasync query --help",
+      "error_code": "invalid_argument",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "changes",
+      "--limit",
+      "2"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "changes": [
+          {
+            "chat_id": "one@g.us",
+            "committed_at": "<committed_at>",
+            "cursor": "<cursor>",
+            "message_id": "",
+            "op": "capture.enabled",
+            "op_version": 1,
+            "sequence": 1
+          },
+          {
+            "chat_id": "one@g.us",
+            "committed_at": "<committed_at>",
+            "cursor": "<cursor>",
+            "message_id": "0",
+            "op": "message.created",
+            "op_version": 1,
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMA",
+            "sequence": 2
+          }
+        ]
+      },
+      "page": {
+        "has_more": true,
+        "next_cursor": "<next_cursor>"
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "changes",
+      "--after",
+      "garbage"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "invalid change cursor: unknown format",
+      "error_code": "invalid_cursor",
+      "help": "Pass a cursor returned by the changes feed (c1_...) unchanged, or omit it to start from the oldest retained change.",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "checkpoint",
+      "--consumer",
+      "replica"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "consumer": "replica",
+        "cursor": null,
+        "updated_at": null
+      },
+      "request_id": "<request_id>"
+    }
+  }
+]

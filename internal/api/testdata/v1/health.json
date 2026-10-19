@@ -1,0 +1,275 @@
+[
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "archive_ready": true,
+        "capture_error": null,
+        "connected": false,
+        "history_jobs_active": 2,
+        "keepalive_failing": false,
+        "last_connected_at": null,
+        "last_event_at": null,
+        "last_keepalive_ok_at": null,
+        "open_gaps": 0,
+        "owner_running": true,
+        "schema_version": "<schema_version>",
+        "state": "offline"
+      },
+      "request_id": "<request_id>"
+    },
+    "owner": "serve --offline",
+    "request": "GET /api/v1/health/deep",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "archive_ready": true,
+        "capture_error": null,
+        "connected": false,
+        "history_jobs_active": 2,
+        "keepalive_failing": true,
+        "last_connected_at": "2026-10-19T07:00:00Z",
+        "last_event_at": "2026-10-19T08:00:00Z",
+        "last_keepalive_ok_at": "2026-10-19T07:58:00Z",
+        "open_gaps": 0,
+        "owner_running": true,
+        "schema_version": "<schema_version>",
+        "state": "degraded"
+      },
+      "request_id": "<request_id>"
+    },
+    "owner": "keepalive failing",
+    "request": "GET /api/v1/health/deep",
+    "status": 200
+  },
+  {
+    "auth": "agent without read.chats",
+    "body": {
+      "error": "client observer lacks scope read.chats",
+      "error_code": "forbidden",
+      "help": "Missing scope read.chats. A human must re-grant the client in an interactive terminal: wasync agents revoke observer && wasync agents grant observer --scope read.chats,observe",
+      "request_id": "<request_id>"
+    },
+    "owner": "keepalive failing",
+    "request": "GET /api/v1/health/deep",
+    "status": 403
+  },
+  {
+    "auth": "none",
+    "body": {
+      "error": "Authorization: Bearer wsa_... credential required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
+      "request_id": "<request_id>"
+    },
+    "owner": "keepalive failing",
+    "request": "GET /api/v1/health/deep",
+    "status": 401
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "agent": {
+          "chats": [],
+          "expires_at": null,
+          "name": "test-agent",
+          "scopes": [
+            "read.chats",
+            "read.messages"
+          ]
+        },
+        "agents_registry_private": true,
+        "arch": "<arch>",
+        "archive": {
+          "exists": true,
+          "readable": true,
+          "schema_version": "<schema_version>",
+          "supported_schema_version": "<supported_schema_version>"
+        },
+        "checks": [
+          {
+            "detail": "<detail>",
+            "fix": "",
+            "name": "version",
+            "status": "pass"
+          },
+          {
+            "detail": "data directory is private",
+            "fix": "",
+            "name": "data_dir",
+            "status": "pass"
+          },
+          {
+            "detail": "archive schema supported",
+            "fix": "",
+            "name": "archive",
+            "status": "pass"
+          },
+          {
+            "detail": "no paired WhatsApp session",
+            "fix": "wasync login",
+            "name": "pairing",
+            "status": "fail"
+          },
+          {
+            "detail": "a wasync process owns the data directory",
+            "fix": "",
+            "name": "owner",
+            "status": "pass"
+          },
+          {
+            "detail": "not connected to WhatsApp",
+            "fix": "wasync serve",
+            "name": "health",
+            "status": "warn"
+          },
+          {
+            "detail": "agent registry is private",
+            "fix": "",
+            "name": "agents_registry",
+            "status": "pass"
+          },
+          {
+            "detail": "agent credential valid",
+            "fix": "",
+            "name": "agent",
+            "status": "pass"
+          },
+          {
+            "detail": "<detail>",
+            "fix": "<fix>",
+            "name": "journal",
+            "status": "<status>"
+          }
+        ],
+        "data_dir_private": true,
+        "distribution": "standalone",
+        "health": "offline",
+        "journal_available": "<journal_available>",
+        "os": "<os>",
+        "owner": {
+          "api_version": 1,
+          "running": true
+        },
+        "paired": false,
+        "transport": "api",
+        "wasync_version": "<wasync_version>"
+      },
+      "request_id": "<request_id>"
+    },
+    "owner": "serve --offline",
+    "request": "GET /api/v1/diagnostics",
+    "status": 200
+  },
+  {
+    "auth": "agent without read.chats",
+    "body": {
+      "data": {
+        "agent": {
+          "chats": [],
+          "expires_at": null,
+          "name": "observer",
+          "scopes": [
+            "observe"
+          ]
+        },
+        "agents_registry_private": true,
+        "arch": "<arch>",
+        "archive": {
+          "exists": true,
+          "readable": true,
+          "schema_version": "<schema_version>",
+          "supported_schema_version": "<supported_schema_version>"
+        },
+        "checks": [
+          {
+            "detail": "<detail>",
+            "fix": "",
+            "name": "version",
+            "status": "pass"
+          },
+          {
+            "detail": "data directory is private",
+            "fix": "",
+            "name": "data_dir",
+            "status": "pass"
+          },
+          {
+            "detail": "archive schema supported",
+            "fix": "",
+            "name": "archive",
+            "status": "pass"
+          },
+          {
+            "detail": "a WhatsApp session is paired",
+            "fix": "",
+            "name": "pairing",
+            "status": "pass"
+          },
+          {
+            "detail": "a wasync process owns the data directory",
+            "fix": "",
+            "name": "owner",
+            "status": "pass"
+          },
+          {
+            "detail": "keepalive failing; connection is not confirmed",
+            "fix": "",
+            "name": "health",
+            "status": "warn"
+          },
+          {
+            "detail": "agent registry is private",
+            "fix": "",
+            "name": "agents_registry",
+            "status": "pass"
+          },
+          {
+            "detail": "agent lacks read.chats,read.messages",
+            "fix": "wasync agents revoke observer && wasync agents grant observer --scope read.chats,read.messages,observe",
+            "name": "agent",
+            "status": "warn"
+          },
+          {
+            "detail": "<detail>",
+            "fix": "<fix>",
+            "name": "journal",
+            "status": "<status>"
+          }
+        ],
+        "data_dir_private": true,
+        "distribution": "standalone",
+        "health": "degraded",
+        "journal_available": "<journal_available>",
+        "os": "<os>",
+        "owner": {
+          "api_version": 1,
+          "running": true
+        },
+        "paired": true,
+        "transport": "api",
+        "wasync_version": "<wasync_version>"
+      },
+      "request_id": "<request_id>"
+    },
+    "owner": "keepalive failing",
+    "request": "GET /api/v1/diagnostics",
+    "status": 200
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "legacy wasync tokens are not accepted; an agent credential (wsa_...) is required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
+      "request_id": "<request_id>"
+    },
+    "owner": "keepalive failing",
+    "request": "GET /api/v1/diagnostics",
+    "status": 401
+  }
+]

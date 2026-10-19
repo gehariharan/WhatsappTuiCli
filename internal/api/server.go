@@ -19,8 +19,10 @@ import (
 	"sync"
 	"time"
 
+	"whatsappsync/internal/agentauth"
 	"whatsappsync/internal/approval"
 	"whatsappsync/internal/localfs"
+	"whatsappsync/internal/query"
 	"whatsappsync/internal/storage"
 	"whatsappsync/internal/whatsapp"
 )
@@ -99,7 +101,7 @@ func StartMediaControlled(addr, dir string, store *storage.Store, status func() 
 	if err != nil {
 		return nil, fmt.Errorf("start local API (change --api-addr or use --no-api): %w", err)
 	}
-	h := &handler{mediaDownload: media, store: store, token: token, status: status, authority: listener.Addr().String(), approvals: approvals, approve: approve, syncer: syncer}
+	h := &handler{agents: agentauth.NewAuthorizer(dir), mediaDownload: media, store: store, token: token, status: status, authority: listener.Addr().String(), approvals: approvals, approve: approve, syncer: syncer}
 	if len(sender) > 0 {
 		h.sender = sender[0]
 	}
@@ -140,6 +142,9 @@ func (s *Server) Close() error {
 }
 
 type handler struct {
+	v1Once           sync.Once
+	v1Mux            *http.ServeMux
+	agents           *agentauth.Authorizer
 	mediaDownload    whatsapp.MediaDownloader
 	approve          func(int64, string) error
 	approveToken     string
@@ -192,16 +197,28 @@ func (h *handler) routes() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		deny := fail
+		if isV1(r.URL.Path) {
+			deny = func(w http.ResponseWriter, code int, message string) {
+				id := query.NewRequestID()
+				w.Header().Set("X-Request-Id", id)
+				v1Fail(w, id, code, query.CodeForbidden, message, "connect to the loopback address wasync listens on")
+			}
+		}
 		if r.Host != h.authority {
-			fail(w, 403, "invalid host")
+			deny(w, 403, "invalid host")
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
 			if err != nil || u.Scheme != "http" || u.Host != h.authority {
-				fail(w, 403, "foreign origin")
+				deny(w, 403, "foreign origin")
 				return
 			}
+		}
+		if isV1(r.URL.Path) {
+			h.serveV1(w, r)
+			return
 		}
 		requiredToken := h.token
 		if (r.URL.Path == "/api/send" || r.URL.Path == "/api/sync") || strings.HasPrefix(r.URL.Path, "/api/actions") || strings.HasPrefix(r.URL.Path, "/api/media/") {

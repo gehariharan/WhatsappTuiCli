@@ -103,6 +103,10 @@ func TestMigrationRejectsNewerSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A future schema that needs a newer writer raises min_writer with it.
+	if _, err = s.db.Exec("UPDATE schema_compat SET min_reader=99,min_writer=99"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = s.db.Exec("PRAGMA user_version=99"); err != nil {
 		t.Fatal(err)
 	}

@@ -29,6 +29,19 @@ var migration4 string
 //go:embed migrations/005_media_preferences.sql
 var migration5 string
 
+//go:embed migrations/006_change_journal.sql
+var migration6 string
+
+// migrations lists every embedded migration in order; migration i+1 sets
+// user_version to i+1. New migrations must follow docs/architecture/migrations.md.
+var migrations = []string{migration1, migration2, migration3, migration4, migration5, migration6}
+
+// schemaVersion is the newest archive schema this binary writes.
+var schemaVersion = len(migrations)
+
+// SchemaVersion is the archive schema this build migrates to and queries.
+const SchemaVersion = 6
+
 type Store struct{ db *sql.DB }
 type Group struct {
 	ID                   string
@@ -79,7 +92,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
 	if err = db.PingContext(ctx); err == nil {
-		err = s.migrate(ctx)
+		err = s.migrate(ctx, path)
 	}
 	if err != nil {
 		db.Close()
@@ -88,19 +101,42 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	return s, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
-func (s *Store) migrate(ctx context.Context) error {
+func (s *Store) migrate(ctx context.Context, path string) error {
+	var version int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	if version > schemaVersion {
+		compat, err := readSchemaCompat(ctx, s.db)
+		if err != nil {
+			return err
+		}
+		if compat == nil {
+			return fmt.Errorf("archive schema %d is newer than supported schema %d", version, schemaVersion)
+		}
+		if schemaVersion < compat.MinWriter {
+			return fmt.Errorf("archive schema %d is newer than supported schema %d and requires writer schema %d", version, schemaVersion, compat.MinWriter)
+		}
+		// A newer additive schema that declares this binary a safe writer
+		// opens as-is; never downgrade or rewrite it.
+		return nil
+	}
+	if version >= 1 && version < schemaVersion {
+		if _, err := backupArchive(ctx, s.db, path, version); err != nil {
+			return fmt.Errorf("back up archive before migrating schema %d to %d (archive left unchanged): %w", version, schemaVersion, err)
+		}
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	var version int
-	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+	var current int
+	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&current); err != nil {
 		return err
 	}
-	migrations := []string{migration1, migration2, migration3, migration4, migration5}
-	if version > len(migrations) {
-		return fmt.Errorf("archive schema %d is newer than supported schema %d", version, len(migrations))
+	if current != version {
+		return fmt.Errorf("archive schema changed from %d to %d while opening; retry", version, current)
 	}
 	for i := version; i < len(migrations); i++ {
 		if _, err = tx.ExecContext(ctx, migrations[i]); err != nil {
@@ -202,6 +238,15 @@ func (s *Store) SetEnabled(ctx context.Context, account int64, ids []string, ena
 		}
 		if n == 0 {
 			return fmt.Errorf("group %q is not in the cached group list; refresh discovery first", id)
+		}
+		if enabled != wasEnabled {
+			op := OpCaptureDisabled
+			if enabled {
+				op = OpCaptureEnabled
+			}
+			if err = journal(ctx, tx, account, id, "", op, time.Now().UnixMilli()); err != nil {
+				return err
+			}
 		}
 		if enabled && !wasEnabled {
 			if _, err = tx.ExecContext(ctx, `INSERT INTO history_jobs(account_id,group_id,updated_at) VALUES(?,?,?)

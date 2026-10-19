@@ -50,6 +50,10 @@ jobs:
   publish:
     needs: verify
     runs-on: ubuntu-22.04
+    # Serialize writes to the shared Homebrew tap across releases.
+    concurrency:
+      group: homebrew-tap-publish
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:

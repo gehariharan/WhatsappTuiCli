@@ -43,8 +43,14 @@ func (s *Store) setMediaDownload(ctx context.Context, account int64, chat, messa
 
 // ClearMessage clears local content and keeps a tombstone against history replay.
 // It deliberately sends no WhatsApp operation and works for disabled chats too.
+// It appends message.purged to the change journal in the same transaction.
 func (s *Store) ClearMessage(ctx context.Context, account int64, chat, message string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE messages SET text_content='',media_metadata='',reply_to_message_id='',message_type='deleted',deleted_at=COALESCE(deleted_at,?) WHERE account_id=? AND group_id=? AND message_id=?`, time.Now().UnixMilli(), account, chat, message)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE messages SET text_content='',media_metadata='',reply_to_message_id='',message_type='deleted',deleted_at=COALESCE(deleted_at,?) WHERE account_id=? AND group_id=? AND message_id=?`, time.Now().UnixMilli(), account, chat, message)
 	if err != nil {
 		return err
 	}
@@ -55,7 +61,10 @@ func (s *Store) ClearMessage(ctx context.Context, account int64, chat, message s
 	if n == 0 {
 		return fmt.Errorf("message is not in this account's local archive")
 	}
-	return nil
+	if err = journal(ctx, tx, account, chat, message, OpMessagePurged, time.Now().UnixMilli()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) MediaEligible(ctx context.Context, account int64, chat, message string) (bool, error) {

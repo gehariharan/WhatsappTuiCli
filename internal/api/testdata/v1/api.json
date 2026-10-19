@@ -1,0 +1,150 @@
+[
+  {
+    "auth": "none",
+    "body": {
+      "data": {
+        "api_minor": 0,
+        "api_version": 1,
+        "features": "<features>",
+        "schema_version": 6,
+        "wasync_version": "<wasync_version>"
+      },
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/version",
+    "request_id": true,
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "data": {
+        "api_minor": 0,
+        "api_version": 1,
+        "features": "<features>",
+        "schema_version": 6,
+        "wasync_version": "<wasync_version>"
+      },
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/version",
+    "request_id": true,
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "none",
+    "body": {
+      "error": "method not allowed",
+      "error_code": "invalid_argument",
+      "help": "use GET /api/v1/version",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/v1/version",
+    "request_id": true,
+    "status": 405,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "none",
+    "body": {
+      "error": "Authorization: Bearer wsa_... credential required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/chats",
+    "request_id": true,
+    "status": 401,
+    "www_authenticate": "Bearer"
+  },
+  {
+    "auth": "invalid",
+    "body": {
+      "error": "legacy wasync tokens are not accepted; an agent credential (wsa_...) is required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/chats",
+    "request_id": true,
+    "status": 401,
+    "www_authenticate": "Bearer"
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "legacy wasync tokens are not accepted; an agent credential (wsa_...) is required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/chats",
+    "request_id": true,
+    "status": 401,
+    "www_authenticate": "Bearer"
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "error": "unknown v1 endpoint",
+      "error_code": "not_found",
+      "help": "see GET /api/v1/version for supported features",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/unknown",
+    "request_id": true,
+    "status": 404,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "none",
+    "body": {
+      "error": "Authorization: Bearer wsa_... credential required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/changes",
+    "request_id": true,
+    "status": 401,
+    "www_authenticate": "Bearer"
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "error": "client test-agent lacks scope observe",
+      "error_code": "forbidden",
+      "help": "Missing scope observe. A human must re-grant the client in an interactive terminal: wasync agents revoke test-agent && wasync agents grant test-agent --scope read.chats,read.messages,observe",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/v1/changes",
+    "request_id": true,
+    "status": 403,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "error": "client test-agent lacks scope observe",
+      "error_code": "forbidden",
+      "help": "Missing scope observe. A human must re-grant the client in an interactive terminal: wasync agents revoke test-agent && wasync agents grant test-agent --scope read.chats,read.messages,observe",
+      "request_id": "<request_id>"
+    },
+    "content_type": "application/json",
+    "request": "PUT /api/v1/checkpoints/replica",
+    "request_id": true,
+    "status": 403,
+    "www_authenticate": ""
+  }
+]

@@ -127,6 +127,16 @@ func (s *Store) apply(ctx context.Context, account, batch int64, messages []Mess
 			result.Skipped++
 		} else {
 			result.Stored++
+			op := OpMessageCreated
+			switch m.Kind {
+			case "delete":
+				op = OpMessageRevoked
+			case "edit":
+				op = OpMessageUpdated
+			}
+			if err = journal(ctx, tx, account, m.GroupID, m.MessageID, op, now); err != nil {
+				return WriteResult{}, err
+			}
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO sync_state(account_id,group_id,last_received_at,last_history_sync_at,history_state) VALUES(?,?,?,?,?)
    ON CONFLICT(account_id,group_id) DO UPDATE SET last_received_at=excluded.last_received_at,
@@ -256,6 +266,22 @@ func (s *Store) PurgeGroup(ctx context.Context, account int64, group string) err
 		return err
 	}
 	defer tx.Rollback()
+	now := time.Now().UnixMilli()
+	// Consumers delete their replicas from one message.purged entry per removed
+	// row (refs stay resolvable), followed by capture.disabled when capture was on.
+	if _, err = tx.ExecContext(ctx, `INSERT INTO change_journal(account_id,chat_id,message_id,op,op_version,committed_at)
+ SELECT account_id,group_id,message_id,?,1,? FROM messages WHERE account_id=? AND group_id=? ORDER BY id`, OpMessagePurged, now, account, group); err != nil {
+		return fmt.Errorf("append change journal: %w", err)
+	}
+	var wasEnabled bool
+	if err = tx.QueryRowContext(ctx, "SELECT sync_enabled FROM groups WHERE account_id=? AND group_id=?", account, group).Scan(&wasEnabled); err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if wasEnabled {
+		if err = journal(ctx, tx, account, group, "", OpCaptureDisabled, now); err != nil {
+			return err
+		}
+	}
 	if _, err = tx.ExecContext(ctx, "UPDATE groups SET sync_enabled=0,last_message_at=NULL WHERE account_id=? AND group_id=?", account, group); err != nil {
 		return err
 	}
@@ -276,12 +302,29 @@ func (s *Store) PurgeGroup(ctx context.Context, account int64, group string) err
 
 // Expire removes bodies and preserves tombstones so a history replay cannot
 // resurrect already-expired content. Pending mutations are retained for 30 days.
+// Each expired message gets a message.expired journal entry in the same
+// transaction, and journal entries older than JournalRetention are pruned.
 func (s *Store) Expire(ctx context.Context) error {
-	now := time.Now().UnixMilli()
-	_, err := s.db.ExecContext(ctx, `UPDATE messages SET text_content='',media_metadata='',reply_to_message_id='',deleted_at=COALESCE(deleted_at,?) WHERE expires_at<=? AND deleted_at IS NULL`, now, now)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, "DELETE FROM messages WHERE has_original=0 AND deleted_at IS NULL AND received_at<?", time.Now().Add(-30*24*time.Hour).UnixMilli())
-	return err
+	defer tx.Rollback()
+	now := time.Now().UnixMilli()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO change_journal(account_id,chat_id,message_id,op,op_version,committed_at)
+ SELECT account_id,group_id,message_id,?,1,? FROM messages WHERE expires_at<=? AND deleted_at IS NULL ORDER BY id`, OpMessageExpired, now, now); err != nil {
+		return fmt.Errorf("append change journal: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE messages SET text_content='',media_metadata='',reply_to_message_id='',deleted_at=COALESCE(deleted_at,?) WHERE expires_at<=? AND deleted_at IS NULL`, now, now); err != nil {
+		return err
+	}
+	// Orphaned pending edits were never visible (archived_messages requires an
+	// original), so removing them needs no journal entry.
+	if _, err = tx.ExecContext(ctx, "DELETE FROM messages WHERE has_original=0 AND deleted_at IS NULL AND received_at<?", time.Now().Add(-30*24*time.Hour).UnixMilli()); err != nil {
+		return err
+	}
+	if err = pruneJournal(ctx, tx, time.Now().Add(-JournalRetention).UnixMilli()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

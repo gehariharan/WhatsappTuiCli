@@ -10,7 +10,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-22.04, macos-15]
+        # Every native release target, so release.yml finds no new failures.
+        runner: [ubuntu-22.04, ubuntu-22.04-arm, macos-15, macos-15-intel]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
@@ -23,6 +24,11 @@ jobs:
           cache: true
       - run: go test -race -tags sqlite_fts5 ./...
       - run: go vet -tags sqlite_fts5 ./...
+      - name: Build the release archive as release.yml does (unsigned)
+        if: runner.os == 'Linux'
+        run: |
+          scripts/package.sh 0.0.0-ci.1
+          tar -tzf dist/0.0.0-ci.1/linux_*/wasync_0.0.0-ci.1_linux_*.tar.gz | grep -qx wasync
   windows:
     runs-on: windows-2022
     timeout-minutes: 30
@@ -87,3 +93,14 @@ jobs:
           name: msix-test-packages-not-for-store
           path: dist/store/*/*
           if-no-files-found: error
+  tap-publish-script:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate Homebrew tap publisher against a local tap
+        run: bash scripts/test-publish-tap.sh

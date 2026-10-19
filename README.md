@@ -327,6 +327,14 @@ Keep the TUI capturing in one terminal and query from another:
 ./bin/wasync query --help
 ```
 
+Newer queries emit the versioned v1 envelope (`--v1` opts existing queries in):
+`query version`, `query message --ref REF`, `query thread --ref REF [--before N]
+[--after N]`, `query chats --v1 --match QUERY`, `query search PHRASE --v1
+--context N`, `query changes [--after CURSOR] [--limit N]`, `query checkpoint
+--consumer NAME` and `query doctor`. Scoped API credentials for agents are
+managed with `wasync agents grant|list|revoke`, which a human must run in an
+interactive terminal (no `--yes`). `wasync help COMMAND` documents each one.
+
 All query results are JSON on stdout by default; `--json` is also accepted for
 explicit agent invocations. Diagnostics go to stderr. Exit codes are 0 for
 success (including empty results), 1 for errors and 130 for cancellation. Group

@@ -161,3 +161,7 @@ func checkPrivateACL(sd *windows.SECURITY_DESCRIPTOR, userSID *windows.SID) erro
 	}
 	return nil
 }
+
+// SyncDir is a no-op on Windows: NTFS journals directory metadata and
+// directory handles cannot be flushed without backup privileges.
+func SyncDir(string) error { return nil }

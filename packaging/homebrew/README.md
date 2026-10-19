@@ -47,3 +47,7 @@ update this tap and run Homebrew E2E on Intel and Apple Silicon. Signing uses
 the maintainer's Mac runner, which must be online and logged in.
 Source and release notes:
 https://github.com/gehariharan/WhatsappTuiCli
+
+<!-- scripts/publish-tap.sh copies this file only when the tap has no README.md.
+After that the tap README is maintained in the tap repository so it can
+document every cask (wasync and whatsapp-axi). -->

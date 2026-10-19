@@ -20,6 +20,13 @@ type CaptureStatus struct {
 	AccountID         int64
 	HistoryProcessing bool
 	Observation       Observation
+	// Health facts (additive; the legacy /api/status builds its own map).
+	// Zero times mean never observed during this process.
+	LastEventAt      time.Time
+	LastConnectedAt  time.Time
+	LastKeepAliveOK  time.Time
+	KeepAliveFailing bool
+	Paired           bool
 }
 type capture struct {
 	metadataOnly    bool
@@ -89,6 +96,7 @@ func (p *capture) initialize(jid string) error {
 	return nil
 }
 func (c *Client) handleEvent(evt any) bool {
+	c.health.record(evt, time.Now())
 	c.rememberEventAnchors(evt)
 	if c.capture != nil {
 		if err := c.captureEvent(evt); err != nil {
@@ -307,6 +315,7 @@ func (c *Client) Status() CaptureStatus {
 	if v := c.lastError.Load(); v != nil {
 		status.Error = v.(string)
 	}
+	c.health.fill(&status)
 	if p := c.capture; p != nil {
 		status.Stored = p.stored.Load()
 		status.Skipped = p.skipped.Load()
