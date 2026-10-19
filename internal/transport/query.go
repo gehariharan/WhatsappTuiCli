@@ -26,6 +26,29 @@ type QueryRoute struct {
 	// Params maps accepted API query parameters to wasync query flags.
 	// Parameters not listed are rejected rather than silently dropped.
 	Params map[string]string
+	// PathFlag, for a route whose key ends in one "{name}" segment, is the
+	// wasync query flag that receives that segment.
+	PathFlag string
+}
+
+// lookupQueryRoute finds the route for path: an exact key, or a key ending
+// in "/{name}" whose final segment is non-empty. It returns the route and
+// the flags carrying path segments.
+func lookupQueryRoute(path string) (QueryRoute, []string, bool) {
+	if route, ok := queryRoutes[path]; ok {
+		return route, nil, true
+	}
+	for _, key := range QueryRoutes() {
+		route := queryRoutes[key]
+		i := strings.Index(key, "{")
+		if i < 0 || route.PathFlag == "" || !strings.HasPrefix(path, key[:i]) {
+			continue
+		}
+		if seg := path[i:]; seg != "" && !strings.Contains(seg, "/") {
+			return route, []string{"--" + route.PathFlag, seg}, true
+		}
+	}
+	return QueryRoute{}, nil, false
 }
 
 // queryRoutes is the API path to offline command table. Only reads belong
@@ -47,7 +70,7 @@ func QueryRoutes() []string {
 // QueryArgs builds the full wasync argument list for path and query. Global
 // flags (--data-dir) precede the `query` subcommand, as wasync expects.
 func QueryArgs(dataDir, path string, query url.Values) ([]string, error) {
-	route, ok := queryRoutes[path]
+	route, pathArgs, ok := lookupQueryRoute(path)
 	if !ok {
 		return nil, &contract.Error{Code: contract.CodeOwnerOffline, Message: "this read needs the running wasync owner; it has no offline equivalent", Help: "start wasync (TUI or `wasync serve`) and retry", Transport: NameQuery}
 	}
@@ -57,6 +80,7 @@ func QueryArgs(dataDir, path string, query url.Values) ([]string, error) {
 	}
 	args = append(args, "query")
 	args = append(args, route.Command...)
+	args = append(args, pathArgs...)
 	keys := make([]string, 0, len(query))
 	for k := range query {
 		keys = append(keys, k)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/gehariharan/whatsapp-axi/internal/cli"
 )
@@ -16,7 +17,7 @@ func main() {
 	if cli.FastPath(args, os.Stdout) {
 		return
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	code := cli.New(os.Stdout).Run(ctx, args)
 	stop()
 	os.Exit(code)

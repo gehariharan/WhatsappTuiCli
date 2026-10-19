@@ -21,13 +21,13 @@ func TestQueryArgs(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(args, []string{"--data-dir", "/data dir", "query", "version", "--v1", "--json"}) {
 		t.Fatalf("args %v err %v", args, err)
 	}
-	if _, err := QueryArgs("", "/checkpoints/x", nil); codeOf(t, err) != contract.CodeOwnerOffline {
+	if _, err := QueryArgs("", "/whoami", nil); codeOf(t, err) != contract.CodeOwnerOffline {
 		t.Fatalf("unmapped path: %v", err)
 	}
 	if _, err := QueryArgs("", "/version", url.Values{"bogus": {"1"}}); codeOf(t, err) != contract.CodeInvalidArgument {
 		t.Fatalf("unknown param: %v", err)
 	}
-	if got := QueryRoutes(); !reflect.DeepEqual(got, []string{"/version"}) {
+	if got := QueryRoutes(); !reflect.DeepEqual(got, []string{"/changes", "/checkpoints/{consumer}", "/version"}) {
 		t.Fatalf("routes %v", got)
 	}
 }

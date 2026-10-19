@@ -76,6 +76,8 @@ func MaybeRunFakeWasync() {
 		writeEnv(map[string]any{"request_id": "q-4", "data": v})
 	case ModeSleep:
 		time.Sleep(30 * time.Second)
+	case ModeJournal:
+		runFakeJournal()
 	default:
 		fmt.Fprintln(os.Stderr, "unknown fake mode", mode)
 		os.Exit(3)

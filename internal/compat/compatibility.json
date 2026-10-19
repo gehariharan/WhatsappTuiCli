@@ -4,6 +4,7 @@
   "upgrade_help": "brew upgrade --cask gehariharan/tap/wasync",
   "commands": {
     "home": {"features": []},
+    "observe": {"features": ["changes", "checkpoints"]},
     "version": {"features": []}
   }
 }

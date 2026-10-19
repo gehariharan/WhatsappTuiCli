@@ -129,13 +129,13 @@ func TestHelpCatalogListsOnlyImplementedCommands(t *testing.T) {
 			t.Errorf("%s advertises unimplemented work", c.Name)
 		}
 	}
-	if !reflect.DeepEqual(names, []string{"whatsapp-axi", "version", "help"}) {
+	if !reflect.DeepEqual(names, []string{"whatsapp-axi", "version", "help", "observe"}) {
 		t.Fatalf("catalog %v", names)
 	}
 	text, _ := h.run(t, "help")
-	mustContain(t, text, "commands[3]{name,usage,description}:", "help[1]:")
+	mustContain(t, text, "commands[4]{name,usage,description}:", "help[1]:")
 	// Every command that talks to wasync has a compatibility entry.
-	if got := compat.Default().CommandNames(); !reflect.DeepEqual(got, []string{"home", "version"}) {
+	if got := compat.Default().CommandNames(); !reflect.DeepEqual(got, []string{"home", "observe", "version"}) {
 		t.Fatalf("compat entries %v", got)
 	}
 	for _, args := range [][]string{{"version", "--help"}, {"help", "version"}, {"--help"}, {"help", "help"}} {

@@ -71,7 +71,10 @@ type command struct {
 	maxArgs     int
 	argsName    string
 	examples    []string
-	run         func(a *App, ctx context.Context, inv invocation) error
+	// ownFlags passes every argument except --json and --help through to
+	// run in inv.args; the command validates its own flags and arguments.
+	ownFlags bool
+	run      func(a *App, ctx context.Context, inv invocation) error
 }
 
 type invocation struct {
@@ -113,6 +116,7 @@ func init() {
 			examples:    []string{"whatsapp-axi help", "whatsapp-axi help version", "whatsapp-axi help --json"},
 			run:         (*App).runHelp,
 		},
+		observeCommand(),
 	}
 }
 
@@ -219,6 +223,8 @@ func parseFlags(c *command, rest []string) (invocation, bool, error) {
 			wantHelp = true
 		case arg == "--json":
 			inv.json = true
+		case c.ownFlags:
+			inv.args = append(inv.args, arg)
 		case strings.HasPrefix(arg, "-"):
 			name := arg
 			if k, _, ok := strings.Cut(arg, "="); ok {

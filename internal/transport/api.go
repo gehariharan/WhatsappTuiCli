@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -94,15 +95,27 @@ func (a *API) Get(ctx context.Context, path string, query url.Values, out any) e
 }
 
 func (a *API) do(ctx context.Context, path string, query url.Values, auth bool, out any) error {
+	return a.send(ctx, http.MethodGet, path, query, nil, auth, out)
+}
+
+// send performs one request; payload, when not nil, is sent as JSON.
+func (a *API) send(ctx context.Context, method, path string, query url.Values, payload []byte, auth bool, out any) error {
 	u := a.base + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	var reqBody io.Reader
+	if payload != nil {
+		reqBody = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, reqBody)
 	if err != nil {
 		return &contract.Error{Code: contract.CodeTransport, Message: "cannot build API request", Transport: NameAPI}
 	}
 	req.Header.Set("Accept", "application/json")
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if auth {
 		req.Header.Set("Authorization", "Bearer "+a.cred.Secret)
 	}

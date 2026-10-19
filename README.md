@@ -8,7 +8,7 @@ principles: compact output, explicit empty states, structured errors on stdout, 
 It has no WhatsApp code of its own. It never connects to WhatsApp, never opens the SQLite archive or the
 session store, never takes wasync's device lock and never starts `wasync serve`.
 
-> Status: early development. Today it implements the home view, `version` and `help`.
+> Status: early development. Today it implements the home view, `version`, `help` and `observe`.
 
 ## How it reads wasync
 
@@ -68,6 +68,24 @@ whatsapp-axi version      # whatsapp-axi version plus wasync version, features a
 whatsapp-axi help         # commands; `whatsapp-axi help <command>` for flags and examples
 whatsapp-axi --version    # bare version, no probing
 ```
+
+### Following changes
+
+`observe` reads wasync's change journal. Positions are opaque `c1_` cursors issued by wasync, never
+timestamps. Changes name a message by ref but carry no content: re-read the message by ref.
+
+```sh
+whatsapp-axi observe                                   # one page from the oldest retained change
+whatsapp-axi observe --after c1_...                    # continue after a cursor
+whatsapp-axi observe --consumer replica                # resume after the consumer's stored checkpoint
+whatsapp-axi observe ack c1_... --consumer replica     # commit progress after processing
+whatsapp-axi observe --consumer replica --follow --json   # poll until interrupted, one JSON object per line
+```
+
+The checkpoint never moves on its own: only `observe ack` or an explicit `--commit` commits it, and only
+through the running wasync API with an agent granted the `observe` scope. Offline reads work but never
+commit. A `cursor_expired` error means the position is gone (older than wasync's 30-day journal or from
+another archive): re-read what you replicate, then restart with `--from-oldest` and ack the new cursor.
 
 Add `--json` to any command for JSON. Exit codes: `0` success (including "wasync is not running"),
 `1` error, `2` usage error. Errors are printed on stdout as `error:` / `help:` lines.
