@@ -45,6 +45,15 @@ const queryMessageUsage = `Usage: wasync [--data-dir PATH] query message --ref R
 Prints one archived message by its stable, account-scoped reference (m1_...).
 References survive restarts, purge and re-capture; local row ids do not.
 Expired content is never returned; revoked messages return their tombstone.
+With --v1 the data is the v1 message shape (legacy fields plus ref and chat_kind).
+`
+
+// queryThreadUsage documents `query thread`, which always emits the v1 envelope.
+const queryThreadUsage = `Usage: wasync [--data-dir PATH] query thread --ref REF [--before 5] [--after 5] [--json]
+
+Prints the message REF as "anchor" with up to --before earlier and --after later
+messages (0 to 20 each) from the same chat, oldest first, as a v1 envelope.
+Expired content is never returned; revoked messages return their tombstone.
 `
 
 func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (result error) {
@@ -57,27 +66,38 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		return a.runQueryVersion(ctx, cfg, args[1:])
 	}
 	// --v1 is detected before parsing so argument errors also use the envelope.
-	v1 := slices.Contains(args[1:], "--v1") || slices.Contains(args[1:], "--v1=true")
+	v1 := slices.Contains(args[1:], "--v1") || slices.Contains(args[1:], "--v1=true") || command == "thread"
 	defer func() { result = a.v1Failure(v1, result) }()
-	if command != "groups" && command != "chats" && command != "messages" && command != "search" && command != "status" && command != "message" {
+	if command != "groups" && command != "chats" && command != "messages" && command != "search" && command != "status" && command != "message" && command != "thread" {
 		return queryErr(query.CodeInvalidArgument, fmt.Errorf("unknown query command %q; use wasync query --help", command))
 	}
 	fs := a.flags("query " + command)
 	fs.Usage = func() { _ = a.writeHelp(fs.Output(), "query "+command) }
-	if command == "message" {
-		fs.Usage = func() { _, _ = fmt.Fprint(fs.Output(), queryMessageUsage) }
+	if command == "message" || command == "thread" {
+		usage := map[string]string{"message": queryMessageUsage, "thread": queryThreadUsage}[command]
+		fs.Usage = func() { _, _ = fmt.Fprint(fs.Output(), usage) }
 	}
 	jsonOutput := fs.Bool("json", true, "JSON output (default; required for query commands)")
 	fs.BoolVar(&v1, "v1", v1, "emit the versioned v1 envelope")
 	var enabled bool
-	var group, since, until, sender, cursor string
-	limit := 50
+	var group, since, until, sender, cursor, match string
+	limit, around, before, after := 50, 0, query.DefaultThread, query.DefaultThread
 	var refFlag string
-	if command == "message" {
+	if command == "message" || command == "thread" {
 		fs.StringVar(&refFlag, "ref", "", "stable message reference (m1_...)")
+	}
+	if command == "thread" {
+		fs.IntVar(&before, "before", before, "earlier messages, 0 to 20")
+		fs.IntVar(&after, "after", after, "later messages, 0 to 20")
 	}
 	if command == "groups" || command == "chats" {
 		fs.BoolVar(&enabled, "enabled", false, "only groups with capture enabled")
+	}
+	if command == "chats" {
+		fs.StringVar(&match, "match", "", "v1 only: resolve a chat by JID or name")
+	}
+	if command == "search" {
+		fs.IntVar(&around, "context", 0, "v1 only: messages before and after each hit, 0 to 5")
 	}
 	if command == "messages" || command == "search" {
 		fs.StringVar(&group, "group", "", "WhatsApp group ID (legacy alias for --chat)")
@@ -112,6 +132,25 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	if !*jsonOutput {
 		return queryErr(query.CodeInvalidArgument, fmt.Errorf("query commands always return JSON; omit --json=false"))
 	}
+	v1 = v1 || command == "thread" // thread has no legacy shape
+	var v1Only []string
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "match" || f.Name == "context" {
+			v1Only = append(v1Only, "--"+f.Name)
+		}
+	})
+	if len(v1Only) > 0 && !v1 {
+		return queryErr(query.CodeInvalidArgument, fmt.Errorf("%s requires --v1", strings.Join(v1Only, " and ")))
+	}
+	if command == "chats" && slices.Contains(v1Only, "--match") && (strings.TrimSpace(match) == "" || len(match) > 256) {
+		return queryErr(query.CodeInvalidArgument, fmt.Errorf("--match must contain 1 to 256 bytes"))
+	}
+	if around < 0 || around > query.MaxSearchContext {
+		return queryErr(query.CodeInvalidArgument, fmt.Errorf("--context must be between 0 and %d", query.MaxSearchContext))
+	}
+	if before < 0 || before > query.MaxThreadWindow || after < 0 || after > query.MaxThreadWindow {
+		return queryErr(query.CodeInvalidArgument, fmt.Errorf("--before and --after must be between 0 and %d", query.MaxThreadWindow))
+	}
 	if command == "search" && (strings.TrimSpace(search) == "" || len(search) > 1024) {
 		return queryErr(query.CodeInvalidArgument, fmt.Errorf("search requires a phrase of 1 to 1024 bytes"))
 	}
@@ -119,9 +158,9 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		return queryErr(query.CodeInvalidArgument, fmt.Errorf("messages requires --chat CHAT_ID (or --group); list IDs with wasync query chats"))
 	}
 	var ref msgref.Ref
-	if command == "message" {
+	if command == "message" || command == "thread" {
 		if refFlag == "" {
-			return queryErr(query.CodeInvalidArgument, fmt.Errorf("message requires --ref REF"))
+			return queryErr(query.CodeInvalidArgument, fmt.Errorf("%s requires --ref REF", command))
 		}
 		var err error
 		if ref, err = msgref.Decode(refFlag); err != nil {
@@ -164,7 +203,7 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	if account == nil {
 		return queryErr(query.CodeNoAccount, fmt.Errorf("no account in the archive; start wasync and pair first"))
 	}
-	if command == "message" {
+	if command == "message" || command == "thread" {
 		m, err := store.MessageByRef(ctx, account.ID, account.JID, ref)
 		if errors.Is(err, storage.ErrMessageNotFound) {
 			return queryErr(query.CodeNotFound, fmt.Errorf("message is not in the current account's archive; it may have expired, been purged, or belong to another account"))
@@ -172,12 +211,29 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		if err != nil {
 			return fmt.Errorf("query message: %w", err)
 		}
+		if command == "thread" {
+			thread, err := query.ThreadFor(ctx, store, account, m, before, after)
+			if err != nil {
+				return fmt.Errorf("query thread: %w", err)
+			}
+			return a.queryOutput(true, thread, nil)
+		}
+		if v1 {
+			return a.queryOutput(true, query.FormatV1Message(account.JID, account.ID, m), nil)
+		}
 		return a.queryOutput(v1, query.MessageByRef{AccountID: account.ID, Ref: query.RefFor(account.JID, m), Item: query.FormatMessage(account.ID, m)}, nil)
 	}
 	if command == "groups" || command == "chats" || command == "status" {
 		groups, err := store.GroupSummaries(ctx, account.ID)
 		if err != nil {
 			return err
+		}
+		if command == "chats" && v1 {
+			list, ambiguous := query.V1Chats(account.ID, groups, enabled, match, nil)
+			if ambiguous != nil {
+				return &queryError{query.CodeChatAmbiguous, ambiguous, query.ChatAmbiguousHelp, ambiguous}
+			}
+			return a.queryOutput(true, list, nil)
 		}
 		if command == "groups" || command == "chats" {
 			items := make([]query.Group, 0, len(groups))
@@ -224,6 +280,10 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		}
 	}
 	scope := queryScope(account.ID, group, q)
+	if v1 { // v1 and legacy cursors are not interchangeable.
+		digest := sha256.Sum256([]byte("v1\x00" + scope))
+		scope = hex.EncodeToString(digest[:])
+	}
 	if cursor != "" {
 		q.Before, err = decodeQueryCursor(cursor, scope)
 		if err != nil {
@@ -234,29 +294,35 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	if err != nil {
 		return fmt.Errorf("query messages: %w", err)
 	}
-	items := make([]query.Message, 0, len(page.Items))
-	for _, m := range page.Items {
-		items = append(items, query.FormatMessage(account.ID, m))
-	}
 	next := ""
 	if page.Next.ID != 0 {
 		next = encodeQueryCursor(page.Next, scope)
 	}
 	if v1 {
-		return a.queryOutput(v1, map[string]any{"account_id": account.ID, "items": items}, &query.V1Page{NextCursor: next, HasMore: next != ""})
+		list, err := query.V1Messages(ctx, store, account, page.Items, around, nil)
+		if err != nil {
+			return fmt.Errorf("query context: %w", err)
+		}
+		return a.queryOutput(true, list, &query.V1Page{NextCursor: next, HasMore: next != ""})
+	}
+	items := make([]query.Message, 0, len(page.Items))
+	for _, m := range page.Items {
+		items = append(items, query.FormatMessage(account.ID, m))
 	}
 	return json.NewEncoder(a.Out).Encode(map[string]any{"account_id": account.ID, "items": items, "next_cursor": next})
 }
 
 // queryError carries a v1 error code; its message is the legacy error text.
 type queryError struct {
-	code string
-	err  error
+	code    string
+	err     error
+	help    string
+	details any
 }
 
 func (e *queryError) Error() string         { return e.err.Error() }
 func (e *queryError) Unwrap() error         { return e.err }
-func queryErr(code string, err error) error { return &queryError{code, err} }
+func queryErr(code string, err error) error { return &queryError{code: code, err: err} }
 
 // ReportedError marks a failure already written to stdout as a v1 envelope;
 // callers exit with status 1 without printing it again.
@@ -276,12 +342,12 @@ func (a *App) v1Failure(v1 bool, err error) error {
 	if !v1 || err == nil || errors.Is(err, flag.ErrHelp) {
 		return err
 	}
-	code := query.CodeInternal
+	e := query.V1Error{RequestID: query.NewRequestID(), ErrorCode: query.CodeInternal, Error: err.Error()}
 	var coded *queryError
 	if errors.As(err, &coded) {
-		code = coded.code
+		e.ErrorCode, e.Help, e.Details = coded.code, coded.help, coded.details
 	}
-	if writeErr := json.NewEncoder(a.Out).Encode(query.V1Error{RequestID: query.NewRequestID(), ErrorCode: code, Error: err.Error()}); writeErr != nil {
+	if writeErr := json.NewEncoder(a.Out).Encode(e); writeErr != nil {
 		return errors.Join(err, writeErr)
 	}
 	return &ReportedError{err}

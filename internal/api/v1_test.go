@@ -96,7 +96,7 @@ func TestV1HostAndOriginChecksStillApply(t *testing.T) {
 
 func TestV1UnknownPathsRequireAuthAndUseEnvelope(t *testing.T) {
 	f := setup(t)
-	for _, path := range []string{"/api/v1", "/api/v1/", "/api/v1/chats", "/api/v1/messages/search?q=hello"} {
+	for _, path := range []string{"/api/v1", "/api/v1/", "/api/v1/unknown", "/api/v1/chats/one@g.us/unknown"} {
 		for _, token := range []string{"", "wrong"} {
 			res, body := f.v1(t, "GET", path, token)
 			var e query.V1Error

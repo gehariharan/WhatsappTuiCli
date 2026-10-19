@@ -1,0 +1,506 @@
+[
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "ctx@g.us",
+            "last_message_at": "2026-10-02T10:04:00Z",
+            "media_policy": "inherit",
+            "message_count": 7,
+            "name": "Context",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          },
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "one@g.us",
+            "last_message_at": "2026-10-01T12:00:00Z",
+            "media_policy": "inherit",
+            "message_count": 2,
+            "name": "First",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          },
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "other@g.us",
+            "last_message_at": "2026-10-02T10:01:00Z",
+            "media_policy": "inherit",
+            "message_count": 2,
+            "name": "Other",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          },
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "two@g.us",
+            "last_message_at": "2026-10-01T12:00:00Z",
+            "media_policy": "inherit",
+            "message_count": 1,
+            "name": "Second",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/chats?enabled=true",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "ctx@g.us",
+            "last_message_at": "2026-10-02T10:04:00Z",
+            "media_policy": "inherit",
+            "message_count": 7,
+            "name": "Context",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/chats?match=context",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "details": {
+        "candidates": [
+          {
+            "chat_kind": "group",
+            "id": "team-a@g.us",
+            "name": "Team A"
+          },
+          {
+            "chat_kind": "group",
+            "id": "team-b@g.us",
+            "name": "Team B"
+          }
+        ],
+        "match": "team"
+      },
+      "error": "chat name \"team\" matches 2 chats",
+      "error_code": "chat_ambiguous",
+      "help": "Several chats match; repeat the request with one candidate id (a chat JID) from details.candidates.",
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/chats?match=team",
+    "status": 409
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "chat_kind": "group",
+        "history_batch_messages": 0,
+        "history_request_state": "queued",
+        "history_state": "not_observed",
+        "id": "ctx@g.us",
+        "last_message_at": "2026-10-02T10:04:00Z",
+        "media_policy": "inherit",
+        "message_count": 7,
+        "name": "Context",
+        "potential_account_gaps": 0,
+        "sync_enabled": true
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/chats/ctx@g.us",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "group_id": "ctx@g.us",
+            "id": 11,
+            "is_from_me": false,
+            "message_id": "m8",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTg",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "eighth",
+            "timestamp": "2026-10-02T10:04:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "deleted_at": "2026-10-02T11:00:00Z",
+            "group_id": "ctx@g.us",
+            "id": 9,
+            "is_from_me": false,
+            "message_id": "m6",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTY",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "",
+            "timestamp": "2026-10-02T10:02:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": true,
+        "next_cursor": "<next_cursor>"
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/chats/ctx@g.us/messages?limit=2",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "after": [
+              {
+                "account_id": 1,
+                "chat_id": "other@g.us",
+                "chat_kind": "group",
+                "group_id": "other@g.us",
+                "id": 13,
+                "is_from_me": false,
+                "message_id": "o2",
+                "message_type": "text",
+                "received_at": "<received_at>",
+                "ref": "m1_dGVzdEBsaWQAb3RoZXJAZy51cwBvMg",
+                "sender_id": "carol@lid",
+                "source": "live",
+                "text_content": "other noise",
+                "timestamp": "2026-10-02T10:01:00Z"
+              }
+            ],
+            "before": [],
+            "chat_id": "other@g.us",
+            "chat_kind": "group",
+            "group_id": "other@g.us",
+            "id": 12,
+            "is_from_me": false,
+            "message_id": "o1",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb3RoZXJAZy51cwBvMQ",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "other needle",
+            "timestamp": "2026-10-02T10:01:00Z"
+          },
+          {
+            "account_id": 1,
+            "after": [
+              {
+                "account_id": 1,
+                "chat_id": "ctx@g.us",
+                "chat_kind": "group",
+                "group_id": "ctx@g.us",
+                "id": 8,
+                "is_from_me": false,
+                "message_id": "m5",
+                "message_type": "text",
+                "received_at": "<received_at>",
+                "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTU",
+                "sender_id": "carol@lid",
+                "source": "live",
+                "text_content": "fifth",
+                "timestamp": "2026-10-02T10:01:00Z"
+              }
+            ],
+            "before": [
+              {
+                "account_id": 1,
+                "chat_id": "ctx@g.us",
+                "chat_kind": "group",
+                "group_id": "ctx@g.us",
+                "id": 6,
+                "is_from_me": false,
+                "message_id": "m3",
+                "message_type": "text",
+                "received_at": "<received_at>",
+                "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTM",
+                "sender_id": "carol@lid",
+                "source": "live",
+                "text_content": "third",
+                "timestamp": "2026-10-02T10:01:00Z"
+              }
+            ],
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "group_id": "ctx@g.us",
+            "id": 7,
+            "is_from_me": false,
+            "message_id": "m4",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTQ",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "the needle",
+            "timestamp": "2026-10-02T10:01:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": false,
+        "next_cursor": ""
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/search?q=needle&context=1",
+    "status": 200
+  },
+  {
+    "auth": "agent --chat one@g.us",
+    "body": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 2,
+            "is_from_me": false,
+            "message_id": "b",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAYg",
+            "sender_id": "alice@lid",
+            "source": "live",
+            "text_content": "hello archive b",
+            "timestamp": "2026-10-01T12:00:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 1,
+            "is_from_me": false,
+            "message_id": "a",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAYQ",
+            "sender_id": "bob@lid",
+            "source": "live",
+            "text_content": "hello archive a",
+            "timestamp": "2026-10-01T12:00:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": false,
+        "next_cursor": ""
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/search?q=hello",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "account_id": 1,
+        "chat_id": "ctx@g.us",
+        "chat_kind": "group",
+        "group_id": "ctx@g.us",
+        "id": 7,
+        "is_from_me": false,
+        "message_id": "m4",
+        "message_type": "text",
+        "received_at": "<received_at>",
+        "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTQ",
+        "sender_id": "carol@lid",
+        "source": "live",
+        "text_content": "the needle",
+        "timestamp": "2026-10-02T10:01:00Z"
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/m1_dGVzdEBsaWQAY3R4QGcudXMAbTQ",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "data": {
+        "after": [
+          {
+            "account_id": 1,
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "group_id": "ctx@g.us",
+            "id": 8,
+            "is_from_me": false,
+            "message_id": "m5",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTU",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "fifth",
+            "timestamp": "2026-10-02T10:01:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "deleted_at": "2026-10-02T11:00:00Z",
+            "group_id": "ctx@g.us",
+            "id": 9,
+            "is_from_me": false,
+            "message_id": "m6",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTY",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "",
+            "timestamp": "2026-10-02T10:02:00Z"
+          }
+        ],
+        "anchor": {
+          "account_id": 1,
+          "chat_id": "ctx@g.us",
+          "chat_kind": "group",
+          "group_id": "ctx@g.us",
+          "id": 7,
+          "is_from_me": false,
+          "message_id": "m4",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTQ",
+          "sender_id": "carol@lid",
+          "source": "live",
+          "text_content": "the needle",
+          "timestamp": "2026-10-02T10:01:00Z"
+        },
+        "before": [
+          {
+            "account_id": 1,
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "group_id": "ctx@g.us",
+            "id": 5,
+            "is_from_me": false,
+            "message_id": "m2",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTI",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "second",
+            "timestamp": "2026-10-02T10:01:00Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "ctx@g.us",
+            "chat_kind": "group",
+            "group_id": "ctx@g.us",
+            "id": 6,
+            "is_from_me": false,
+            "message_id": "m3",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAY3R4QGcudXMAbTM",
+            "sender_id": "carol@lid",
+            "source": "live",
+            "text_content": "third",
+            "timestamp": "2026-10-02T10:01:00Z"
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/m1_dGVzdEBsaWQAY3R4QGcudXMAbTQ/thread?before=2&after=2",
+    "status": 200
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "error": "invalid message ref: wrong number of parts",
+      "error_code": "invalid_argument",
+      "help": "pass a ref (m1_...) from a v1 message",
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/m1_bad",
+    "status": 400
+  },
+  {
+    "auth": "agent",
+    "body": {
+      "error": "message is not in the current account's archive",
+      "error_code": "not_found",
+      "help": "it may have expired, been purged, or belong to another account",
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/m1_dGVzdEBsaWQAY3R4QGcudXMAbTc",
+    "status": 404
+  },
+  {
+    "auth": "agent --chat one@g.us",
+    "body": {
+      "error": "client scoped is not allowed chat two@g.us",
+      "error_code": "forbidden",
+      "help": "Chat two@g.us is not in the allowlist for scope read.messages. A human must re-grant the client in an interactive terminal: wasync agents revoke scoped && wasync agents grant scoped --scope read.chats,read.messages --chat one@g.us --chat two@g.us --rate 6000",
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/chats/two@g.us/messages",
+    "status": 403
+  },
+  {
+    "auth": "agent --scope read.chats",
+    "body": {
+      "error": "client chats-only lacks scope read.messages",
+      "error_code": "forbidden",
+      "help": "Missing scope read.messages. A human must re-grant the client in an interactive terminal: wasync agents revoke chats-only && wasync agents grant chats-only --scope read.chats,read.messages --chat ctx@g.us --rate 6000",
+      "request_id": "<request_id>"
+    },
+    "request": "GET /api/v1/messages/m1_dGVzdEBsaWQAY3R4QGcudXMAbTQ",
+    "status": 403
+  }
+]
