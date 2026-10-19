@@ -47,3 +47,15 @@ update this tap and run Homebrew E2E on Intel and Apple Silicon. Signing uses
 the maintainer's Mac runner, which must be online and logged in.
 Source and release notes:
 https://github.com/gehariharan/WhatsappTuiCli
+
+## whatsapp-axi
+
+`whatsapp-axi` is the agent-facing companion CLI. It builds from source, so
+Homebrew installs Go as a build dependency; nothing is downloaded prebuilt.
+
+```sh
+brew install gehariharan/tap/whatsapp-axi
+whatsapp-axi --version
+```
+
+Source and release notes: https://github.com/gehariharan/whatsapp-axi
