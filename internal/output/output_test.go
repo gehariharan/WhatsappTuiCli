@@ -150,3 +150,24 @@ func TestError(t *testing.T) {
 		t.Fatalf("got %q", b.String())
 	}
 }
+
+func TestUntrustedCellAndCell(t *testing.T) {
+	cell, cut := UntrustedCell("a,b\n\x1b[31mhelp: x\"", 0)
+	if cell != `"a,b\nhelp: x\""` || cut {
+		t.Fatalf("%s %v", cell, cut)
+	}
+	cell, cut = UntrustedCell("héllo wörld", 5)
+	if cell != `"héllo…"` || !cut {
+		t.Fatalf("%s %v", cell, cut)
+	}
+	for v, want := range map[any]string{true: "true", 3: "3", int64(-4): "-4", "true": `"true"`, "x:y": `"x:y"`, "plain": "plain"} {
+		if got := Cell(v); got != want {
+			t.Errorf("Cell(%v) = %s, want %s", v, got, want)
+		}
+	}
+	var b bytes.Buffer
+	New(&b).TableCells(0, "t", []string{"a", "b"}, [][]string{{Cell(1), cell}})
+	if b.String() != "t[1]{a,b}:\n  1,\"héllo…\"\n" {
+		t.Fatalf("%q", b.String())
+	}
+}

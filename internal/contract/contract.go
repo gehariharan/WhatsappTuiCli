@@ -52,6 +52,7 @@ type Envelope struct {
 	Error     string          `json:"error,omitempty"`
 	Help      string          `json:"help,omitempty"`
 	State     json.RawMessage `json:"state,omitempty"`
+	Details   json.RawMessage `json:"details,omitempty"`
 }
 
 // IsError reports whether the envelope is an error envelope.
@@ -59,7 +60,7 @@ func (e Envelope) IsError() bool { return e.ErrorCode != "" }
 
 // Err converts an error envelope into an *Error.
 func (e Envelope) Err() *Error {
-	return &Error{RequestID: e.RequestID, Code: e.ErrorCode, Message: e.Error, Help: e.Help, State: e.State}
+	return &Error{RequestID: e.RequestID, Code: e.ErrorCode, Message: e.Error, Help: e.Help, State: e.State, Details: e.Details}
 }
 
 // Response is what a caller receives when it asks a transport for the whole
@@ -109,6 +110,7 @@ const (
 // Feature names advertised in VersionInfo.Features.
 const (
 	FeatureChats         = "chats"
+	FeatureChatsMatch    = "chats.match"
 	FeatureMessages      = "messages"
 	FeatureSearch        = "search"
 	FeatureSearchContext = "search.context"
@@ -137,6 +139,7 @@ type Error struct {
 	Message   string
 	Help      string
 	State     json.RawMessage
+	Details   json.RawMessage // code-specific object, e.g. ChatAmbiguity
 	Transport string
 }
 

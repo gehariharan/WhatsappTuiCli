@@ -23,7 +23,7 @@ type commandJSON struct {
 func toJSON(c *command) commandJSON {
 	out := commandJSON{Name: displayName(c), Usage: c.usage, Description: c.description, Flags: []flagJSON{}, Examples: c.examples}
 	for _, f := range c.flags {
-		out.Flags = append(out.Flags, flagJSON{f.name, f.description})
+		out.Flags = append(out.Flags, flagJSON{flagLabel(f), f.description})
 	}
 	return out
 }
@@ -67,10 +67,18 @@ func (a *App) commandHelp(c *command, jsonMode bool) error {
 	o.Field(0, "description", c.description)
 	rows := make([][]string, 0, len(c.flags)+1)
 	for _, f := range c.flags {
-		rows = append(rows, []string{f.name, f.description})
+		rows = append(rows, []string{flagLabel(f), f.description})
 	}
 	rows = append(rows, []string{"--help", "show this reference"})
 	o.Table(0, "flags", []string{"flag", "description"}, rows)
 	o.List(0, "examples", c.examples)
 	return o.Err()
+}
+
+// flagLabel is "--name" or "--name VALUE".
+func flagLabel(f flagSpec) string {
+	if f.value == "" {
+		return f.name
+	}
+	return f.name + " " + f.value
 }

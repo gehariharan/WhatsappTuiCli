@@ -19,23 +19,50 @@ import (
 // InstallHelp tells a human how to install wasync.
 const InstallHelp = "install wasync (brew install --cask gehariharan/tap/wasync) or set " + config.EnvBin + " to its path"
 
-// QueryRoute maps one read-only /api/v1 path to a `wasync query` command.
+// QueryRoute maps one read-only /api/v1 path pattern to a `wasync query`
+// command. Patterns use {name} for one path segment, like wasync's router.
 type QueryRoute struct {
 	// Command is the argument list after `query`, e.g. ["version"].
 	Command []string
+	// PathParams maps {name} segments of the pattern to wasync query flags.
+	PathParams map[string]string
 	// Params maps accepted API query parameters to wasync query flags.
 	// Parameters not listed are rejected rather than silently dropped.
 	Params map[string]string
+	// Positional names the API query parameter passed as the trailing
+	// positional argument, after "--" so a value starting with "-" is never
+	// read as a flag.
+	Positional string
+}
+
+// Search, message-page and thread parameters shared by several routes.
+var pageParams = map[string]string{"limit": "limit", "cursor": "cursor", "from": "since", "to": "until", "sender_id": "sender"}
+
+func withParams(base map[string]string, extra map[string]string) map[string]string {
+	out := make(map[string]string, len(base)+len(extra))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range extra {
+		out[k] = v
+	}
+	return out
 }
 
 // queryRoutes is the API path to offline command table. Only reads belong
-// here; every future v1 read endpoint adds its `wasync query` equivalent.
+// here; every v1 read endpoint with a `wasync query` equivalent is listed.
+// GET /chats/{chat} has none: whatsapp-axi resolves chats with ?match=.
 var queryRoutes = map[string]QueryRoute{
-	"/version":     {Command: []string{"version"}},
-	"/diagnostics": {Command: []string{"doctor"}},
+	"/version":               {Command: []string{"version"}},
+	"/diagnostics":           {Command: []string{"doctor"}},
+	"/chats":                 {Command: []string{"chats"}, Params: map[string]string{"match": "match", "enabled": "enabled"}},
+	"/chats/{chat}/messages": {Command: []string{"messages"}, PathParams: map[string]string{"chat": "chat"}, Params: pageParams},
+	"/messages/search":       {Command: []string{"search"}, Params: withParams(pageParams, map[string]string{"chat": "chat", "context": "context"}), Positional: "q"},
+	"/messages/{ref}":        {Command: []string{"message"}, PathParams: map[string]string{"ref": "ref"}},
+	"/messages/{ref}/thread": {Command: []string{"thread"}, PathParams: map[string]string{"ref": "ref"}, Params: map[string]string{"before": "before", "after": "after"}},
 }
 
-// QueryRoutes returns the mapped API paths, sorted.
+// QueryRoutes returns the mapped API path patterns, sorted.
 func QueryRoutes() []string {
 	out := make([]string, 0, len(queryRoutes))
 	for p := range queryRoutes {
@@ -45,10 +72,51 @@ func QueryRoutes() []string {
 	return out
 }
 
+// matchRoute finds the route for an escaped API path and returns the
+// unescaped values of its {name} segments. A literal segment beats a
+// wildcard, so /messages/search never matches /messages/{ref}.
+func matchRoute(path string) (QueryRoute, map[string]string, bool) {
+	if r, ok := queryRoutes[path]; ok {
+		return r, nil, true
+	}
+	segs := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	best, bestWild := "", -1
+	var bestVals map[string]string
+	for _, pattern := range QueryRoutes() {
+		psegs := strings.Split(strings.TrimPrefix(pattern, "/"), "/")
+		if len(psegs) != len(segs) {
+			continue
+		}
+		vals, wild, ok := map[string]string{}, 0, true
+		for i, p := range psegs {
+			if strings.HasPrefix(p, "{") && strings.HasSuffix(p, "}") {
+				v, err := url.PathUnescape(segs[i])
+				if err != nil || v == "" {
+					ok = false
+					break
+				}
+				vals[p[1:len(p)-1]] = v
+				wild++
+			} else if p != segs[i] {
+				ok = false
+				break
+			}
+		}
+		if ok && (bestWild < 0 || wild < bestWild) {
+			best, bestWild, bestVals = pattern, wild, vals
+		}
+	}
+	if bestWild < 0 {
+		return QueryRoute{}, nil, false
+	}
+	return queryRoutes[best], bestVals, true
+}
+
 // QueryArgs builds the full wasync argument list for path and query. Global
 // flags (--data-dir) precede the `query` subcommand, as wasync expects.
+// Values are passed as --flag=value so none can be read as another flag.
 func QueryArgs(dataDir, path string, query url.Values) ([]string, error) {
-	route, ok := queryRoutes[path]
+	route, pathVals, ok := matchRoute(path)
 	if !ok {
 		return nil, &contract.Error{Code: contract.CodeOwnerOffline, Message: "this read needs the running wasync owner; it has no offline equivalent", Help: "start wasync (TUI or `wasync serve`) and retry", Transport: NameQuery}
 	}
@@ -63,16 +131,36 @@ func QueryArgs(dataDir, path string, query url.Values) ([]string, error) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	var positional []string
 	for _, k := range keys {
+		if k == route.Positional && k != "" {
+			positional = query[k]
+			continue
+		}
 		flag, ok := route.Params[k]
 		if !ok {
 			return nil, contract.Errorf(contract.CodeInvalidArgument, "", "parameter %q is not supported offline for %s", k, path)
 		}
 		for _, v := range query[k] {
-			args = append(args, "--"+flag, v)
+			args = append(args, "--"+flag+"="+v)
 		}
 	}
-	return append(args, "--v1", "--json"), nil
+	names := make([]string, 0, len(pathVals))
+	for k := range pathVals {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	for _, k := range names {
+		args = append(args, "--"+route.PathParams[k]+"="+pathVals[k])
+	}
+	args = append(args, "--v1", "--json")
+	if len(positional) > 1 {
+		return nil, contract.Errorf(contract.CodeInvalidArgument, "", "parameter %q given more than once", route.Positional)
+	}
+	if len(positional) == 1 {
+		args = append(args, "--", positional[0])
+	}
+	return args, nil
 }
 
 // ResolveBin finds wasync: bin when set, otherwise `wasync` on PATH.
