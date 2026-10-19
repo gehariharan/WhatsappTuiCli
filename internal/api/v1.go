@@ -2,10 +2,14 @@ package api
 
 import (
 	"context"
-	"crypto/subtle"
+	"errors"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
+	"whatsappsync/internal/agentauth"
 	"whatsappsync/internal/msgref"
 	"whatsappsync/internal/query"
 )
@@ -86,17 +90,49 @@ func (h *handler) buildV1() {
 	})
 }
 
+type v1ClientKey struct{}
+
+// v1Client returns the authenticated agent for a v1 request.
+func v1Client(r *http.Request) *agentauth.Client {
+	c, _ := r.Context().Value(v1ClientKey{}).(*agentauth.Client)
+	return c
+}
+
 // v1Authorize is the single v1 credential decision and writes the failure
-// itself. Scoped agent credentials replace the bearer check (W-09).
+// itself. Only scoped agent credentials are accepted; legacy tokens never are.
+// Reads are audited on denial; the authenticated client is stored on r.
 func (h *handler) v1Authorize(w http.ResponseWriter, r *http.Request, id, scope, chat string) bool {
-	if h.token != "" && subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+h.token)) == 1 {
-		return true
+	if h.agents == nil {
+		v1Fail(w, id, 503, query.CodeInternal, "agent authorization unavailable", "restart wasync")
+		return false
 	}
-	w.Header().Set("WWW-Authenticate", "Bearer")
-	v1Fail(w, id, 401, query.CodeUnauthorized, "bearer token required", "send Authorization: Bearer <api.token>")
-	return false
+	c, err := h.agents.Authenticate(r.Header.Get("Authorization"))
+	if err == nil && scope != "" {
+		err = h.agents.AuthorizeAndAudit(c, scope, chat, "", id, false)
+	} else if err != nil {
+		_ = h.agents.Audit(agentauth.AuditEntry{Time: time.Now(), Event: "request", Scope: scope, Chat: chat, Outcome: agentauth.OutcomeDenied, Code: query.CodeUnauthorized, RequestID: id})
+	}
+	if err != nil {
+		var denied *agentauth.Error
+		if !errors.As(err, &denied) {
+			v1Fail(w, id, 500, query.CodeInternal, "agent registry unavailable", "check permissions of agents.json in the wasync data directory")
+			return false
+		}
+		if denied.Status == 401 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+		}
+		if denied.RetryAfter > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(denied.RetryAfter.Seconds()))))
+		}
+		v1Fail(w, id, denied.Status, denied.Code, denied.Message, denied.Help)
+		return false
+	}
+	*r = *r.WithContext(context.WithValue(r.Context(), v1ClientKey{}, c))
+	return true
 }
 
 func v1Fail(w http.ResponseWriter, id string, code int, errorCode, message, help string) {
 	writeJSON(w, code, query.V1Error{RequestID: id, ErrorCode: errorCode, Error: message, Help: help})
 }
+
+func init() { query.RegisterFeature("auth.scopes") }

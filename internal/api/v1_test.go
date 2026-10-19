@@ -106,6 +106,10 @@ func TestV1UnknownPathsRequireAuthAndUseEnvelope(t *testing.T) {
 		}
 		res, body := f.v1(t, "GET", path, f.token)
 		var e query.V1Error
+		if res.StatusCode != 401 || json.Unmarshal(body, &e) != nil || e.ErrorCode != query.CodeUnauthorized || strings.Contains(string(body), "hello archive") {
+			t.Fatalf("legacy api.token accepted on %s: %d %s", path, res.StatusCode, body)
+		}
+		res, body = f.v1(t, "GET", path, f.agent)
 		if res.StatusCode != 404 || json.Unmarshal(body, &e) != nil || e.ErrorCode != query.CodeNotFound || e.Help != "see GET /api/v1/version for supported features" || strings.Contains(string(body), "hello archive") {
 			t.Fatalf("%s: %d %s", path, res.StatusCode, body)
 		}
@@ -128,7 +132,7 @@ func TestV1Snapshots(t *testing.T) {
 		{"GET", "/api/v1/chats", none},
 		{"GET", "/api/v1/chats", "wrong"},
 		{"GET", "/api/v1/chats", read},
-		{"GET", "/api/v1/unknown", read},
+		{"GET", "/api/v1/unknown", f.agent},
 	}
 	snapshots := make([]any, 0, len(calls))
 	for _, c := range calls {
@@ -136,6 +140,8 @@ func TestV1Snapshots(t *testing.T) {
 		auth := "none"
 		if c.token == read {
 			auth = "api.token"
+		} else if c.token == f.agent {
+			auth = "agent"
 		} else if c.token != "" {
 			auth = "invalid"
 		}
@@ -150,4 +156,16 @@ func TestV1Snapshots(t *testing.T) {
 		})
 	}
 	golden.Compare(t, "v1/api.json", snapshots)
+}
+
+func TestAgentCredentialRejectedOnLegacyRoutes(t *testing.T) {
+	f := setup(t)
+	for _, path := range []string{"/api/status", "/api/chats", "/api/messages/search?q=hello", "/api/messages/1"} {
+		if body := f.request(t, "GET", path, f.agent, 401); strings.Contains(string(body), "hello archive") {
+			t.Fatalf("agent credential read legacy %s", path)
+		}
+	}
+	for _, path := range []string{"/api/chats/one@g.us/disable", "/api/chats/enable-all"} {
+		f.request(t, "POST", path, f.agent, 401)
+	}
 }

@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"whatsappsync/internal/agentauth"
 	"whatsappsync/internal/approval"
 	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/query"
@@ -100,7 +101,7 @@ func StartMediaControlled(addr, dir string, store *storage.Store, status func() 
 	if err != nil {
 		return nil, fmt.Errorf("start local API (change --api-addr or use --no-api): %w", err)
 	}
-	h := &handler{mediaDownload: media, store: store, token: token, status: status, authority: listener.Addr().String(), approvals: approvals, approve: approve, syncer: syncer}
+	h := &handler{agents: agentauth.NewAuthorizer(dir), mediaDownload: media, store: store, token: token, status: status, authority: listener.Addr().String(), approvals: approvals, approve: approve, syncer: syncer}
 	if len(sender) > 0 {
 		h.sender = sender[0]
 	}
@@ -143,6 +144,7 @@ func (s *Server) Close() error {
 type handler struct {
 	v1Once           sync.Once
 	v1Mux            *http.ServeMux
+	agents           *agentauth.Authorizer
 	mediaDownload    whatsapp.MediaDownloader
 	approve          func(int64, string) error
 	approveToken     string

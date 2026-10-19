@@ -52,9 +52,9 @@
   {
     "auth": "none",
     "body": {
-      "error": "bearer token required",
+      "error": "Authorization: Bearer wsa_... credential required",
       "error_code": "unauthorized",
-      "help": "send Authorization: Bearer <api.token>",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
       "request_id": "<request_id>"
     },
     "content_type": "application/json",
@@ -66,9 +66,9 @@
   {
     "auth": "invalid",
     "body": {
-      "error": "bearer token required",
+      "error": "legacy wasync tokens are not accepted; an agent credential (wsa_...) is required",
       "error_code": "unauthorized",
-      "help": "send Authorization: Bearer <api.token>",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
       "request_id": "<request_id>"
     },
     "content_type": "application/json",
@@ -80,19 +80,19 @@
   {
     "auth": "api.token",
     "body": {
-      "error": "unknown v1 endpoint",
-      "error_code": "not_found",
-      "help": "see GET /api/v1/version for supported features",
+      "error": "legacy wasync tokens are not accepted; an agent credential (wsa_...) is required",
+      "error_code": "unauthorized",
+      "help": "Ask a human to create an agent credential in an interactive terminal: wasync agents grant NAME --scope read.chats,read.messages. Legacy api.token, send.token and approve.token are not accepted here.",
       "request_id": "<request_id>"
     },
     "content_type": "application/json",
     "request": "GET /api/v1/chats",
     "request_id": true,
-    "status": 404,
-    "www_authenticate": ""
+    "status": 401,
+    "www_authenticate": "Bearer"
   },
   {
-    "auth": "api.token",
+    "auth": "agent",
     "body": {
       "error": "unknown v1 endpoint",
       "error_code": "not_found",

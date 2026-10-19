@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"whatsappsync/internal/agentauth"
 	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/storage"
 )
@@ -23,6 +24,8 @@ type fixture struct {
 	account int64
 	server  *Server
 	token   string
+	dir     string
+	agent   string // read-only agent credential (default scopes)
 }
 
 func setup(t *testing.T) fixture {
@@ -75,7 +78,11 @@ func setup(t *testing.T) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fixture{store, account, srv, token}
+	agent, _, err := agentauth.Grant(dir, agentauth.GrantRequest{Name: "test-agent"}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fixture{store, account, srv, token, dir, agent}
 }
 func (f fixture) request(t *testing.T, method, path, token string, code int) []byte {
 	t.Helper()
