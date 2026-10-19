@@ -23,6 +23,10 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Command timed out; retry or increase --timeout.")
 			os.Exit(1)
 		}
+		var reported *cli.ReportedError
+		if errors.As(err, &reported) { // Already written to stdout as a v1 envelope.
+			os.Exit(1)
+		}
 		fmt.Fprintln(os.Stderr, "wasync:", err)
 		os.Exit(1)
 	}
