@@ -88,6 +88,13 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	return s, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
+
+// SchemaVersion is the archive schema this build migrates to and queries.
+const SchemaVersion = 5
+
+func migrationList() []string {
+	return []string{migration1, migration2, migration3, migration4, migration5}
+}
 func (s *Store) migrate(ctx context.Context) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -98,7 +105,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	migrations := []string{migration1, migration2, migration3, migration4, migration5}
+	migrations := migrationList()
 	if version > len(migrations) {
 		return fmt.Errorf("archive schema %d is newer than supported schema %d", version, len(migrations))
 	}

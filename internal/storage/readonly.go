@@ -3,7 +3,10 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"time"
@@ -43,14 +46,70 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	if err = db.PingContext(ctx); err == nil {
 		err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version)
 	}
-	if err == nil && version != 5 {
-		err = fmt.Errorf("archive schema %d is incompatible with query schema 5; run the matching wasync version and start the TUI to migrate older archives", version)
+	if err == nil && version != SchemaVersion {
+		err = &SchemaError{Archive: version, Supported: SchemaVersion}
 	}
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("open read-only archive: %w", err)
 	}
 	return &Store{db: db}, nil
+}
+
+// SchemaError reports an archive whose schema differs from SchemaVersion.
+type SchemaError struct{ Archive, Supported int }
+
+func (e *SchemaError) Error() string {
+	return fmt.Sprintf("archive schema %d is incompatible with query schema %d; run the matching wasync version and start the TUI to migrate older archives", e.Archive, e.Supported)
+}
+
+// ArchiveSchemaVersion reads PRAGMA user_version without migrating or creating
+// files. exists is false when the archive file is absent. Without an active WAL
+// the database header is authoritative, so it is read directly: SQLite would
+// otherwise create -wal and -shm files even for a read-only connection.
+func ArchiveSchemaVersion(ctx context.Context, path string) (version int, exists bool, err error) {
+	if _, err = os.Lstat(path); os.IsNotExist(err) {
+		return 0, false, nil
+	} else if err != nil {
+		return 0, true, err
+	}
+	if err = localfs.CheckPrivateFile(path); err != nil {
+		return 0, true, err
+	}
+	_, walErr := os.Lstat(path + "-wal")
+	_, shmErr := os.Lstat(path + "-shm")
+	if walErr != nil || shmErr != nil {
+		version, err = headerUserVersion(path)
+		return version, true, err
+	}
+	u := url.URL{Scheme: "file", Path: sqlitePath(path)}
+	q := u.Query()
+	q.Set("mode", "ro")
+	q.Set("_query_only", "true")
+	q.Set("_busy_timeout", "5000")
+	u.RawQuery = q.Encode()
+	db, err := sql.Open("sqlite3", u.String())
+	if err != nil {
+		return 0, true, err
+	}
+	defer db.Close()
+	if err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return 0, true, fmt.Errorf("read archive schema: %w", err)
+	}
+	return version, true, nil
+}
+
+func headerUserVersion(path string) (version int, result error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { result = errors.Join(result, f.Close()) }()
+	header := make([]byte, 100)
+	if _, err = io.ReadFull(f, header); err != nil || string(header[:16]) != "SQLite format 3\x00" {
+		return 0, fmt.Errorf("read archive schema: not a SQLite database")
+	}
+	return int(binary.BigEndian.Uint32(header[60:64])), nil
 }
 
 // ArchiveSnapshot reports durable observations, never a live connectivity claim.
