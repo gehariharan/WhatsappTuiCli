@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"whatsappsync/internal/msgref"
 	"whatsappsync/internal/query"
 )
 
@@ -32,10 +33,28 @@ func (h *handler) serveV1(w http.ResponseWriter, r *http.Request) {
 type v1IDKey struct{}
 
 // v1Route is one versioned endpoint. Scope names the agent permission the
-// route needs; Chat names the path value holding the chat JID, if any.
+// route needs; Chat, when set, extracts the chat JID the request touches so
+// chat allowlists can be enforced before the handler runs.
 type v1Route struct {
-	Pattern, Scope, Chat string
-	Handle               func(h *handler, w http.ResponseWriter, r *http.Request, id string)
+	Pattern, Scope string
+	Chat           func(*http.Request) string
+	Handle         func(h *handler, w http.ResponseWriter, r *http.Request, id string)
+}
+
+// pathChat reads the chat JID from a path value such as {chat}.
+func pathChat(name string) func(*http.Request) string {
+	return func(r *http.Request) string { return r.PathValue(name) }
+}
+
+// refChat reads the chat JID from a message ref path value; invalid refs yield "".
+func refChat(name string) func(*http.Request) string {
+	return func(r *http.Request) string {
+		ref, err := msgref.Decode(r.PathValue(name))
+		if err != nil {
+			return ""
+		}
+		return ref.Chat
+	}
 }
 
 // v1Routes is filled by feature files in init, keeping endpoints independent.
@@ -49,8 +68,8 @@ func (h *handler) buildV1() {
 		h.v1Mux.HandleFunc(route.Pattern, func(w http.ResponseWriter, r *http.Request) {
 			id, _ := r.Context().Value(v1IDKey{}).(string)
 			chat := ""
-			if route.Chat != "" {
-				chat = r.PathValue(route.Chat)
+			if route.Chat != nil {
+				chat = route.Chat(r)
 			}
 			if !h.v1Authorize(w, r, id, route.Scope, chat) {
 				return
