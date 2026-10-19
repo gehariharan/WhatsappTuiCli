@@ -44,14 +44,37 @@ var commandCatalog = []commandHelp{
 	{"actions status", "actions status REQUEST_ID", "Read the status of a pending or completed request as JSON.", "Does not approve or execute the request."},
 	{"actions approve", "actions approve REQUEST_ID", "Ask a human to approve a pending destructive request.", "Requires an interactive terminal and a typed confirmation. Agents cannot bypass confirmation with --yes."},
 	{"status", "status", "Inspect saved local pairing state and cached groups.", "Does not check network connectivity. For read-only agent queries while capture runs, prefer query status."},
-	{"query", "query groups|chats|messages|search|status", "Read-only JSON queries for agents, without an API or WhatsApp connection.", "Use help query messages or help query search for filters and pagination. All results are JSON; exit codes: 0 success (including empty items), 1 error, 130 cancellation. Queries never download media."},
+	{"query", "query groups|chats|messages|search|status", "Read-only JSON queries for agents, without an API or WhatsApp connection.", "Use help query messages or help query search for filters and pagination. All results are JSON; exit codes: 0 success (including empty items), 1 error, 130 cancellation. Queries never download media. Also: query version, message, thread, changes, checkpoint and doctor (see help query COMMAND). --v1 on groups, chats, messages, search, status and message emits the versioned v1 envelope; version, thread, changes, checkpoint and doctor always use it."},
 	{"query groups", "query groups [--enabled] [--json]", "Read cached group summaries as JSON.", "--enabled restricts results to enabled groups. No WhatsApp connection or running owner required."},
-	{"query chats", "query chats [--enabled] [--json]", "Read cached group and direct-chat summaries as JSON.", "--enabled restricts results to enabled chats. No WhatsApp connection or running owner required."},
+	{"query chats", "query chats [--enabled] [--json]", "Read cached group and direct-chat summaries as JSON.", "--enabled restricts results to enabled chats. No WhatsApp connection or running owner required. --v1 emits the v1 envelope; with --v1, --match QUERY resolves a chat by JID or name (v1 only)."},
 	{"query messages", "query messages --chat CHAT_ID [--since RFC3339] [--until RFC3339] [--sender SENDER_ID] [--limit N] [--cursor CURSOR] [--json]", "Read archived messages as paginated JSON, newest first.", "--group is a legacy alias for --chat; do not combine them. --since is inclusive, --until exclusive. --limit is 1 to 200 (default 50). Reuse next_cursor with identical filters; empty items is success. Never downloads attachments."},
-	{"query search", "query search PHRASE [--chat CHAT_ID] [--since RFC3339] [--until RFC3339] [--sender SENDER_ID] [--limit N] [--cursor CURSOR] [--json]", "Search archived text and captions using SQLite FTS; returns JSON.", "Quote PHRASE as one argument (maximum 1024 bytes). --group is a legacy alias for --chat. Dates are inclusive --since and exclusive --until; --limit is 1 to 200 (default 50). Pass next_cursor with identical filters. Does not index document bodies or download media."},
+	{"query search", "query search PHRASE [--chat CHAT_ID] [--since RFC3339] [--until RFC3339] [--sender SENDER_ID] [--limit N] [--cursor CURSOR] [--json]", "Search archived text and captions using SQLite FTS; returns JSON.", "Quote PHRASE as one argument (maximum 1024 bytes). --group is a legacy alias for --chat. Dates are inclusive --since and exclusive --until; --limit is 1 to 200 (default 50). Pass next_cursor with identical filters. Does not index document bodies or download media. --v1 emits the v1 envelope; with --v1, --context N (0 to 5) adds messages before and after each hit (v1 only)."},
 	{"query status", "query status [--json]", "Read persisted sync observations as JSON.", "Current network connectivity is unknown; reconnects do not prove missed messages were recovered."},
+	{"query version", "query version [--json]", "Report API, build and archive schema versions as a v1 envelope.", "Report API, build and schema versions as a v1 envelope without opening the archive for writes. Always emits the v1 envelope; --v1 is accepted and ignored."},
+	{"query message", "query message --ref REF [--v1] [--json]", "Read one archived message by its stable reference; returns JSON.", "REF is an account-scoped m1_... reference from v1 results. References survive restarts, purge and re-capture; local row ids do not. Expired content is never returned; revoked messages return their tombstone. With --v1 the data is the v1 message shape (legacy fields plus ref and chat_kind)."},
+	{"query thread", "query thread --ref REF [--before N] [--after N] [--json]", "Read a message with surrounding context from its chat as a v1 envelope.", "Returns REF as anchor with up to --before earlier and --after later messages (0 to 20 each, default 5) from the same chat, oldest first. Always emits the v1 envelope. Expired content is never returned; revoked messages return their tombstone."},
+	{"query changes", "query changes [--after CURSOR] [--limit N] [--v1] [--json]", "Read the change journal of the current account as a v1 envelope, oldest first.", "Entries list sequence, cursor, op, chat_id, message_id and a message ref, never message content. Pass page.next_cursor (c1_...) to --after; omit --after to start from the oldest retained change. --limit is 1 to 1000 (default 100). cursor_expired means the cursor is older than the 30-day retention or from another archive or account: resnapshot. Offline reads cannot commit checkpoints; commit through the running owner's API (PUT /api/v1/checkpoints/{consumer}, scope observe)."},
+	{"query checkpoint", "query checkpoint --consumer NAME [--v1] [--json]", "Read a consumer's committed change-journal checkpoint as a v1 envelope.", "NAME is 1 to 64 characters of a-z, 0-9 and -. Read only: committing is a write and goes through the running owner's API (PUT /api/v1/checkpoints/{consumer}, scope observe)."},
+	{"query doctor", "query doctor [--json]", "Report installation, data directory, archive, pairing, owner and agent checks as a v1 envelope.", "Each check is pass, warn or fail with a fix command. Never connects to WhatsApp or the network and never creates or changes files. An owner is detected by probing device.lock without holding it; its live connection state is available only from GET /api/v1/health/deep."},
+	{"agents", "agents grant|list|revoke", "Manage scoped credentials for agents using the local /api/v1.", "Human only: grant and revoke must be run by a human in an interactive terminal and require typing the client name; there is no --yes, and none of these commands is available over the API. They edit agents.json in the data directory, work whether or not an owner is running (a running owner reloads changes), and never connect to WhatsApp. Use help agents grant, help agents list, or help agents revoke."},
+	{"agents grant", "agents grant NAME [--scope S1,S2] [--chat CHAT_JID ...] [--expires DURATION] [--rate N]", "Create a scoped agent credential; human only, interactive terminal required.", "NAME is 1-32 characters of a-z, 0-9 and -. Scopes: read.chats, read.messages, read.media, observe, send, react, edit.own, chat.state, group.admin, capture.manage, export (default read.chats,read.messages). There is no destructive scope. --chat (repeatable) limits the client to listed chats and is required for send, react, edit.own, chat.state, group.admin and capture.manage. --rate is requests per minute (default 60); omit --expires for no expiry. The credential is printed once; only its hash is stored. Legacy api.token, send.token and approve.token are never accepted as agent credentials."},
+	{"agents list", "agents list [--json]", "List agent clients, scopes and limits.", "Never prints credentials or hashes. Does not require an interactive terminal."},
+	{"agents revoke", "agents revoke NAME", "Revoke an agent credential; human only, interactive terminal required.", "Requires typing the client name to confirm; there is no --yes. A running owner reloads the change."},
 	{"version", "version", "Show installed build information.", "Also available as wasync --version."},
 	{"help", "help [COMMAND [SUBCOMMAND]]\n       wasync help --json", "Discover all commands without connecting or opening the archive.", "Use wasync COMMAND [SUBCOMMAND] --help as an alternative. --json emits a versioned command catalog, root help, and query conventions. Global flags precede the command."},
+}
+
+// extendedHelp appends a command's full reference text to its catalog help.
+var extendedHelp = map[string]string{
+	"query message":    queryMessageUsage,
+	"query thread":     queryThreadUsage,
+	"query changes":    queryChangesUsage,
+	"query checkpoint": queryCheckpointUsage,
+	"query doctor":     queryDoctorUsage,
+	"agents":           agentsUsage,
+	"agents grant":     agentsUsage,
+	"agents list":      agentsUsage,
+	"agents revoke":    agentsUsage,
 }
 
 func (a *App) printHelp(path string) error {
@@ -66,6 +89,9 @@ func (a *App) writeHelp(out io.Writer, path string) error {
 	for _, command := range commandCatalog {
 		if command.Path == path {
 			_, err := fmt.Fprintf(out, "Usage: wasync %s\n\n%s\n\n%s\n\nGlobal flags precede the command. See wasync help for global flags.\n", command.Usage, command.Description, command.Details)
+			if extended := extendedHelp[path]; err == nil && extended != "" {
+				_, err = fmt.Fprint(out, "\n"+extended)
+			}
 			return err
 		}
 	}

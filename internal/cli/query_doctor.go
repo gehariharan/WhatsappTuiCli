@@ -25,7 +25,6 @@ is available only from GET /api/v1/health/deep.
 func (a *App) runQueryDoctor(ctx context.Context, cfg config.Config, args []string) (result error) {
 	defer func() { result = a.v1Failure(true, result) }()
 	fs := a.flags("query doctor")
-	fs.Usage = func() { _, _ = fmt.Fprint(fs.Output(), queryDoctorUsage) }
 	jsonOutput := fs.Bool("json", true, "JSON output (default)")
 	fs.Bool("v1", true, "v1 envelope (always)")
 	if err := a.parseFlags(fs, args); err != nil {

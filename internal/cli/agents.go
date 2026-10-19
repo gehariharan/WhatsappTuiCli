@@ -15,8 +15,8 @@ import (
 	"whatsappsync/internal/localfs"
 )
 
-// Agent credential management is deliberately absent from commandCatalog and
-// usage for now; its help is reachable through wasync agents --help.
+// agentsUsage is the full reference for agent credential management, appended
+// to the catalog help of agents and its subcommands.
 const agentsUsage = `Usage: wasync agents grant NAME [--scope S1,S2] [--chat CHAT_JID ...] [--expires 720h] [--rate N]
        wasync agents list [--json]
        wasync agents revoke NAME

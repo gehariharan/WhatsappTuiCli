@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -67,7 +68,7 @@ func TestCommandHelpIsDiscoverableWithoutLocalState(t *testing.T) {
 	}
 	// Independently require public command families so accidental catalog removal
 	// cannot make discovery tests pass simply by testing fewer entries.
-	for _, path := range []string{"tui", "run", "serve", "login", "logout", "groups list", "groups enable", "groups disable", "chats list", "chats enable", "chats disable", "sync", "media policy", "media download", "send", "clean", "delete", "actions status", "actions approve", "status", "query groups", "query chats", "query messages", "query search", "query status", "version", "help"} {
+	for _, path := range []string{"tui", "run", "serve", "login", "logout", "groups list", "groups enable", "groups disable", "chats list", "chats enable", "chats disable", "sync", "media policy", "media download", "send", "clean", "delete", "actions status", "actions approve", "status", "query groups", "query chats", "query messages", "query search", "query status", "query version", "query message", "query thread", "query changes", "query checkpoint", "query doctor", "agents", "agents grant", "agents list", "agents revoke", "version", "help"} {
 		if !seen[path] {
 			t.Errorf("missing command %s", path)
 		}
@@ -155,5 +156,55 @@ func TestHelpFlagAsValueIsNotHelp(t *testing.T) {
 	}
 	if len(client.sent) != 1 || client.sent[0] != (whatsapp.SendInput{To: "123@g.us", Text: "--help"}) {
 		t.Fatalf("literal text was not sent exactly once: %+v", client.sent)
+	}
+}
+
+// Every query and agents subcommand that is dispatched must be discoverable
+// through the catalog, and every catalogued one must actually be dispatched.
+func TestDispatchedQueryAndAgentsCommandsAreCatalogued(t *testing.T) {
+	catalogued := make(map[string]bool)
+	for _, command := range commandCatalog {
+		catalogued[command.Path] = true
+	}
+	dir := filepath.Join(t.TempDir(), "absent")
+	for _, name := range queryCommands {
+		if !catalogued["query "+name] {
+			t.Errorf("query %s is dispatched but missing from commandCatalog", name)
+		}
+		if !strings.Contains(queryUsage, "\n  "+name+" ") {
+			t.Errorf("query %s missing from queryUsage", name)
+		}
+		var out, diagnostics bytes.Buffer
+		app := &App{Out: &out, Err: &diagnostics}
+		err := app.Run(context.Background(), []string{"--data-dir", dir, "query", name, "--bogus-flag"})
+		if err == nil || strings.Contains(err.Error(), "unknown query command") || strings.Contains(out.String(), "unknown query command") {
+			t.Errorf("query %s not dispatched: %v %q", name, err, out.String())
+		}
+	}
+	agents := []string{"grant", "list", "revoke"}
+	for _, name := range agents {
+		if !catalogued["agents "+name] {
+			t.Errorf("agents %s missing from commandCatalog", name)
+		}
+	}
+	for path := range catalogued {
+		words := strings.Fields(path)
+		if len(words) != 2 {
+			continue
+		}
+		if words[0] == "query" && !slices.Contains(queryCommands, words[1]) {
+			t.Errorf("catalogued %s is not dispatched", path)
+		}
+		if words[0] == "agents" && !slices.Contains(agents, words[1]) {
+			t.Errorf("catalogued %s is not dispatched", path)
+		}
+	}
+	for _, line := range []string{"agents grant|list|revoke", "query [version|message|thread|changes|checkpoint|doctor]"} {
+		if !strings.Contains(usage, line) {
+			t.Errorf("root help missing %q", line)
+		}
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("dispatch check created local state: %v", err)
 	}
 }

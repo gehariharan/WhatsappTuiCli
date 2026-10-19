@@ -29,6 +29,12 @@ const queryUsage = `Usage: wasync [--data-dir PATH] query COMMAND
   search "phrase" [--chat CHAT_ID] [--since RFC3339] [--until RFC3339]
            [--sender SENDER_ID] [--limit 50] [--cursor CURSOR] [--json]
   status [--json]
+  version [--json]
+  message --ref REF [--json]
+  thread --ref REF [--before 5] [--after 5] [--json]
+  changes [--after CURSOR] [--limit 100] [--json]
+  checkpoint --consumer NAME [--json]
+  doctor [--json]
 
 All results are JSON. Queries read the existing archive without connecting to
 WhatsApp, requiring an API, or stopping the TUI. Dates are inclusive --since and
@@ -36,10 +42,22 @@ exclusive --until; results are newest first. Pass next_cursor to --cursor with
 the same filters for the next page. An empty items array is a successful result.
 Status describes persisted observations; current network connectivity is unknown.
 Global flags precede query. Exit codes: 0 success, 1 error, 130 cancellation.
+
+--v1 wraps groups, chats, messages, search, status and message results in the
+versioned v1 envelope; version, thread, changes, checkpoint and doctor always
+use it. v1 only: chats --match QUERY resolves a chat by JID or name, and
+search --context N (0 to 5) adds messages around each hit. message and thread
+take stable m1_ references; changes reads the change journal (c1_ cursors) and
+checkpoint reads a consumer checkpoint (commit through the owner's API).
+Use wasync help query COMMAND for details.
 `
 
-// queryMessageUsage documents `query message`, which is intentionally not yet
-// listed in queryUsage or the command catalog (their output is snapshotted).
+// queryCommands lists every query subcommand runQuery dispatches; each must
+// appear in queryUsage and the command catalog (see help_test.go).
+var queryCommands = []string{"groups", "chats", "messages", "search", "status", "message", "thread", "version", "doctor", "changes", "checkpoint"}
+
+// queryMessageUsage is the full reference for `query message`, appended to its
+// catalog help.
 const queryMessageUsage = `Usage: wasync [--data-dir PATH] query message --ref REF [--json]
 
 Prints one archived message by its stable, account-scoped reference (m1_...).
@@ -74,15 +92,11 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	// --v1 is detected before parsing so argument errors also use the envelope.
 	v1 := slices.Contains(args[1:], "--v1") || slices.Contains(args[1:], "--v1=true") || command == "thread"
 	defer func() { result = a.v1Failure(v1, result) }()
-	if command != "groups" && command != "chats" && command != "messages" && command != "search" && command != "status" && command != "message" && command != "thread" {
+	if !slices.Contains(queryCommands, command) {
 		return queryErr(query.CodeInvalidArgument, fmt.Errorf("unknown query command %q; use wasync query --help", command))
 	}
 	fs := a.flags("query " + command)
 	fs.Usage = func() { _ = a.writeHelp(fs.Output(), "query "+command) }
-	if command == "message" || command == "thread" {
-		usage := map[string]string{"message": queryMessageUsage, "thread": queryThreadUsage}[command]
-		fs.Usage = func() { _, _ = fmt.Fprint(fs.Output(), usage) }
-	}
 	jsonOutput := fs.Bool("json", true, "JSON output (default; required for query commands)")
 	fs.BoolVar(&v1, "v1", v1, "emit the versioned v1 envelope")
 	var enabled bool
@@ -362,9 +376,6 @@ func (a *App) v1Failure(v1 bool, err error) error {
 func (a *App) runQueryVersion(ctx context.Context, cfg config.Config, args []string) (result error) {
 	defer func() { result = a.v1Failure(true, result) }()
 	fs := a.flags("query version")
-	fs.Usage = func() {
-		fmt.Fprint(fs.Output(), "Usage: wasync query version [--json]\n\nReport API, build and schema versions as a v1 envelope without opening the archive for writes.\n")
-	}
 	jsonOutput := fs.Bool("json", true, "JSON output (default)")
 	fs.Bool("v1", true, "v1 envelope (always)")
 	if err := a.parseFlags(fs, args); err != nil {

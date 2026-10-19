@@ -80,6 +80,8 @@ Usage: wasync [--data-dir PATH] [--timeout 3m] [--api-addr 127.0.0.1:8787] [--no
   send --to CHAT_ID [--text TEXT] [--file PATH --type image|document]
   status                                     Inspect local pairing state
   query [groups|chats|messages|search|status]       Read-only JSON queries for agents
+  query [version|message|thread|changes|checkpoint|doctor]  More queries; --v1 envelope
+  agents grant|list|revoke                   Scoped agent credentials; human, interactive
   version                                    Show installed build information
   help [COMMAND [SUBCOMMAND]]                 Detailed command help, without connecting
   help --json                                Machine-readable command catalog for agents
@@ -130,17 +132,13 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 		return err
 	}
 	args = root.Args()
-	// Agent credential management is file-based and never opens WhatsApp or
-	// the archive. It is kept out of the help catalog until a deliberate
-	// snapshot update; wasync agents --help documents it.
-	if len(args) > 0 && args[0] == "agents" {
-		return a.runAgents(parent, cfg, args[1:])
-	}
-	if len(args) == 2 && args[0] == "help" && args[1] == "agents" {
-		return a.runAgents(parent, cfg, nil)
-	}
 	if handled, helpErr := a.dispatchHelp(args); handled {
 		return helpErr
+	}
+	// Agent credential management is file-based and never opens WhatsApp or
+	// the archive.
+	if len(args) > 0 && args[0] == "agents" {
+		return a.runAgents(parent, cfg, args[1:])
 	}
 	if *showVersion {
 		if len(args) != 0 {

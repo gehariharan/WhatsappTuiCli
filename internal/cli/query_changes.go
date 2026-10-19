@@ -13,8 +13,7 @@ import (
 	"whatsappsync/internal/storage"
 )
 
-// The journal commands are intentionally not listed in queryUsage or the
-// command catalog (their output is snapshotted); each documents itself here.
+// Full references for the journal commands, appended to their catalog help.
 const queryChangesUsage = `Usage: wasync [--data-dir PATH] query changes [--after CURSOR] [--limit N] [--v1]
 
 Reads the change journal of the current account as a v1 envelope, oldest
@@ -37,11 +36,6 @@ Read only: committing is a write and goes through the running owner's API
 func (a *App) runQueryJournal(ctx context.Context, cfg config.Config, command string, args []string) (result error) {
 	defer func() { result = a.v1FailureCoded(result) }()
 	fs := a.flags("query " + command)
-	usage := queryChangesUsage
-	if command == "checkpoint" {
-		usage = queryCheckpointUsage
-	}
-	fs.Usage = func() { _, _ = fmt.Fprint(fs.Output(), usage) }
 	jsonOutput := fs.Bool("json", true, "JSON output (default)")
 	fs.Bool("v1", true, "v1 envelope (always)")
 	var after, consumer string

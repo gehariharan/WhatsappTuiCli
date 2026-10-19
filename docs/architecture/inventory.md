@@ -29,7 +29,7 @@ Source: Phase 0 inspection of WhatsappTuiCli `891ef40` and openclaw/wacli `8c61e
 - **Mutations:** edits, revokes (tombstones), expiry of disappearing messages, local purge.
 - **Media:** per-chat policy auto/manual/inherit, one-time download via live owner, streamed attachments.
 - **Send:** text and file (image/document) with signed requests.
-- **Read surfaces:** `wasync query groups|chats|messages|search|status` (offline JSON), REST API reads, `help --json`.
+- **Read surfaces:** `wasync query groups|chats|messages|search|status` (offline JSON), REST API reads, `help --json`. Later additions: `query version|message|thread|changes|checkpoint|doctor`, `--v1`, `query chats --match`, `query search --context`; human-only `wasync agents grant|list|revoke`.
 
 ### Database migrations (`PRAGMA user_version`, current = 5)
 
