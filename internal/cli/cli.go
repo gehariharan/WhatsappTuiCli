@@ -1,5 +1,6 @@
 // Package cli parses whatsapp-axi arguments and runs commands. Exit codes:
-// 0 success (including "wasync not running" states), 1 error, 2 usage.
+// 0 success (including "wasync not running" states), 1 error (and a doctor
+// report with a failed check), 2 usage.
 package cli
 
 import (
@@ -104,6 +105,14 @@ func init() {
 			run:         (*App).runVersion,
 		},
 		{
+			name:        "doctor",
+			usage:       "whatsapp-axi doctor [--json]",
+			description: "Check installation, pairing, service, permissions, compatibility and hooks; each problem comes with a fix command",
+			flags:       []flagSpec{jsonFlag},
+			examples:    []string{"whatsapp-axi doctor", "whatsapp-axi doctor --json"},
+			run:         (*App).runDoctor,
+		},
+		{
 			name:        "help",
 			usage:       "whatsapp-axi help [COMMAND] [--json]",
 			description: "List commands, or show flags and examples for one command",
@@ -172,6 +181,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return ExitOK
 	}
 	if err := cmd.run(a, ctx, inv); err != nil {
+		if errors.Is(err, errReported) {
+			return ExitError
+		}
 		var ce *contract.Error
 		_ = output.Error(a.Out, err, inv.json)
 		if errors.As(err, &ce) && ce.Code == contract.CodeUsage {

@@ -28,7 +28,7 @@ func TestEmbeddedFile(t *testing.T) {
 	if m.MinAPI != "1.0" {
 		t.Fatalf("min_api %s", m.MinAPI)
 	}
-	if got := strings.Join(m.CommandNames(), ","); got != "home,version" {
+	if got := strings.Join(m.CommandNames(), ","); got != "doctor,home,version" {
 		t.Fatalf("commands %s", got)
 	}
 }
