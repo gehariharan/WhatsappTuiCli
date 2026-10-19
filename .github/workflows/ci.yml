@@ -87,3 +87,14 @@ jobs:
           name: msix-test-packages-not-for-store
           path: dist/store/*/*
           if-no-files-found: error
+  tap-publish-script:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate Homebrew tap publisher against a local tap
+        run: bash scripts/test-publish-tap.sh
