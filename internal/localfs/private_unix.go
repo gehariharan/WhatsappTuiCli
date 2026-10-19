@@ -54,3 +54,16 @@ func CheckPrivateFile(path string) error {
 	}
 	return nil
 }
+
+// SyncDir flushes directory entries so a newly created file survives a crash.
+func SyncDir(path string) error {
+	d, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	if err = d.Sync(); err != nil {
+		d.Close()
+		return err
+	}
+	return d.Close()
+}

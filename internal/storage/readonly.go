@@ -43,8 +43,17 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	if err = db.PingContext(ctx); err == nil {
 		err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version)
 	}
-	if err == nil && version != 5 {
-		err = fmt.Errorf("archive schema %d is incompatible with query schema 5; run the matching wasync version and start the TUI to migrate older archives", version)
+	if err == nil && version != schemaVersion {
+		readable := false
+		if version > schemaVersion {
+			var compat *schemaCompat
+			if compat, err = readSchemaCompat(ctx, db); err == nil && compat != nil {
+				readable = schemaVersion >= compat.MinReader
+			}
+		}
+		if err == nil && !readable {
+			err = fmt.Errorf("archive schema %d is incompatible with query schema %d; run the matching wasync version and start the TUI to migrate older archives", version, schemaVersion)
+		}
 	}
 	if err != nil {
 		db.Close()

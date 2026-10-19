@@ -79,6 +79,13 @@ func TestUpgradeFromEveryReleasedSchema(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			wantBackups := 1
+			if version == 5 {
+				wantBackups = 0
+			}
+			if got := backupFiles(t, path); len(got) != wantBackups {
+				t.Fatalf("schema %d upgrade left backups %v, want %d", version, got, wantBackups)
+			}
 			var current int
 			if err = s.db.QueryRow("PRAGMA user_version").Scan(&current); err != nil || current != 5 {
 				t.Fatalf("schema %d migrated to %d: %v", version, current, err)
