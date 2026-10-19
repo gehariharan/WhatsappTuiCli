@@ -336,12 +336,15 @@ func (a *App) runVersion(ctx context.Context, inv invocation) error {
 	d := a.detect(ctx, "version")
 	if inv.json {
 		return output.JSON(a.Out, map[string]any{
-			"whatsapp_axi_version": buildinfo.Version, "api_version_supported": contract.APIVersion,
+			"whatsapp_axi_version": buildinfo.Version, "whatsapp_axi_commit": buildinfo.Commit,
+			"whatsapp_axi_date": buildinfo.Date, "api_version_supported": contract.APIVersion,
 			"min_api": a.Compat.MinAPI, "wasync": a.wasyncJSON(d), "compatibility": compatOf(d),
 		})
 	}
 	o := output.New(a.Out)
 	o.Field(0, "whatsapp-axi", buildinfo.Version)
+	o.Field(0, "commit", buildinfo.Commit)
+	o.Field(0, "date", buildinfo.Date)
 	o.Field(0, "min_api", a.Compat.MinAPI)
 	a.writeWasync(o, d, true)
 	return o.Err()

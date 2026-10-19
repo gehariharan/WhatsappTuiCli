@@ -228,6 +228,8 @@ func TestVersionJSON(t *testing.T) {
 	out, code := h.run(t, "version", "--json")
 	var got struct {
 		Version string `json:"whatsapp_axi_version"`
+		Commit  string `json:"whatsapp_axi_commit"`
+		Date    string `json:"whatsapp_axi_date"`
 		Wasync  struct {
 			State     string                `json:"state"`
 			Transport string                `json:"transport"`
@@ -238,11 +240,11 @@ func TestVersionJSON(t *testing.T) {
 	if code != ExitOK || json.Unmarshal([]byte(out), &got) != nil {
 		t.Fatalf("%d %s", code, out)
 	}
-	if got.Version != buildinfo.Version || got.Wasync.Transport != "api" || got.Wasync.Version == nil || len(got.Wasync.Version.Features) != 12 || !got.Compat.OK {
+	if got.Version != buildinfo.Version || got.Commit != buildinfo.Commit || got.Date != buildinfo.Date || got.Wasync.Transport != "api" || got.Wasync.Version == nil || len(got.Wasync.Version.Features) != 12 || !got.Compat.OK {
 		t.Fatalf("%+v", got)
 	}
 	text, _ := h.run(t, "version")
-	mustContain(t, text, "whatsapp-axi: "+buildinfo.Version, `min_api: "1.0"`, "features[12]: chats,chats.match,messages", "archive_schema: \"6\"")
+	mustContain(t, text, "whatsapp-axi: "+buildinfo.Version, "commit: "+buildinfo.Commit, "date: "+buildinfo.Date, `min_api: "1.0"`, "features[12]: chats,chats.match,messages", "archive_schema: \"6\"")
 }
 
 func TestIncompatibleWasync(t *testing.T) {

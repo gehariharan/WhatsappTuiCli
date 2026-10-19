@@ -55,11 +55,22 @@ Settings, all optional:
 
 ## Install
 
-Releases are not published yet. To try it from source (Go 1.27 or newer):
+No release has been published yet; until then, build from source (below). From the first release on
+([docs/releasing.md](docs/releasing.md)):
 
-```sh
-go install github.com/gehariharan/whatsapp-axi/cmd/whatsapp-axi@latest
-```
+- **macOS:** use the Homebrew formula, which builds from source with Homebrew's Go:
+  `brew install gehariharan/tap/whatsapp-axi`. whatsapp-axi is not signed or notarized by Apple, so a
+  `darwin_*` archive downloaded with a browser is quarantined and macOS refuses to run it; the formula
+  and `go install` avoid that because nothing prebuilt is downloaded.
+- **Linux and Windows:** download the archive for your OS and CPU from the
+  [releases page](https://github.com/gehariharan/whatsapp-axi/releases), check it against `SHA256SUMS`
+  (`sha256sum -c SHA256SUMS --ignore-missing`), extract it and put `whatsapp-axi` (`whatsapp-axi.exe`)
+  on your `PATH`. The binaries are static (no cgo).
+- **Any OS, from source** (Go 1.27 or newer):
+
+  ```sh
+  go install github.com/gehariharan/whatsapp-axi/cmd/whatsapp-axi@latest
+  ```
 
 You also need wasync: `brew install --cask gehariharan/tap/wasync`.
 

@@ -36,3 +36,28 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test ${{ matrix.race }} ./...
+
+  # Release packaging dry run: builds every archive, checks contents and
+  # checksums, and checks that a rebuild is byte-identical. Publishes nothing.
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Package (dry run)
+        run: bash scripts/package.sh --dry-run 0.0.0-ci
+      - name: Check archives and checksums
+        run: bash scripts/check-dist.sh 0.0.0-ci
+      - name: Check the rebuild is reproducible
+        run: |
+          mv dist/0.0.0-ci/SHA256SUMS first-SHA256SUMS
+          bash scripts/package.sh --dry-run 0.0.0-ci >/dev/null
+          diff first-SHA256SUMS dist/0.0.0-ci/SHA256SUMS
+      - name: Test the Homebrew formula generator
+        run: bash scripts/test-homebrew-formula.sh
