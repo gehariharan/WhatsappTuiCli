@@ -39,7 +39,6 @@ func buildArchive(t *testing.T, version int) string {
 	if version >= 5 {
 		statements = append(statements, `INSERT INTO media_preferences(account_id,group_id,mode) VALUES(1,'one@g.us','manual')`)
 	}
-	migrations := []string{migration1, migration2, migration3, migration4, migration5}
 	for i := 0; i < version; i++ {
 		if _, err = db.Exec(migrations[i]); err != nil {
 			t.Fatal(err)
@@ -63,14 +62,18 @@ func buildArchive(t *testing.T, version int) string {
 	return path
 }
 
+// releasedSchemas is the newest schema shipped in a release; every schema from
+// 1 to it must upgrade to the current SchemaVersion.
+const releasedSchemas = 5
+
 // TestUpgradeFromEveryReleasedSchema is the baseline for archive preservation:
 // every schema an installed release can have upgrades without losing rows.
 func TestUpgradeFromEveryReleasedSchema(t *testing.T) {
 	ctx := context.Background()
-	for version := 1; version <= 5; version++ {
+	for version := 1; version <= releasedSchemas; version++ {
 		t.Run(fmt.Sprintf("schema-%d", version), func(t *testing.T) {
 			path := buildArchive(t, version)
-			if version < 5 {
+			if version < SchemaVersion {
 				if _, err := OpenReadOnly(ctx, path); err == nil || !strings.Contains(err.Error(), "incompatible") {
 					t.Fatalf("read-only query accepted schema %d before migration: %v", version, err)
 				}
@@ -80,14 +83,14 @@ func TestUpgradeFromEveryReleasedSchema(t *testing.T) {
 				t.Fatal(err)
 			}
 			wantBackups := 1
-			if version == 5 {
+			if version == SchemaVersion {
 				wantBackups = 0
 			}
 			if got := backupFiles(t, path); len(got) != wantBackups {
 				t.Fatalf("schema %d upgrade left backups %v, want %d", version, got, wantBackups)
 			}
 			var current int
-			if err = s.db.QueryRow("PRAGMA user_version").Scan(&current); err != nil || current != 5 {
+			if err = s.db.QueryRow("PRAGMA user_version").Scan(&current); err != nil || current != SchemaVersion {
 				t.Fatalf("schema %d migrated to %d: %v", version, current, err)
 			}
 			account, err := s.Account(ctx)

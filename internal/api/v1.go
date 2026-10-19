@@ -38,10 +38,13 @@ type v1IDKey struct{}
 
 // v1Route is one versioned endpoint. Scope names the agent permission the
 // route needs; Chat, when set, extracts the chat JID the request touches so
-// chat allowlists can be enforced before the handler runs.
+// chat allowlists can be enforced before the handler runs. Mutation marks a
+// write: its authorization is audited even when allowed, and refused when the
+// audit log cannot be written.
 type v1Route struct {
 	Pattern, Scope string
 	Chat           func(*http.Request) string
+	Mutation       bool
 	Handle         func(h *handler, w http.ResponseWriter, r *http.Request, id string)
 }
 
@@ -75,7 +78,7 @@ func (h *handler) buildV1() {
 			if route.Chat != nil {
 				chat = route.Chat(r)
 			}
-			if !h.v1Authorize(w, r, id, route.Scope, chat) {
+			if !h.v1Authorize(w, r, id, route.Scope, chat, route.Mutation) {
 				return
 			}
 			route.Handle(h, w, r, id)
@@ -83,7 +86,7 @@ func (h *handler) buildV1() {
 	}
 	h.v1Mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		id, _ := r.Context().Value(v1IDKey{}).(string)
-		if !h.v1Authorize(w, r, id, "", "") {
+		if !h.v1Authorize(w, r, id, "", "", false) {
 			return
 		}
 		v1Fail(w, id, 404, query.CodeNotFound, "unknown v1 endpoint", "see GET /api/v1/version for supported features")
@@ -100,15 +103,16 @@ func v1Client(r *http.Request) *agentauth.Client {
 
 // v1Authorize is the single v1 credential decision and writes the failure
 // itself. Only scoped agent credentials are accepted; legacy tokens never are.
-// Reads are audited on denial; the authenticated client is stored on r.
-func (h *handler) v1Authorize(w http.ResponseWriter, r *http.Request, id, scope, chat string) bool {
+// Reads are audited on denial, mutations always; the authenticated client is
+// stored on r.
+func (h *handler) v1Authorize(w http.ResponseWriter, r *http.Request, id, scope, chat string, mutation bool) bool {
 	if h.agents == nil {
 		v1Fail(w, id, 503, query.CodeInternal, "agent authorization unavailable", "restart wasync")
 		return false
 	}
 	c, err := h.agents.Authenticate(r.Header.Get("Authorization"))
 	if err == nil && scope != "" {
-		err = h.agents.AuthorizeAndAudit(c, scope, chat, "", id, false)
+		err = h.agents.AuthorizeAndAudit(c, scope, chat, "", id, mutation)
 	} else if err != nil {
 		_ = h.agents.Audit(agentauth.AuditEntry{Time: time.Now(), Event: "request", Scope: scope, Chat: chat, Outcome: agentauth.OutcomeDenied, Code: query.CodeUnauthorized, RequestID: id})
 	}

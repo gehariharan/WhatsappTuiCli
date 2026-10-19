@@ -12,8 +12,8 @@ import (
 //
 // An archive whose user_version is newer than this binary may still be opened
 // when the binary's schema is at least MinWriter (owner, no migration) or at
-// least MinReader (read-only query). No released migration creates the table
-// yet; see docs/architecture/migrations.md.
+// least MinReader (read-only query). Migration 006 creates the table with
+// min_reader=5 and min_writer=6; see docs/architecture/migrations.md.
 type schemaCompat struct {
 	MinReader int
 	MinWriter int
