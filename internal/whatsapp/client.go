@@ -54,6 +54,7 @@ type Client struct {
 	capture         *capture
 	connection      atomic.Value
 	lastError       atomic.Value
+	health          healthFacts
 }
 
 func Open(ctx context.Context, path string, log *slog.Logger) (*Client, error) {
@@ -89,6 +90,7 @@ func Open(ctx context.Context, path string, log *slog.Logger) (*Client, error) {
 	c.client.SynchronousAck = true
 	c.connection.Store("offline")
 	c.lastError.Store("")
+	c.health.paired.Store(device.ID != nil)
 	c.client.AddEventHandlerWithSuccessStatus(c.handleEvent)
 	return c, nil
 }
@@ -271,5 +273,6 @@ func (c *Client) Logout(ctx context.Context) error {
 		return fmt.Errorf("unlink failed; local session retained unless WhatsApp removed it: %w", err)
 	}
 	c.connection.Store("unlinked")
+	c.health.paired.Store(false)
 	return nil
 }

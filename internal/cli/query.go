@@ -56,6 +56,9 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	if command == "version" {
 		return a.runQueryVersion(ctx, cfg, args[1:])
 	}
+	if command == "doctor" {
+		return a.runQueryDoctor(ctx, cfg, args[1:])
+	}
 	// --v1 is detected before parsing so argument errors also use the envelope.
 	v1 := slices.Contains(args[1:], "--v1") || slices.Contains(args[1:], "--v1=true")
 	defer func() { result = a.v1Failure(v1, result) }()
