@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"whatsappsync/internal/config"
+	"whatsappsync/internal/msgref"
 	"whatsappsync/internal/query"
 	"whatsappsync/internal/storage"
 )
@@ -36,21 +37,37 @@ Status describes persisted observations; current network connectivity is unknown
 Global flags precede query. Exit codes: 0 success, 1 error, 130 cancellation.
 `
 
+// queryMessageUsage documents `query message`, which is intentionally not yet
+// listed in queryUsage or the command catalog (their output is snapshotted).
+const queryMessageUsage = `Usage: wasync [--data-dir PATH] query message --ref REF [--json]
+
+Prints one archived message by its stable, account-scoped reference (m1_...).
+References survive restarts, purge and re-capture; local row ids do not.
+Expired content is never returned; revoked messages return their tombstone.
+`
+
 func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (result error) {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		_, err := fmt.Fprint(a.Out, queryUsage)
 		return err
 	}
 	command := args[0]
-	if command != "groups" && command != "chats" && command != "messages" && command != "search" && command != "status" {
+	if command != "groups" && command != "chats" && command != "messages" && command != "search" && command != "status" && command != "message" {
 		return fmt.Errorf("unknown query command %q; use wasync query --help", command)
 	}
 	fs := a.flags("query " + command)
 	fs.Usage = func() { _ = a.writeHelp(fs.Output(), "query "+command) }
+	if command == "message" {
+		fs.Usage = func() { _, _ = fmt.Fprint(fs.Output(), queryMessageUsage) }
+	}
 	jsonOutput := fs.Bool("json", true, "JSON output (default; required for query commands)")
 	var enabled bool
 	var group, since, until, sender, cursor string
 	limit := 50
+	var refFlag string
+	if command == "message" {
+		fs.StringVar(&refFlag, "ref", "", "stable message reference (m1_...)")
+	}
 	if command == "groups" || command == "chats" {
 		fs.BoolVar(&enabled, "enabled", false, "only groups with capture enabled")
 	}
@@ -93,6 +110,16 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	if command == "messages" && group == "" {
 		return fmt.Errorf("messages requires --chat CHAT_ID (or --group); list IDs with wasync query chats")
 	}
+	var ref msgref.Ref
+	if command == "message" {
+		if refFlag == "" {
+			return fmt.Errorf("message requires --ref REF")
+		}
+		var err error
+		if ref, err = msgref.Decode(refFlag); err != nil {
+			return err
+		}
+	}
 	if limit < 1 || limit > 200 {
 		return fmt.Errorf("--limit must be between 1 and 200")
 	}
@@ -124,6 +151,16 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 	}
 	if account == nil {
 		return fmt.Errorf("no account in the archive; start wasync and pair first")
+	}
+	if command == "message" {
+		m, err := store.MessageByRef(ctx, account.ID, account.JID, ref)
+		if errors.Is(err, storage.ErrMessageNotFound) {
+			return fmt.Errorf("message is not in the current account's archive; it may have expired, been purged, or belong to another account")
+		}
+		if err != nil {
+			return fmt.Errorf("query message: %w", err)
+		}
+		return json.NewEncoder(a.Out).Encode(query.MessageByRef{AccountID: account.ID, Ref: query.RefFor(account.JID, m), Item: query.FormatMessage(account.ID, m)})
 	}
 	if command == "groups" || command == "chats" || command == "status" {
 		groups, err := store.GroupSummaries(ctx, account.ID)
