@@ -1,0 +1,3 @@
+error: invalid cursor or filters changed
+code: invalid_cursor
+help: repeat the request without cursor

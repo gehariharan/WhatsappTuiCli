@@ -60,6 +60,7 @@ func FastPath(args []string, w io.Writer) bool {
 
 type flagSpec struct {
 	name        string
+	value       string // placeholder such as "N" when the flag takes a value
 	description string
 }
 
@@ -68,6 +69,7 @@ type command struct {
 	usage       string
 	description string
 	flags       []flagSpec
+	minArgs     int
 	maxArgs     int
 	argsName    string
 	examples    []string
@@ -75,11 +77,24 @@ type command struct {
 }
 
 type invocation struct {
-	json bool
-	args []string
+	json  bool
+	args  []string
+	flags map[string]string // value flags by name (with "--"); boolean flags map to "true"
 }
 
-var jsonFlag = flagSpec{"--json", "print JSON instead of text"}
+// flag returns the value of a flag and whether it was given.
+func (inv invocation) flag(name string) (string, bool) {
+	v, ok := inv.flags[name]
+	return v, ok
+}
+
+// has reports whether a boolean flag was given.
+func (inv invocation) has(name string) bool {
+	_, ok := inv.flags[name]
+	return ok
+}
+
+var jsonFlag = flagSpec{name: "--json", description: "print JSON instead of text"}
 
 // commands lists implemented commands only. It is filled in init because
 // the help command reads it.
@@ -95,6 +110,11 @@ func init() {
 			examples:    []string{"whatsapp-axi", "whatsapp-axi --json"},
 			run:         (*App).runHome,
 		},
+		chatsCommand,
+		messagesCommand,
+		searchCommand,
+		threadCommand,
+		messageCommand,
 		{
 			name:        "version",
 			usage:       "whatsapp-axi version [--json]",
@@ -173,7 +193,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	if err := cmd.run(a, ctx, inv); err != nil {
 		var ce *contract.Error
-		_ = output.Error(a.Out, err, inv.json)
+		_ = writeError(a.Out, err, inv.json)
 		if errors.As(err, &ce) && ce.Code == contract.CodeUsage {
 			return ExitUsage
 		}
@@ -200,6 +220,9 @@ func (a *App) resolve(args []string) (*command, []string, bool, error) {
 
 func containsJSON(args []string) bool {
 	for _, a := range args {
+		if a == "--" {
+			return false
+		}
 		if a == "--json" {
 			return true
 		}
@@ -207,33 +230,64 @@ func containsJSON(args []string) bool {
 	return false
 }
 
+func (c *command) findFlag(name string) *flagSpec {
+	for i := range c.flags {
+		if c.flags[i].name == name {
+			return &c.flags[i]
+		}
+	}
+	return nil
+}
+
 // parseFlags validates rest against the command's own flags. Unknown flags
 // and unexpected arguments are usage errors that list the valid flags.
+// Value flags accept `--flag value` and `--flag=value`; after `--` every
+// argument is positional, so a search text may start with "-".
 func parseFlags(c *command, rest []string) (invocation, bool, error) {
-	var inv invocation
+	inv := invocation{flags: map[string]string{}}
 	inv.json = containsJSON(rest)
 	wantHelp := false
-	for _, arg := range rest {
+	positionalOnly := false
+	for i := 0; i < len(rest); i++ {
+		arg := rest[i]
 		switch {
-		case arg == "--help" || arg == "-h":
-			wantHelp = true
-		case arg == "--json":
-			inv.json = true
-		case strings.HasPrefix(arg, "-"):
-			name := arg
-			if k, _, ok := strings.Cut(arg, "="); ok {
-				name = k
-			}
-			if name == "--json" {
-				return inv, false, usageErr("use --json without a value", "--json takes no value")
-			}
-			return inv, false, usageErr(validFlags(c), "unknown flag %s for `%s`", name, displayName(c))
-		default:
+		case positionalOnly || arg == "-" || !strings.HasPrefix(arg, "-"):
 			if len(inv.args) >= c.maxArgs {
 				return inv, false, usageErr("usage: "+c.usage, "unexpected argument %q for `%s`", arg, displayName(c))
 			}
 			inv.args = append(inv.args, arg)
+		case arg == "--":
+			positionalOnly = true
+		case arg == "--help" || arg == "-h":
+			wantHelp = true
+		case arg == "--json":
+			inv.json = true
+		default:
+			name, value, hasValue := strings.Cut(arg, "=")
+			f := c.findFlag(name)
+			if f == nil {
+				if name == "--json" {
+					return inv, false, usageErr("use --json without a value", "--json takes no value")
+				}
+				return inv, false, usageErr(validFlags(c), "unknown flag %s for `%s`", name, displayName(c))
+			}
+			switch {
+			case f.value == "" && hasValue:
+				return inv, false, usageErr("use "+name+" without a value", "%s takes no value", name)
+			case f.value == "":
+				value = "true"
+			case !hasValue:
+				if i+1 >= len(rest) {
+					return inv, false, usageErr("usage: "+c.usage, "%s needs a value (%s %s)", name, name, f.value)
+				}
+				i++
+				value = rest[i]
+			}
+			inv.flags[name] = value
 		}
+	}
+	if !wantHelp && len(inv.args) < c.minArgs {
+		return inv, false, usageErr("usage: "+c.usage, "`%s` needs %s", displayName(c), c.argsName)
 	}
 	return inv, wantHelp, nil
 }

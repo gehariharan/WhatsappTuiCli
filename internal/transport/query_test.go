@@ -27,7 +27,8 @@ func TestQueryArgs(t *testing.T) {
 	if _, err := QueryArgs("", "/version", url.Values{"bogus": {"1"}}); codeOf(t, err) != contract.CodeInvalidArgument {
 		t.Fatalf("unknown param: %v", err)
 	}
-	if got := QueryRoutes(); !reflect.DeepEqual(got, []string{"/version"}) {
+	want := []string{"/chats", "/chats/{chat}/messages", "/messages/search", "/messages/{ref}", "/messages/{ref}/thread", "/version"}
+	if got := QueryRoutes(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("routes %v", got)
 	}
 }
@@ -36,9 +37,39 @@ func TestQueryArgsMapsParams(t *testing.T) {
 	queryRoutes["/test/chats"] = QueryRoute{Command: []string{"chats"}, Params: map[string]string{"match": "match", "limit": "limit"}}
 	defer delete(queryRoutes, "/test/chats")
 	args, err := QueryArgs("", "/test/chats", url.Values{"match": {"-rf"}, "limit": {"5"}})
-	want := []string{"query", "chats", "--limit", "5", "--match", "-rf", "--v1", "--json"}
+	want := []string{"query", "chats", "--limit=5", "--match=-rf", "--v1", "--json"}
 	if err != nil || !reflect.DeepEqual(args, want) {
 		t.Fatalf("args %v err %v", args, err)
+	}
+}
+
+func TestQueryArgsReadRoutes(t *testing.T) {
+	cases := []struct {
+		path  string
+		query url.Values
+		want  string
+	}{
+		{"/chats", url.Values{"match": {"Team A"}}, "query chats --match=Team A --v1 --json"},
+		{"/chats/" + url.PathEscape("a b@g.us") + "/messages", url.Values{"limit": {"20"}, "cursor": {"c1"}, "from": {"2026-10-01T00:00:00Z"}, "sender_id": {"x@lid"}},
+			"query messages --cursor=c1 --since=2026-10-01T00:00:00Z --limit=20 --sender=x@lid --chat=a b@g.us --v1 --json"},
+		{"/messages/search", url.Values{"q": {"-rf hello"}, "chat": {"one@g.us"}, "context": {"2"}},
+			"query search --chat=one@g.us --context=2 --v1 --json -- -rf hello"},
+		{"/messages/m1_abc", nil, "query message --ref=m1_abc --v1 --json"},
+		{"/messages/m1_abc/thread", url.Values{"before": {"1"}, "after": {"3"}}, "query thread --after=3 --before=1 --ref=m1_abc --v1 --json"},
+	}
+	for _, c := range cases {
+		args, err := QueryArgs("", c.path, c.query)
+		if err != nil || strings.Join(args, " ") != c.want {
+			t.Errorf("%s: %q err %v\nwant %q", c.path, strings.Join(args, " "), err, c.want)
+		}
+	}
+	for _, path := range []string{"/chats/one@g.us", "/messages/m1_abc/other", "/messages"} {
+		if _, err := QueryArgs("", path, nil); codeOf(t, err) != contract.CodeOwnerOffline {
+			t.Errorf("%s: %v", path, err)
+		}
+	}
+	if _, err := QueryArgs("", "/messages/m1_abc/thread", url.Values{"limit": {"1"}}); codeOf(t, err) != contract.CodeInvalidArgument {
+		t.Fatalf("thread limit: %v", err)
 	}
 }
 
