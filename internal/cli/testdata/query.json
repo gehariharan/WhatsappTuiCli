@@ -1,0 +1,404 @@
+[
+  {
+    "args": [
+      "groups"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "not_observed",
+          "id": "one@g.us",
+          "last_message_at": "2026-10-01T00:00:00Z",
+          "media_policy": "inherit",
+          "message_count": 3,
+          "name": "First",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        },
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "",
+          "history_state": "not_observed",
+          "id": "two@g.us",
+          "last_message_at": null,
+          "media_policy": "inherit",
+          "message_count": 0,
+          "name": "Second",
+          "potential_account_gaps": 0,
+          "sync_enabled": false
+        }
+      ]
+    }
+  },
+  {
+    "args": [
+      "groups",
+      "--enabled"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "not_observed",
+          "id": "one@g.us",
+          "last_message_at": "2026-10-01T00:00:00Z",
+          "media_policy": "inherit",
+          "message_count": 3,
+          "name": "First",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        }
+      ]
+    }
+  },
+  {
+    "args": [
+      "chats",
+      "--json"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "not_observed",
+          "id": "one@g.us",
+          "last_message_at": "2026-10-01T00:00:00Z",
+          "media_policy": "inherit",
+          "message_count": 3,
+          "name": "First",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        },
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "",
+          "history_state": "not_observed",
+          "id": "two@g.us",
+          "last_message_at": null,
+          "media_policy": "inherit",
+          "message_count": 0,
+          "name": "Second",
+          "potential_account_gaps": 0,
+          "sync_enabled": false
+        }
+      ]
+    }
+  },
+  {
+    "args": [
+      "status"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "archived_messages": 3,
+      "chat_count": 2,
+      "connection": "unknown",
+      "enabled_chats": 1,
+      "enabled_groups": 1,
+      "group_count": 2,
+      "history_completeness": "unknown",
+      "last_capture_finished_at": null,
+      "last_capture_heartbeat_at": null,
+      "last_capture_run_state": "not_observed",
+      "last_discovery_at": "<last_discovery_at>",
+      "last_history_sync_at": null,
+      "last_received_at": "<last_received_at>",
+      "potential_account_gaps": 0
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "one@g.us"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 3,
+          "is_from_me": false,
+          "message_id": "2",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "1",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 1,
+          "is_from_me": false,
+          "message_id": "0",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--group",
+      "one@g.us",
+      "--limit",
+      "2"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 3,
+          "is_from_me": false,
+          "message_id": "2",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "1",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        }
+      ],
+      "next_cursor": "eyJ2IjoxLCJiZWZvcmUiOnsiVGltZXN0YW1wIjoxNzkwODEyODAwMDAwLCJJRCI6Mn0sInNjb3BlIjoiY2JkNGYzZmFkODFiYTk0OWM5YzM5NTU0NjZiYzYwY2E4N2U2MjEzYTAxZjg1Y2UxYWI2MTE1NDdmOTUxMGM2NCJ9"
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "one@g.us",
+      "--limit",
+      "2",
+      "--cursor",
+      "eyJ2IjoxLCJiZWZvcmUiOnsiVGltZXN0YW1wIjoxNzU5Mjc2ODAwMDAwLCJJRCI6Mn0sInNjb3BlIjoiYmFkIn0"
+    ],
+    "error": "invalid cursor or filters changed; start again without --cursor",
+    "stdout_bytes": 0
+  },
+  {
+    "args": [
+      "search",
+      "hello"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 3,
+          "is_from_me": false,
+          "message_id": "2",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "1",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 1,
+          "is_from_me": false,
+          "message_id": "0",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    }
+  },
+  {
+    "args": [
+      "search",
+      "--chat",
+      "one@g.us",
+      "--sender",
+      "sender@lid",
+      "--since",
+      "2026-10-01T00:00:00Z",
+      "--until",
+      "2026-10-02T00:00:00Z",
+      "archive"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 3,
+          "is_from_me": false,
+          "message_id": "2",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "1",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 1,
+          "is_from_me": false,
+          "message_id": "0",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "sender@lid",
+          "source": "live",
+          "text_content": "hello archive",
+          "timestamp": "2026-10-01T00:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    }
+  },
+  {
+    "args": [
+      "search",
+      "no matches"
+    ],
+    "stdout": {
+      "account_id": 1,
+      "items": [],
+      "next_cursor": ""
+    }
+  },
+  {
+    "args": [
+      "messages"
+    ],
+    "error": "messages requires --chat CHAT_ID (or --group); list IDs with wasync query chats",
+    "stdout_bytes": 0
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "missing@g.us"
+    ],
+    "error": "group is not in the current account's archive; list IDs with wasync query groups",
+    "stdout_bytes": 0
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "one@g.us",
+      "--limit",
+      "201"
+    ],
+    "error": "--limit must be between 1 and 200",
+    "stdout_bytes": 0
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "one@g.us",
+      "--since",
+      "bad"
+    ],
+    "error": "--since must be RFC3339, for example 2026-10-01T00:00:00Z",
+    "stdout_bytes": 0
+  },
+  {
+    "args": [
+      "unknown"
+    ],
+    "error": "unknown query command \"unknown\"; use wasync query --help",
+    "stdout_bytes": 0
+  }
+]

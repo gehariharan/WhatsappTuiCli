@@ -1,0 +1,663 @@
+[
+  {
+    "auth": "none",
+    "body": {
+      "status": "ok"
+    },
+    "content_type": "application/json",
+    "request": "GET /health",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "archived_messages": 7,
+      "attention_required": false,
+      "connection": "offline",
+      "enabled_chats": 3,
+      "enabled_groups": 2,
+      "history_completeness": "unknown",
+      "history_processing": false,
+      "skipped_this_run": 0,
+      "stored_this_run": 0
+    },
+    "content_type": "application/json",
+    "request": "GET /api/status",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "observed",
+          "id": "one@g.us",
+          "last_message_at": "2026-10-01T12:04:00Z",
+          "media_policy": "inherit",
+          "message_count": 5,
+          "name": "First",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        },
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "not_observed",
+          "id": "two@g.us",
+          "last_message_at": "2026-10-01T12:00:00Z",
+          "media_policy": "inherit",
+          "message_count": 1,
+          "name": "Second",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        }
+      ]
+    },
+    "content_type": "application/json",
+    "request": "GET /api/groups",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "chat_kind": "direct",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "not_observed",
+          "id": "15550001111@s.whatsapp.net",
+          "last_message_at": "2026-10-01T12:06:00Z",
+          "media_policy": "inherit",
+          "message_count": 1,
+          "name": "Direct",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        },
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "observed",
+          "id": "one@g.us",
+          "last_message_at": "2026-10-01T12:04:00Z",
+          "media_policy": "inherit",
+          "message_count": 5,
+          "name": "First",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        },
+        {
+          "chat_kind": "group",
+          "history_batch_messages": 0,
+          "history_request_state": "queued",
+          "history_state": "not_observed",
+          "id": "two@g.us",
+          "last_message_at": "2026-10-01T12:00:00Z",
+          "media_policy": "inherit",
+          "message_count": 1,
+          "name": "Second",
+          "potential_account_gaps": 0,
+          "sync_enabled": true
+        }
+      ]
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "chat_kind": "group",
+      "history_batch_messages": 0,
+      "history_request_state": "queued",
+      "history_state": "observed",
+      "id": "one@g.us",
+      "last_message_at": "2026-10-01T12:04:00Z",
+      "media_policy": "inherit",
+      "message_count": 5,
+      "name": "First",
+      "potential_account_gaps": 0,
+      "sync_enabled": true
+    },
+    "content_type": "application/json",
+    "request": "GET /api/groups/one@g.us",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "chat_kind": "direct",
+      "history_batch_messages": 0,
+      "history_request_state": "queued",
+      "history_state": "not_observed",
+      "id": "15550001111@s.whatsapp.net",
+      "last_message_at": "2026-10-01T12:06:00Z",
+      "media_policy": "inherit",
+      "message_count": 1,
+      "name": "Direct",
+      "potential_account_gaps": 0,
+      "sync_enabled": true
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/15550001111@s.whatsapp.net",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "group not found"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/groups/15550001111@s.whatsapp.net",
+    "status": 404,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "deleted_at": "2026-10-01T12:05:00Z",
+          "group_id": "one@g.us",
+          "id": 6,
+          "is_from_me": false,
+          "message_id": "revoked",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "bob@lid",
+          "source": "history",
+          "text_content": "",
+          "timestamp": "2026-10-01T12:04:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "edited_at": "2026-10-01T12:03:00Z",
+          "group_id": "one@g.us",
+          "id": 5,
+          "is_from_me": false,
+          "message_id": "edited",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "after edit",
+          "timestamp": "2026-10-01T12:02:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 4,
+          "is_from_me": false,
+          "media_metadata": {
+            "mime": "image/jpeg",
+            "size": 42
+          },
+          "message_id": "reply",
+          "message_type": "image",
+          "received_at": "<received_at>",
+          "reply_to_message_id": "a",
+          "sender_alt": "15550002222@s.whatsapp.net",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "caption",
+          "timestamp": "2026-10-01T12:01:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "b",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "hello archive b",
+          "timestamp": "2026-10-01T12:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 1,
+          "is_from_me": false,
+          "message_id": "a",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "bob@lid",
+          "source": "live",
+          "text_content": "hello archive a",
+          "timestamp": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/one@g.us/messages",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "deleted_at": "2026-10-01T12:05:00Z",
+          "group_id": "one@g.us",
+          "id": 6,
+          "is_from_me": false,
+          "message_id": "revoked",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "bob@lid",
+          "source": "history",
+          "text_content": "",
+          "timestamp": "2026-10-01T12:04:00Z"
+        }
+      ],
+      "next_cursor": "<next_cursor>"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/groups/one@g.us/messages?limit=1",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "edited_at": "2026-10-01T12:03:00Z",
+          "group_id": "one@g.us",
+          "id": 5,
+          "is_from_me": false,
+          "message_id": "edited",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "after edit",
+          "timestamp": "2026-10-01T12:02:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 4,
+          "is_from_me": false,
+          "media_metadata": {
+            "mime": "image/jpeg",
+            "size": 42
+          },
+          "message_id": "reply",
+          "message_type": "image",
+          "received_at": "<received_at>",
+          "reply_to_message_id": "a",
+          "sender_alt": "15550002222@s.whatsapp.net",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "caption",
+          "timestamp": "2026-10-01T12:01:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "b",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "hello archive b",
+          "timestamp": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/one@g.us/messages?sender_id=alice@lid&from=2026-10-01T12:00:00Z&to=2026-10-01T12:03:00Z",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "15550001111@s.whatsapp.net",
+          "group_id": "15550001111@s.whatsapp.net",
+          "id": 7,
+          "is_from_me": true,
+          "message_id": "dm",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "15550001111@s.whatsapp.net",
+          "source": "live",
+          "text_content": "direct hello",
+          "timestamp": "2026-10-01T12:06:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "two@g.us",
+          "group_id": "two@g.us",
+          "id": 3,
+          "is_from_me": false,
+          "message_id": "c",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "hello archive c",
+          "timestamp": "2026-10-01T12:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 2,
+          "is_from_me": false,
+          "message_id": "b",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "hello archive b",
+          "timestamp": "2026-10-01T12:00:00Z"
+        },
+        {
+          "account_id": 1,
+          "chat_id": "one@g.us",
+          "group_id": "one@g.us",
+          "id": 1,
+          "is_from_me": false,
+          "message_id": "a",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "bob@lid",
+          "source": "live",
+          "text_content": "hello archive a",
+          "timestamp": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    },
+    "content_type": "application/json",
+    "request": "GET /api/messages/search?q=hello",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "items": [
+        {
+          "account_id": 1,
+          "chat_id": "two@g.us",
+          "group_id": "two@g.us",
+          "id": 3,
+          "is_from_me": false,
+          "message_id": "c",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "sender_id": "alice@lid",
+          "source": "live",
+          "text_content": "hello archive c",
+          "timestamp": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "next_cursor": ""
+    },
+    "content_type": "application/json",
+    "request": "GET /api/messages/search?q=archive&group_id=two@g.us",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "account_id": 1,
+      "chat_id": "one@g.us",
+      "group_id": "one@g.us",
+      "id": 1,
+      "is_from_me": false,
+      "message_id": "a",
+      "message_type": "text",
+      "received_at": "<received_at>",
+      "sender_id": "bob@lid",
+      "source": "live",
+      "text_content": "hello archive a",
+      "timestamp": "2026-10-01T12:00:00Z"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/messages/1",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "none",
+    "body": {
+      "error": "bearer token required"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/status",
+    "status": 401,
+    "www_authenticate": "Bearer"
+  },
+  {
+    "auth": "invalid",
+    "body": {
+      "error": "bearer token required"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/status",
+    "status": 401,
+    "www_authenticate": "Bearer"
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "invalid local message id"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/messages/abc",
+    "status": 400,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "message not found"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/messages/999",
+    "status": 404,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "group not found"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/missing@g.us",
+    "status": 404,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "q must contain 1 to 1024 bytes"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/messages/search",
+    "status": 400,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "limit must be between 1 and 200"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/one@g.us/messages?limit=500",
+    "status": 400,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "from must be RFC3339"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/one@g.us/messages?from=yesterday",
+    "status": 400,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "invalid cursor or filters changed"
+    },
+    "content_type": "application/json",
+    "request": "GET /api/chats/one@g.us/messages?cursor=garbage",
+    "status": 400,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "sending unavailable"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/send",
+    "status": 503,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "signed request required"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/sync",
+    "status": 401,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "signed request required"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/media/policy",
+    "status": 401,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "sending unavailable"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/actions",
+    "status": 503,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "error": "sending unavailable"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/actions/00000000000000000000000000000000/approve",
+    "status": 503,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "id": "two@g.us",
+      "sync_enabled": false
+    },
+    "content_type": "application/json",
+    "request": "POST /api/chats/two@g.us/disable",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "id": "two@g.us",
+      "sync_enabled": true
+    },
+    "content_type": "application/json",
+    "request": "POST /api/groups/two@g.us/enable",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "completeness": "unknown",
+      "status": "queued"
+    },
+    "content_type": "application/json",
+    "request": "POST /api/chats/one@g.us/history",
+    "status": 202,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "changed": 3,
+      "sync_enabled": false
+    },
+    "content_type": "application/json",
+    "request": "POST /api/chats/disable-all",
+    "status": 200,
+    "www_authenticate": ""
+  },
+  {
+    "auth": "api.token",
+    "body": {
+      "changed": 2,
+      "sync_enabled": true
+    },
+    "content_type": "application/json",
+    "request": "POST /api/groups/enable-all",
+    "status": 200,
+    "www_authenticate": ""
+  }
+]
