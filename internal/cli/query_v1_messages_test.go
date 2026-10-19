@@ -31,11 +31,17 @@ func seedV1(t *testing.T, writer *storage.Store, account int64) {
 		t.Fatal(err)
 	}
 	stamp := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	expires := time.Now().Add(200 * time.Millisecond)
+	var expires time.Time
 	for i, m := range []storage.Message{
-		{MessageID: "t0", Text: "hello two"}, {MessageID: "t1", Text: "revoked"}, {MessageID: "t2", Text: "expiring hello", ExpiresAt: &expires}, {MessageID: "t3", Text: "after"},
+		{MessageID: "t0", Text: "hello two"}, {MessageID: "t1", Text: "revoked"}, {MessageID: "t2", Text: "expiring hello"}, {MessageID: "t3", Text: "after"},
 	} {
 		m.GroupID, m.SenderID, m.Type, m.Source, m.Timestamp = "two@g.us", "other@lid", "text", "live", stamp.Add(time.Duration(i)*time.Second)
+		if m.MessageID == "t2" {
+			// Set the expiry just before the write: on a slow runner an earlier
+			// deadline can pass first, so Apply drops t2 and later row ids shift.
+			expires = time.Now().Add(200 * time.Millisecond)
+			m.ExpiresAt = &expires
+		}
 		if _, err := writer.Apply(ctx, account, []storage.Message{m}); err != nil {
 			t.Fatal(err)
 		}

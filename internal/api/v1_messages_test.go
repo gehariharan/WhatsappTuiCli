@@ -71,7 +71,7 @@ func seedContext(t *testing.T, store *storage.Store, account int64) {
 	if err := store.SetEnabled(ctx, account, []string{"ctx@g.us", "other@g.us"}, true); err != nil {
 		t.Fatal(err)
 	}
-	expires := time.Now().Add(300 * time.Millisecond)
+	var expires time.Time
 	for _, m := range []struct {
 		chat, id, text string
 		offset         int
@@ -82,6 +82,11 @@ func seedContext(t *testing.T, store *storage.Store, account int64) {
 		{"ctx@g.us", "m7", "expiring needle", 3, &expires}, {"ctx@g.us", "m8", "eighth", 4, nil},
 		{"other@g.us", "o1", "other needle", 1, nil}, {"other@g.us", "o2", "other noise", 1, nil},
 	} {
+		if m.expires != nil {
+			// Set the expiry just before the write so a slow runner cannot
+			// pass it first and make Apply drop the message.
+			expires = time.Now().Add(300 * time.Millisecond)
+		}
 		if _, err := store.Apply(ctx, account, []storage.Message{{GroupID: m.chat, MessageID: m.id, SenderID: "carol@lid", Timestamp: contextBase.Add(time.Duration(m.offset) * time.Minute), Type: "text", Text: m.text, Source: "live", ExpiresAt: m.expires}}); err != nil {
 			t.Fatal(err)
 		}
