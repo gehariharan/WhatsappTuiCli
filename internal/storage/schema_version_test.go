@@ -23,8 +23,8 @@ func dirNames(t *testing.T, dir string) []string {
 }
 
 func TestSchemaVersionMatchesMigrations(t *testing.T) {
-	if SchemaVersion != len(migrationList()) {
-		t.Fatalf("SchemaVersion %d, migrations %d", SchemaVersion, len(migrationList()))
+	if SchemaVersion != len(migrations) {
+		t.Fatalf("SchemaVersion %d, migrations %d", SchemaVersion, len(migrations))
 	}
 }
 
