@@ -3,6 +3,7 @@ package query
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"slices"
 
 	"whatsappsync/internal/buildinfo"
 	"whatsappsync/internal/storage"
@@ -45,8 +46,16 @@ const (
 	CodeInternal           = "internal"
 )
 
-// Features lists v1 capabilities in sorted order; later work appends entries.
+// Features lists v1 capabilities; feature files add theirs with RegisterFeature.
 var Features = []string{"envelope.v1", "query.v1", "version"}
+
+// RegisterFeature adds a capability name from an init function.
+func RegisterFeature(name string) {
+	if !slices.Contains(Features, name) {
+		Features = append(Features, name)
+		slices.Sort(Features)
+	}
+}
 
 type VersionInfo struct {
 	APIVersion           int      `json:"api_version"`

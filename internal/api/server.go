@@ -141,6 +141,8 @@ func (s *Server) Close() error {
 }
 
 type handler struct {
+	v1Once           sync.Once
+	v1Mux            *http.ServeMux
 	mediaDownload    whatsapp.MediaDownloader
 	approve          func(int64, string) error
 	approveToken     string
