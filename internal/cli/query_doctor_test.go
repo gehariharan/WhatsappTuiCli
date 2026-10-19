@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 	"whatsappsync/internal/agentauth"
 	"whatsappsync/internal/golden"
+	"whatsappsync/internal/localfs"
 	"whatsappsync/internal/processlock"
 	"whatsappsync/internal/query"
 )
@@ -102,7 +104,8 @@ func TestQueryDoctorOwnerStopped(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "private")
 	var buf bytes.Buffer
 	a, out := &App{Out: &buf, Err: &bytes.Buffer{}}, &buf
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	// Create it as wasync does: chmod alone does not make a Windows ACL private.
+	if err := localfs.EnsureDir(dir); err != nil {
 		t.Fatal(err)
 	}
 	lock, err := processlock.Acquire(filepath.Join(dir, "device.lock"))
@@ -134,6 +137,9 @@ func TestQueryDoctorOwnerStopped(t *testing.T) {
 		t.Fatalf("doctor kept device.lock: %v", err)
 	}
 	next.Close()
+	if runtime.GOOS == "windows" {
+		return // chmod cannot widen a Windows ACL, so the public case is Unix-only here.
+	}
 	if err = os.Chmod(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
