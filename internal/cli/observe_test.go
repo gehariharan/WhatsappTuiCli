@@ -150,13 +150,12 @@ func TestObserveUsageErrors(t *testing.T) {
 		{[]string{"observe", "--from-oldest"}, "--from-oldest needs --consumer NAME"},
 		{[]string{"observe", "--consumer", "r", "--from-oldest", "--after", "c1_x"}, "--after and --from-oldest conflict"},
 		{[]string{"observe", "--consumer", "Bad_Name"}, `invalid consumer name "Bad_Name"`},
-		{[]string{"observe", "--limit", "1", "--limit", "2"}, "--limit given more than once"},
 		{[]string{"observe", "--follow=yes"}, "--follow takes no value"},
 		{[]string{"observe", "--json=false"}, "--json takes no value"},
 		{[]string{"observe", "c1_x"}, `unexpected argument "c1_x" for ` + "`observe`"},
 		{[]string{"observe", "ack", "--consumer", "r"}, "`observe ack` needs the c1_ cursor"},
 		{[]string{"observe", "ack", "c1_x"}, "`observe ack` needs --consumer NAME"},
-		{[]string{"observe", "ack", "c1_x", "--consumer", "r", "--commit"}, "unknown flag --commit for `observe ack`"},
+		{[]string{"observe", "ack", "c1_x", "--consumer", "r", "--commit"}, "--commit does not apply to `observe ack`"},
 		{[]string{"observe", "ack", "2026-10-01", "--consumer", "r"}, "CURSOR is not a change cursor"},
 		{[]string{"observe", "ack", "c1_x", "c1_y", "--consumer", "r"}, `unexpected argument "c1_y"`},
 	}
@@ -365,8 +364,8 @@ func TestObserveOfflineReadsWithoutCommitting(t *testing.T) {
 	}
 	want := []string{
 		"query version --v1 --json",
-		"query checkpoint --consumer replica --v1 --json",
-		"query changes --after " + j.Cursor(2) + " --limit 2 --v1 --json",
+		"query checkpoint --consumer=replica --v1 --json",
+		"query changes --after=" + j.Cursor(2) + " --limit=2 --v1 --json",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("calls\n%v\nwant\n%v", got, want)

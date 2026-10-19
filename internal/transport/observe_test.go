@@ -15,11 +15,11 @@ import (
 
 func TestQueryArgsJournalRoutes(t *testing.T) {
 	args, err := QueryArgs("", "/changes", url.Values{"after": {"c1_x"}, "limit": {"5"}})
-	if want := []string{"query", "changes", "--after", "c1_x", "--limit", "5", "--v1", "--json"}; err != nil || !reflect.DeepEqual(args, want) {
+	if want := []string{"query", "changes", "--after=c1_x", "--limit=5", "--v1", "--json"}; err != nil || !reflect.DeepEqual(args, want) {
 		t.Fatalf("changes args %v err %v", args, err)
 	}
 	args, err = QueryArgs("/d", "/checkpoints/replica", nil)
-	if want := []string{"--data-dir", "/d", "query", "checkpoint", "--consumer", "replica", "--v1", "--json"}; err != nil || !reflect.DeepEqual(args, want) {
+	if want := []string{"--data-dir", "/d", "query", "checkpoint", "--consumer=replica", "--v1", "--json"}; err != nil || !reflect.DeepEqual(args, want) {
 		t.Fatalf("checkpoint args %v err %v", args, err)
 	}
 	for _, p := range []string{"/checkpoints/", "/checkpoints/a/b", "/checkpoints"} {

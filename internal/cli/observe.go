@@ -43,18 +43,19 @@ func observeCommand() *command {
 	return &command{
 		name:        "observe",
 		usage:       "whatsapp-axi observe [--consumer NAME] [--after CURSOR | --from-oldest] [--limit N] [--follow [--interval DUR]] [--commit] [--json]; whatsapp-axi observe ack CURSOR --consumer NAME [--json]",
-		description: "Read wasync's change journal by opaque cursor, one page or --follow; a named consumer resumes from its checkpoint, which moves only on `observe ack` or --commit",
+		description: "Read wasync's change journal by opaque cursor, one page or --follow; a named consumer resumes from its checkpoint, which moves only on `observe ack CURSOR --consumer NAME` (running wasync only, never backwards) or --commit",
 		flags: []flagSpec{
-			{"--consumer NAME", "named consumer (a-z, 0-9, -; up to 64); without --after, start after its stored checkpoint"},
-			{"--after CURSOR", "start after this c1_ change cursor from a previous page; timestamps are never accepted"},
-			{"--from-oldest", "with --consumer: ignore its checkpoint and start at the oldest retained change (after a resnapshot)"},
-			{"--limit N", "changes per request, 1 to 1000 (default 100)"},
-			{"--follow", "keep polling until interrupted; with --json prints one JSON object per line"},
-			{"--interval DUR", "--follow poll interval such as 500ms or 5s (default 2s); idle polls and retries back off to 8x"},
-			{"--commit", "also commit each printed page's next_cursor as the consumer's checkpoint (running wasync only); default is explicit ack"},
-			{"ack CURSOR", "with --consumer: commit CURSOR as the consumer's checkpoint after processing; running wasync only, never backwards"},
+			{name: "--consumer", value: "NAME", description: "named consumer (a-z, 0-9, -; up to 64); without --after, start after its stored checkpoint; required by `observe ack`"},
+			{name: "--after", value: "CURSOR", description: "start after this c1_ change cursor from a previous page; timestamps are never accepted"},
+			{name: "--from-oldest", description: "with --consumer: ignore its checkpoint and start at the oldest retained change (after a resnapshot)"},
+			{name: "--limit", value: "N", description: "changes per request, 1 to 1000 (default 100)"},
+			{name: "--follow", description: "keep polling until interrupted; with --json prints one JSON object per line"},
+			{name: "--interval", value: "DUR", description: "--follow poll interval such as 500ms or 5s (default 2s); idle polls and retries back off to 8x"},
+			{name: "--commit", description: "also commit each printed page's next_cursor as the consumer's checkpoint (running wasync only); default is explicit `observe ack`"},
 			jsonFlag,
 		},
+		maxArgs:  2,
+		argsName: "ack CURSOR",
 		examples: []string{
 			"whatsapp-axi observe",
 			"whatsapp-axi observe --consumer replica",
@@ -62,8 +63,7 @@ func observeCommand() *command {
 			"whatsapp-axi observe --consumer replica --follow --json",
 			"whatsapp-axi observe --after c1_... --limit 500",
 		},
-		ownFlags: true,
-		run:      (*App).runObserve,
+		run: (*App).runObserve,
 	}
 }
 
@@ -79,101 +79,64 @@ type observeOptions struct {
 	interval   time.Duration
 }
 
-// observeFlagKinds maps each flag to whether it takes a value.
-func observeFlagKinds(ack bool) map[string]bool {
-	if ack {
-		return map[string]bool{"--consumer": true}
-	}
-	return map[string]bool{"--consumer": true, "--after": true, "--from-oldest": false, "--limit": true, "--follow": false, "--interval": true, "--commit": false}
-}
+const observeAckUsage = "usage: whatsapp-axi observe ack CURSOR --consumer NAME"
 
-func observeValidFlags(ack bool) string {
-	if ack {
-		return "valid flags for `observe ack`: --consumer NAME, --json (--help always allowed); usage: whatsapp-axi observe ack CURSOR --consumer NAME"
-	}
-	return "valid flags for `observe`: --after, --commit, --consumer, --follow, --from-oldest, --interval, --json, --limit (--help always allowed)"
-}
-
-func parseObserveArgs(args []string) (observeOptions, error) {
+// parseObserveArgs checks what the shared flag parser cannot: the `ack`
+// subcommand, value ranges and flag combinations.
+func parseObserveArgs(inv invocation) (observeOptions, error) {
 	o := observeOptions{limit: observeDefaultLimit, interval: observeDefaultInterval}
+	args := inv.args
 	if len(args) > 0 && args[0] == "ack" {
 		o.ack, args = true, args[1:]
 	}
-	cmd := "observe"
+	if len(args) > 0 && (!o.ack || len(args) > 1) {
+		return o, usageErr("usage: whatsapp-axi observe [flags], or "+observeAckUsage[len("usage: "):], "unexpected argument %q for `observe`", args[len(args)-1])
+	}
 	if o.ack {
-		cmd = "observe ack"
+		for name := range inv.flags {
+			if name != "--consumer" {
+				return o, usageErr(observeAckUsage, "%s does not apply to `observe ack`", name)
+			}
+		}
+		if len(args) == 1 {
+			o.ackCursor = args[0]
+		}
 	}
-	kinds := observeFlagKinds(o.ack)
-	seen := map[string]bool{}
-	values := map[string]string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if !strings.HasPrefix(arg, "-") || arg == "-" {
-			if o.ack && o.ackCursor == "" {
-				o.ackCursor = arg
-				continue
-			}
-			return o, usageErr("usage: whatsapp-axi observe [flags] or whatsapp-axi observe ack CURSOR --consumer NAME", "unexpected argument %q for `%s`", arg, cmd)
-		}
-		name, value, hasValue := strings.Cut(arg, "=")
-		if name == "--json" || name == "--help" {
-			return o, usageErr("use "+name+" without a value", "%s takes no value", name)
-		}
-		takesValue, ok := kinds[name]
-		if !ok {
-			return o, usageErr(observeValidFlags(o.ack), "unknown flag %s for `%s`", name, cmd)
-		}
-		if seen[name] {
-			return o, usageErr(observeValidFlags(o.ack), "%s given more than once", name)
-		}
-		seen[name] = true
-		if !takesValue {
-			if hasValue {
-				return o, usageErr("use "+name+" without a value", "%s takes no value", name)
-			}
-			continue
-		}
-		if !hasValue {
-			if i+1 >= len(args) {
-				return o, usageErr(observeValidFlags(o.ack), "%s needs a value", name)
-			}
-			i++
-			value = args[i]
-		}
-		values[name] = value
-	}
-	o.fromOldest, o.follow, o.commit = seen["--from-oldest"], seen["--follow"], seen["--commit"]
-	o.consumer, o.after = values["--consumer"], values["--after"]
-	if seen["--consumer"] {
+	o.fromOldest, o.follow, o.commit = inv.has("--from-oldest"), inv.has("--follow"), inv.has("--commit")
+	var hasConsumer, hasAfter bool
+	o.consumer, hasConsumer = inv.flag("--consumer")
+	o.after, hasAfter = inv.flag("--after")
+	if hasConsumer {
 		if err := checkObserveConsumer(o.consumer); err != nil {
 			return o, err
 		}
 	}
-	if seen["--after"] {
+	if hasAfter {
 		if err := checkObserveCursor("--after", o.after); err != nil {
 			return o, err
 		}
 	}
-	if raw, ok := values["--limit"]; ok {
+	if raw, ok := inv.flag("--limit"); ok {
 		n, err := strconv.Atoi(raw)
 		if err != nil || n < 1 || n > observeMaxLimit {
 			return o, usageErr("use --limit 1 to 1000 (default 100)", "--limit must be a number from 1 to %d, got %q", observeMaxLimit, raw)
 		}
 		o.limit = n
 	}
-	if raw, ok := values["--interval"]; ok {
-		d, err := time.ParseDuration(raw)
+	rawInterval, hasInterval := inv.flag("--interval")
+	if hasInterval {
+		d, err := time.ParseDuration(rawInterval)
 		if err != nil || d < observeMinInterval || d > observeMaxInterval {
-			return o, usageErr("use a duration from 10ms to 1h such as 500ms or 5s", "--interval must be a duration from 10ms to 1h, got %q", raw)
+			return o, usageErr("use a duration from 10ms to 1h such as 500ms or 5s", "--interval must be a duration from 10ms to 1h, got %q", rawInterval)
 		}
 		o.interval = d
 	}
 	if o.ack {
 		switch {
 		case o.ackCursor == "":
-			return o, usageErr("usage: whatsapp-axi observe ack CURSOR --consumer NAME", "`observe ack` needs the c1_ cursor to commit")
+			return o, usageErr(observeAckUsage, "`observe ack` needs the c1_ cursor to commit")
 		case o.consumer == "":
-			return o, usageErr("usage: whatsapp-axi observe ack CURSOR --consumer NAME", "`observe ack` needs --consumer NAME")
+			return o, usageErr(observeAckUsage, "`observe ack` needs --consumer NAME")
 		}
 		return o, checkObserveCursor("CURSOR", o.ackCursor)
 	}
@@ -184,7 +147,7 @@ func parseObserveArgs(args []string) (observeOptions, error) {
 		return o, usageErr("without --consumer, observe already starts at the oldest retained change", "--from-oldest needs --consumer NAME")
 	case o.commit && o.consumer == "":
 		return o, usageErr("add --consumer NAME to name the checkpoint to commit", "--commit needs --consumer NAME")
-	case seen["--interval"] && !o.follow:
+	case hasInterval && !o.follow:
 		return o, usageErr("add --follow to poll, or drop --interval", "--interval needs --follow")
 	}
 	return o, nil
@@ -371,7 +334,7 @@ func observeExplain(err error, o observeOptions) error {
 }
 
 func (a *App) runObserve(ctx context.Context, inv invocation) error {
-	o, err := parseObserveArgs(inv.args)
+	o, err := parseObserveArgs(inv)
 	if err != nil {
 		return err
 	}

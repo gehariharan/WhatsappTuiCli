@@ -1,0 +1,11 @@
+transport: api
+chat:
+  id: family@g.us
+  kind: group
+  messages: 4
+  sync: true
+  untrusted_name: "Family red"
+order: newest first
+messages[0]{ref,time,sender,type,state,untrusted_text}:
+help[1]:
+  No older messages; this is the start of the archived chat

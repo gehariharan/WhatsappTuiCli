@@ -3,8 +3,14 @@
   "min_api": "1.0",
   "upgrade_help": "brew upgrade --cask gehariharan/tap/wasync",
   "commands": {
+    "doctor": {"features": ["diagnostics"]},
     "home": {"features": []},
+    "version": {"features": []},
     "observe": {"features": ["changes", "checkpoints"]},
-    "version": {"features": []}
+    "chats": {"features": ["chats", "chats.match"]},
+    "messages": {"features": ["chats", "chats.match", "messages"]},
+    "search": {"features": ["chats", "chats.match", "search", "search.context"]},
+    "thread": {"features": ["message.ref", "thread"]},
+    "message": {"features": ["message.ref"]}
   }
 }

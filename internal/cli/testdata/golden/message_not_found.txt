@@ -1,0 +1,3 @@
+error: message is not in the current account's archive
+code: not_found
+help: it may have expired, been purged, or belong to another account

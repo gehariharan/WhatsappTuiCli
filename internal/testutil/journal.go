@@ -347,12 +347,13 @@ func runFakeJournal() {
 		os.Exit(2)
 	}
 	cmd, flags := args[1], map[string]string{}
-	rest := args[2 : len(args)-2]
-	for i := 0; i+1 < len(rest); i += 2 {
-		flags[strings.TrimPrefix(rest[i], "--")] = rest[i+1]
-	}
-	if len(rest)%2 != 0 {
-		os.Exit(2)
+	for _, arg := range args[2 : len(args)-2] {
+		k, v, ok := strings.Cut(strings.TrimPrefix(arg, "--"), "=")
+		if !ok || !strings.HasPrefix(arg, "--") {
+			fmt.Fprintln(os.Stderr, "fake journal: expected --flag=value, got", arg)
+			os.Exit(2)
+		}
+		flags[k] = v
 	}
 	var j Journal
 	b, err := os.ReadFile(os.Getenv(EnvFakeJournal))

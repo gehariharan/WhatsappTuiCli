@@ -8,7 +8,9 @@ principles: compact output, explicit empty states, structured errors on stdout, 
 It has no WhatsApp code of its own. It never connects to WhatsApp, never opens the SQLite archive or the
 session store, never takes wasync's device lock and never starts `wasync serve`.
 
-> Status: early development. Today it implements the home view, `version`, `help` and `observe`.
+> Status: early development. Today it implements the home view, the read commands (`chats`, `messages`,
+> `search`, `thread`, `message`), `observe`, `version`,
+> `doctor` and `help`.
 
 ## How it reads wasync
 
@@ -63,11 +65,36 @@ You also need wasync: `brew install --cask gehariharan/tap/wasync`.
 ## Usage
 
 ```sh
-whatsapp-axi              # home view: transport, wasync version, compatibility, next steps
-whatsapp-axi version      # whatsapp-axi version plus wasync version, features and transport
-whatsapp-axi help         # commands; `whatsapp-axi help <command>` for flags and examples
-whatsapp-axi --version    # bare version, no probing
+whatsapp-axi                                # home view: transport, compatibility, recent chats, next steps
+whatsapp-axi chats [--match TEXT]           # list chats, or find one by JID or name
+whatsapp-axi messages CHAT                  # a chat's messages, newest first (CHAT is a JID or name)
+whatsapp-axi search TEXT [--chat CHAT] [--context N]
+whatsapp-axi thread REF [--before N] [--after N]
+whatsapp-axi message REF [--full]           # one message; --full prints all of its text
+whatsapp-axi observe [--consumer NAME]      # change journal by cursor; see below
+whatsapp-axi doctor                         # pass/warn/fail checks with a fix command each
+whatsapp-axi version                        # whatsapp-axi version plus wasync version, features and transport
+whatsapp-axi help [COMMAND]                 # commands, or flags and examples for one command
+whatsapp-axi --version                      # bare version, no probing
 ```
+
+`messages` and `search` print 20 results per page (`--limit N`); when there are more, the output ends with
+the exact command for the next page (`--cursor`). Message text is cut to 200 characters in lists and
+1000 in `message`, with a hint naming the command that shows the rest. `REF` is the `ref` column
+(`m1_...`). A chat name that matches several chats prints the candidates and exits 1; rerun with one id.
+Matching, search, paging and permissions are all decided by wasync; both transports print the same
+output for the same data, apart from the `transport:` line.
+
+Add `--json` to any command for JSON: read commands print wasync's v1 `data` and `page` unchanged plus
+the `transport`. Exit codes: `0` success (including empty results and "wasync is not running" in the
+home view), `1` error, `2` usage error. Errors are printed on stdout as `error:` / `code:` / `help:` lines.
+
+`doctor` checks installation, service, pairing, permissions, compatibility and agent hooks. It combines
+its own client-side checks (wasync binary, API reachability, credential, config file modes, granted
+scopes, the compatibility table) with wasync's checks from `GET /api/v1/diagnostics`, or from offline
+`wasync query doctor` when the API is not running or no credential is configured; `transport:` says
+which. Every `warn` or `fail` check carries one fix command. It exits `1` when any check fails and `0`
+when the worst result is a warning. Credentials and hashes are never printed.
 
 ### Following changes
 
@@ -86,9 +113,6 @@ The checkpoint never moves on its own: only `observe ack` or an explicit `--comm
 through the running wasync API with an agent granted the `observe` scope. Offline reads work but never
 commit. A `cursor_expired` error means the position is gone (older than wasync's 30-day journal or from
 another archive): re-read what you replicate, then restart with `--from-oldest` and ack the new cursor.
-
-Add `--json` to any command for JSON. Exit codes: `0` success (including "wasync is not running"),
-`1` error, `2` usage error. Errors are printed on stdout as `error:` / `help:` lines.
 
 ## License
 

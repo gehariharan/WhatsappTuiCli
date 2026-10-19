@@ -3,7 +3,9 @@ package cli
 import (
 	"context"
 	"errors"
+	"sort"
 	"strconv"
+	"time"
 
 	"github.com/gehariharan/whatsapp-axi/internal/buildinfo"
 	"github.com/gehariharan/whatsapp-axi/internal/config"
@@ -244,19 +246,75 @@ func dedupe(lines []string) []string {
 	return out
 }
 
+// recentChats returns up to n chats with the newest last message first.
+// Ordering is presentation only; wasync's own order is kept for ties.
+func recentChats(items []contract.Chat, n int) []contract.Chat {
+	out := append([]contract.Chat(nil), items...)
+	at := func(c contract.Chat) time.Time {
+		t, _ := time.Parse(time.RFC3339Nano, c.LastMessageAt)
+		return t
+	}
+	sort.SliceStable(out, func(i, j int) bool { return at(out[i]).After(at(out[j])) })
+	if len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
+type homeChatsJSON struct {
+	Total  int             `json:"total"`
+	Recent []contract.Chat `json:"recent"`
+}
+
 func (a *App) runHome(ctx context.Context, inv invocation) error {
 	d := a.detect(ctx, "home")
-	hints := a.hints(d)
+	chats, chatsErr := a.homeChats(ctx, d)
+	var first []string
+	var recentChatList []contract.Chat
+	if chats != nil {
+		recentChatList = recentChats(chats.Items, homeChatLimit)
+		if len(chats.Items) == 0 {
+			first = append(first, "The archive has no chats yet; ask the user to pair wasync and enable capture for some chats")
+		} else {
+			first = append(first, "Run `whatsapp-axi messages <id>` to read a chat, `whatsapp-axi search <text>` to search all chats")
+		}
+	}
+	if chatsErr != nil {
+		if e := output.ToErrorJSON(chatsErr); e.Help != "" {
+			first = append(first, e.Help)
+		}
+	}
+	hints := dedupe(append(first, a.hints(d)...))
 	if inv.json {
-		return output.JSON(a.Out, map[string]any{
+		out := map[string]any{
 			"bin": a.binPath(), "description": Description, "whatsapp_axi_version": buildinfo.Version,
 			"wasync": a.wasyncJSON(d), "compatibility": compatOf(d), "help": hints,
-		})
+		}
+		if chats != nil {
+			out["chats"] = homeChatsJSON{Total: len(chats.Items), Recent: append([]contract.Chat{}, recentChatList...)}
+		}
+		if chatsErr != nil {
+			out["chats_error"] = errJSON(chatsErr)
+		}
+		return output.JSON(a.Out, out)
 	}
 	o := output.New(a.Out)
 	o.Field(0, "bin", a.binPath())
 	o.Field(0, "description", Description)
 	a.writeWasync(o, d, false)
+	if chats != nil {
+		o.Object(0, "chats")
+		o.Value(1, "total", len(chats.Items))
+		rows := make([][]string, 0, len(recentChatList))
+		for _, c := range recentChatList {
+			rows = append(rows, chatRow(c))
+		}
+		o.TableCells(1, "recent", chatFields, rows)
+	}
+	if chatsErr != nil {
+		e := output.ToErrorJSON(chatsErr)
+		o.Field(0, "chats_error", e.ErrorCode+": "+e.Error)
+	}
 	o.Help(hints...)
 	return o.Err()
 }

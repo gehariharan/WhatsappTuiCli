@@ -13,7 +13,7 @@ import (
 // on both transports; committing one is a write and exists only on the API.
 func init() {
 	queryRoutes["/changes"] = QueryRoute{Command: []string{"changes"}, Params: map[string]string{"after": "after", "limit": "limit"}}
-	queryRoutes["/checkpoints/{consumer}"] = QueryRoute{Command: []string{"checkpoint"}, PathFlag: "consumer"}
+	queryRoutes["/checkpoints/{consumer}"] = QueryRoute{Command: []string{"checkpoint"}, PathParams: map[string]string{"consumer": "consumer"}}
 }
 
 // Put sends body as JSON with PUT to path (relative to /api/v1). Only the
