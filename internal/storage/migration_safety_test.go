@@ -139,7 +139,7 @@ func TestFailedBackupAbortsMigration(t *testing.T) {
 	if err := os.Mkdir(path+".pre-v2-20260102T030405Z.bak", 0700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Open(ctx, path); err == nil || !strings.Contains(err.Error(), "back up archive before migrating schema 2 to 5") {
+	if _, err := Open(ctx, path); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("back up archive before migrating schema 2 to %d", SchemaVersion)) {
 		t.Fatalf("migrated without a backup: %v", err)
 	}
 	db, err := sql.Open("sqlite3", DSN(path))
@@ -231,7 +231,9 @@ func newerArchive(t *testing.T, compat string) string {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	statements := []string{`CREATE TABLE future_journal(id INTEGER PRIMARY KEY)`}
+	// The current schema already declares schema_compat; replace it with the
+	// marker under test ("" = no table, "empty" = table without a row).
+	statements := []string{`CREATE TABLE future_journal(id INTEGER PRIMARY KEY)`, `DROP TABLE IF EXISTS schema_compat`}
 	if compat != "" {
 		statements = append(statements, `CREATE TABLE schema_compat(id INTEGER PRIMARY KEY CHECK(id=1), min_reader INTEGER NOT NULL, min_writer INTEGER NOT NULL)`)
 		if compat != "empty" {

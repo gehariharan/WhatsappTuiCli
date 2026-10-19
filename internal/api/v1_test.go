@@ -133,6 +133,9 @@ func TestV1Snapshots(t *testing.T) {
 		{"GET", "/api/v1/chats", "wrong"},
 		{"GET", "/api/v1/chats", read},
 		{"GET", "/api/v1/unknown", f.agent},
+		{"GET", "/api/v1/changes", none},
+		{"GET", "/api/v1/changes", f.agent},
+		{"PUT", "/api/v1/checkpoints/replica", f.agent},
 	}
 	snapshots := make([]any, 0, len(calls))
 	for _, c := range calls {

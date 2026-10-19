@@ -18,12 +18,12 @@ import (
 // W-03b/W-03c: chats, messages, search with context, message refs and threads.
 func init() {
 	for _, route := range []v1Route{
-		{"/api/v1/chats", agentauth.ScopeReadChats, nil, (*handler).v1Chats},
-		{"/api/v1/chats/{chat}", agentauth.ScopeReadChats, pathChat("chat"), (*handler).v1Chat},
-		{"/api/v1/chats/{chat}/messages", agentauth.ScopeReadMessages, pathChat("chat"), (*handler).v1ChatMessages},
-		{"/api/v1/messages/search", agentauth.ScopeReadMessages, queryChat("chat"), (*handler).v1Search},
-		{"/api/v1/messages/{ref}", agentauth.ScopeReadMessages, refChat("ref"), (*handler).v1Message},
-		{"/api/v1/messages/{ref}/thread", agentauth.ScopeReadMessages, refChat("ref"), (*handler).v1Thread},
+		{Pattern: "/api/v1/chats", Scope: agentauth.ScopeReadChats, Chat: nil, Handle: (*handler).v1Chats},
+		{Pattern: "/api/v1/chats/{chat}", Scope: agentauth.ScopeReadChats, Chat: pathChat("chat"), Handle: (*handler).v1Chat},
+		{Pattern: "/api/v1/chats/{chat}/messages", Scope: agentauth.ScopeReadMessages, Chat: pathChat("chat"), Handle: (*handler).v1ChatMessages},
+		{Pattern: "/api/v1/messages/search", Scope: agentauth.ScopeReadMessages, Chat: queryChat("chat"), Handle: (*handler).v1Search},
+		{Pattern: "/api/v1/messages/{ref}", Scope: agentauth.ScopeReadMessages, Chat: refChat("ref"), Handle: (*handler).v1Message},
+		{Pattern: "/api/v1/messages/{ref}/thread", Scope: agentauth.ScopeReadMessages, Chat: refChat("ref"), Handle: (*handler).v1Thread},
 	} {
 		handle := route.Handle
 		route.Handle = func(h *handler, w http.ResponseWriter, r *http.Request, id string) {
@@ -45,19 +45,6 @@ func queryChat(name string) func(*http.Request) string {
 
 func v1OK(w http.ResponseWriter, id string, data any, page *query.V1Page) {
 	writeJSON(w, 200, query.V1Response{RequestID: id, Data: data, Page: page})
-}
-
-func (h *handler) v1Account(w http.ResponseWriter, r *http.Request, id string) *storage.Account {
-	a, err := h.store.Account(r.Context())
-	if err != nil {
-		v1Fail(w, id, 503, query.CodeArchiveUnavailable, "archive unavailable", "check wasync status")
-		return nil
-	}
-	if a == nil {
-		v1Fail(w, id, 409, query.CodeNoAccount, "no paired account in archive", "pair wasync with WhatsApp first")
-		return nil
-	}
-	return a
 }
 
 func (h *handler) v1Groups(w http.ResponseWriter, r *http.Request, id string, a *storage.Account) ([]storage.Group, bool) {

@@ -62,11 +62,15 @@ when they are no longer needed.
 5. Reinstall the previous release and start it.
 
 Messages captured after the backup was taken are not in the restored archive.
+Change-journal consumers must resnapshot after a restore: a schema-5 backup is
+migrated again with a new journal epoch, and a schema-6 backup has a journal
+head behind their cursors; both cases return `cursor_expired` rather than
+silently skipping changes.
 
 ## Forward compatibility: `schema_compat`
 
 An older binary refuses an archive whose `user_version` is newer than it
-supports, unless the archive declares that the older binary is safe. A future
+supports, unless the archive declares that the older binary is safe. A
 migration declares this with a single-row table:
 
 ```sql
@@ -95,6 +99,34 @@ INSERT INTO schema_compat(id,min_reader,min_writer) VALUES(1,5,6)
 - Every migration from the first one that creates `schema_compat` onward must
   set both values in the same migration, and the values may only increase.
 
+Migration 006 (the change journal) is the first to create `schema_compat`, with
+`min_reader=5` and `min_writer=6`: schema-5 queries remain correct, but a
+schema-5 owner would write without appending to the journal.
+
 Binaries before this check (schema 5 releases without it) ignore
 `schema_compat` and always refuse newer archives, so the release containing it
 must ship before the first new migration.
+
+## Change journal (schema 6)
+
+Migration 006 adds `change_journal`, `journal_meta` and `consumer_checkpoints`
+(ADR-001 D-4). Every archive mutation appends identifier-only rows (never
+message bodies) in its own transaction, so a rolled-back write leaves no
+journal row:
+
+| op | written by |
+|---|---|
+| `message.created` | a new original, or a placeholder (edit or revoke that arrived first) gaining its original |
+| `message.updated` | an applied edit |
+| `message.revoked` | an applied revoke |
+| `message.expired` | `Expire` removing disappearing-message content |
+| `message.purged` | a chat purge (one row per removed message) or a local clean of one message |
+| `capture.enabled` / `capture.disabled` | a change of a chat's capture preference, including the disable done by a purge |
+
+Duplicate deliveries change no row and journal nothing. Ops are change
+notifications: consumers re-read the message by ref and delete their replica
+when it is no longer returned. Entries older than 30 days are pruned by
+`Expire`, which raises `journal_meta.low_water`; cursors behind it return
+`cursor_expired`. `journal_meta.epoch` is random per archive, so cursors from
+a recreated archive also return `cursor_expired`. Checkpoints are monotonic
+per `(account, consumer)` and are committed only through the owner API.

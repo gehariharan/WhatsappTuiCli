@@ -29,15 +29,18 @@ var migration4 string
 //go:embed migrations/005_media_preferences.sql
 var migration5 string
 
+//go:embed migrations/006_change_journal.sql
+var migration6 string
+
 // migrations lists every embedded migration in order; migration i+1 sets
 // user_version to i+1. New migrations must follow docs/architecture/migrations.md.
-var migrations = []string{migration1, migration2, migration3, migration4, migration5}
+var migrations = []string{migration1, migration2, migration3, migration4, migration5, migration6}
 
 // schemaVersion is the newest archive schema this binary writes.
 var schemaVersion = len(migrations)
 
 // SchemaVersion is the archive schema this build migrates to and queries.
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 type Store struct{ db *sql.DB }
 type Group struct {
@@ -235,6 +238,15 @@ func (s *Store) SetEnabled(ctx context.Context, account int64, ids []string, ena
 		}
 		if n == 0 {
 			return fmt.Errorf("group %q is not in the cached group list; refresh discovery first", id)
+		}
+		if enabled != wasEnabled {
+			op := OpCaptureDisabled
+			if enabled {
+				op = OpCaptureEnabled
+			}
+			if err = journal(ctx, tx, account, id, "", op, time.Now().UnixMilli()); err != nil {
+				return err
+			}
 		}
 		if enabled && !wasEnabled {
 			if _, err = tx.ExecContext(ctx, `INSERT INTO history_jobs(account_id,group_id,updated_at) VALUES(?,?,?)

@@ -40,7 +40,9 @@ func TestProbeArchiveNeverCreatesFiles(t *testing.T) {
 	if p, err := ProbeArchive(ctx, path); err != nil || !p.Exists || p.Readable || p.SchemaVersion != 2 {
 		t.Fatalf("older archive: %+v %v", p, err)
 	}
-	if _, err = s.db.Exec("PRAGMA user_version=99"); err != nil {
+	// Schema 6 and later declare schema_compat; drop it to simulate a newer
+	// archive that carries no compatibility marker.
+	if _, err = s.db.Exec("DROP TABLE IF EXISTS schema_compat; PRAGMA user_version=99"); err != nil {
 		t.Fatal(err)
 	}
 	if p, err := ProbeArchive(ctx, path); err != nil || p.Readable || p.SchemaVersion != 99 {

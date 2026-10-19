@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -92,7 +93,7 @@ func TestQueryVersionWithArchiveDoesNotMigrateOrCreate(t *testing.T) {
 	}
 	closed := dirEntries(t, dir)
 	data = queryRun(t, a, out, dir, "version")
-	if !bytes.Contains(data, []byte(`"archive_schema_version":5`)) {
+	if !bytes.Contains(data, []byte(fmt.Sprintf(`"archive_schema_version":%d`, storage.SchemaVersion))) {
 		t.Fatalf("closed archive schema: %s", data)
 	}
 	if after := dirEntries(t, dir); len(after) != len(closed) {
@@ -209,7 +210,7 @@ func TestQueryV1Snapshots(t *testing.T) {
 		out.Reset()
 		err := a.Run(context.Background(), append([]string{"--data-dir", dir, "query"}, args...))
 		entry := map[string]any{"args": args, "exit_error": err != nil}
-		entry["stdout"] = golden.Redact(golden.Decode(t, out.Bytes()), "request_id", "wasync_version", "features", "next_cursor", "received_at", "last_received_at", "last_discovery_at", "last_history_sync_at", "last_capture_heartbeat_at", "last_capture_finished_at")
+		entry["stdout"] = golden.Redact(golden.Decode(t, out.Bytes()), "request_id", "wasync_version", "features", "next_cursor", "received_at", "last_received_at", "last_discovery_at", "last_history_sync_at", "last_capture_heartbeat_at", "last_capture_finished_at", "cursor", "committed_at", "updated_at")
 		snapshots = append(snapshots, entry)
 	}
 	record("version")
@@ -223,5 +224,8 @@ func TestQueryV1Snapshots(t *testing.T) {
 	record("messages", "--chat", "missing@g.us", "--v1")
 	record("messages", "--chat", "one@g.us", "--cursor", "garbage", "--v1")
 	record("unknown", "--v1")
+	record("changes", "--limit", "2")
+	record("changes", "--after", "garbage")
+	record("checkpoint", "--consumer", "replica")
 	golden.Compare(t, "v1/query.json", snapshots)
 }
