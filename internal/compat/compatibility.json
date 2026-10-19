@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "min_api": "1.0",
+  "upgrade_help": "brew upgrade --cask gehariharan/tap/wasync",
+  "commands": {
+    "home": {"features": []},
+    "version": {"features": []}
+  }
+}
