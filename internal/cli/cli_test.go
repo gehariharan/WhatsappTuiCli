@@ -86,7 +86,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 		{[]string{"version", "--bogus"}, []string{"error: unknown flag --bogus for `version`", "help: valid flags for `version`: --json (--help always allowed)"}},
 		{[]string{"--limit=5"}, []string{"error: unknown flag --limit for `whatsapp-axi`", "valid flags for `whatsapp-axi`: --json"}},
 		{[]string{"help", "-x"}, []string{"unknown flag -x for `help`"}},
-		{[]string{"chats"}, []string{`error: unknown command "chats"`, "valid commands: version, help"}},
+		{[]string{"chats"}, []string{`error: unknown command "chats"`, "valid commands: version, doctor, help"}},
 		{[]string{"version", "extra"}, []string{`unexpected argument "extra" for ` + "`version`"}},
 		{[]string{"help", "a", "b"}, []string{`unexpected argument "b"`}},
 		{[]string{"help", "nope"}, []string{`unknown command "nope"`}},
@@ -129,13 +129,13 @@ func TestHelpCatalogListsOnlyImplementedCommands(t *testing.T) {
 			t.Errorf("%s advertises unimplemented work", c.Name)
 		}
 	}
-	if !reflect.DeepEqual(names, []string{"whatsapp-axi", "version", "help"}) {
+	if !reflect.DeepEqual(names, []string{"whatsapp-axi", "version", "doctor", "help"}) {
 		t.Fatalf("catalog %v", names)
 	}
 	text, _ := h.run(t, "help")
-	mustContain(t, text, "commands[3]{name,usage,description}:", "help[1]:")
+	mustContain(t, text, "commands[4]{name,usage,description}:", "help[1]:")
 	// Every command that talks to wasync has a compatibility entry.
-	if got := compat.Default().CommandNames(); !reflect.DeepEqual(got, []string{"home", "version"}) {
+	if got := compat.Default().CommandNames(); !reflect.DeepEqual(got, []string{"doctor", "home", "version"}) {
 		t.Fatalf("compat entries %v", got)
 	}
 	for _, args := range [][]string{{"version", "--help"}, {"help", "version"}, {"--help"}, {"help", "help"}} {

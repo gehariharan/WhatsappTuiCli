@@ -31,7 +31,8 @@ type QueryRoute struct {
 // queryRoutes is the API path to offline command table. Only reads belong
 // here; every future v1 read endpoint adds its `wasync query` equivalent.
 var queryRoutes = map[string]QueryRoute{
-	"/version": {Command: []string{"version"}},
+	"/version":     {Command: []string{"version"}},
+	"/diagnostics": {Command: []string{"doctor"}},
 }
 
 // QueryRoutes returns the mapped API paths, sorted.

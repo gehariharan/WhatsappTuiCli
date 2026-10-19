@@ -8,7 +8,7 @@ principles: compact output, explicit empty states, structured errors on stdout, 
 It has no WhatsApp code of its own. It never connects to WhatsApp, never opens the SQLite archive or the
 session store, never takes wasync's device lock and never starts `wasync serve`.
 
-> Status: early development. Today it implements the home view, `version` and `help`.
+> Status: early development. Today it implements the home view, `version`, `doctor` and `help`.
 
 ## How it reads wasync
 
@@ -65,12 +65,20 @@ You also need wasync: `brew install --cask gehariharan/tap/wasync`.
 ```sh
 whatsapp-axi              # home view: transport, wasync version, compatibility, next steps
 whatsapp-axi version      # whatsapp-axi version plus wasync version, features and transport
+whatsapp-axi doctor       # pass/warn/fail checks with a fix command each
 whatsapp-axi help         # commands; `whatsapp-axi help <command>` for flags and examples
 whatsapp-axi --version    # bare version, no probing
 ```
 
 Add `--json` to any command for JSON. Exit codes: `0` success (including "wasync is not running"),
 `1` error, `2` usage error. Errors are printed on stdout as `error:` / `help:` lines.
+
+`doctor` checks installation, service, pairing, permissions, compatibility and agent hooks. It combines
+its own client-side checks (wasync binary, API reachability, credential, config file modes, granted
+scopes, the compatibility table) with wasync's checks from `GET /api/v1/diagnostics`, or from offline
+`wasync query doctor` when the API is not running or no credential is configured; `transport:` says
+which. Every `warn` or `fail` check carries one fix command. It exits `1` when any check fails and `0`
+when the worst result is a warning. Credentials and hashes are never printed.
 
 ## License
 

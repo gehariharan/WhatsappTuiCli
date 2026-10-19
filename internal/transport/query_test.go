@@ -27,7 +27,7 @@ func TestQueryArgs(t *testing.T) {
 	if _, err := QueryArgs("", "/version", url.Values{"bogus": {"1"}}); codeOf(t, err) != contract.CodeInvalidArgument {
 		t.Fatalf("unknown param: %v", err)
 	}
-	if got := QueryRoutes(); !reflect.DeepEqual(got, []string{"/version"}) {
+	if got := QueryRoutes(); !reflect.DeepEqual(got, []string{"/diagnostics", "/version"}) {
 		t.Fatalf("routes %v", got)
 	}
 }
