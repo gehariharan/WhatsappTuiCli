@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -36,14 +37,15 @@ type App struct {
 	Getenv       config.Getenv
 	Executable   func() (string, error)
 	HomeDir      func() (string, error)
-	ProbeTimeout time.Duration // API probe; default 750ms
-	QueryTimeout time.Duration // offline version probe; default 10s
+	LookPath     func(file string) (string, error) // PATH lookup for the hook command
+	ProbeTimeout time.Duration                     // API probe; default 750ms
+	QueryTimeout time.Duration                     // offline version probe; default 10s
 	Compat       *compat.Matrix
 }
 
 // New returns an App wired to the real process.
 func New(out io.Writer) *App {
-	return &App{Out: out, Getenv: os.Getenv, Executable: os.Executable, HomeDir: os.UserHomeDir, Compat: compat.Default()}
+	return &App{Out: out, Getenv: os.Getenv, Executable: os.Executable, HomeDir: os.UserHomeDir, LookPath: exec.LookPath, Compat: compat.Default()}
 }
 
 // IsVersionFlag reports whether arg is one of the version flags.
@@ -105,10 +107,10 @@ func init() {
 	commands = []*command{
 		{
 			name:        "",
-			usage:       "whatsapp-axi [--json]",
-			description: "Home view: this binary, the wasync transport in use, compatibility and next steps",
-			flags:       []flagSpec{jsonFlag},
-			examples:    []string{"whatsapp-axi", "whatsapp-axi --json"},
+			usage:       "whatsapp-axi [--brief] [--json]",
+			description: "Home view: this binary, the wasync transport in use, compatibility, recent chats and next steps",
+			flags:       []flagSpec{briefFlag, jsonFlag},
+			examples:    []string{"whatsapp-axi", "whatsapp-axi --brief", "whatsapp-axi --json"},
 			run:         (*App).runHome,
 		},
 		chatsCommand,
@@ -143,6 +145,7 @@ func init() {
 			run:         (*App).runHelp,
 		},
 		observeCommand(),
+		setupCommand,
 	}
 }
 

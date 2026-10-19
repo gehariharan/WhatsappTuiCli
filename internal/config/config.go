@@ -22,6 +22,9 @@ const (
 	EnvAPIAddr   = "WASYNC_API_ADDR"
 	EnvBin       = "WASYNC_BIN"
 	EnvDataDir   = "WASYNC_DATA_DIR"
+	// EnvAgentHome replaces the home directory as the place where `setup`
+	// and `doctor` find agent settings (.claude, .codex).
+	EnvAgentHome = "WHATSAPP_AXI_AGENT_HOME"
 )
 
 // DefaultAPIAddr matches wasync's default API address.

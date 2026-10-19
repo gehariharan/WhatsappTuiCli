@@ -281,8 +281,7 @@ func (a *App) doctorReport(d detection, f facts) doctorReport {
 	}
 	r.Checks = append(r.Checks, a.permissionChecks(d, f)...)
 	r.Checks = append(r.Checks, a.compatibilityChecks(d)...)
-	r.Checks = append(r.Checks, doctorCheck{Area: areaHooks, Name: "hooks", Status: statusSkip, Source: sourceAXI,
-		Detail: "agent hooks and skill: not installed; whatsapp-axi cannot install them yet"})
+	r.Checks = append(r.Checks, a.hookChecks()...)
 	if f.diag != nil {
 		for _, c := range f.diag.Checks {
 			area, ok := wasyncCheckArea[c.Name]

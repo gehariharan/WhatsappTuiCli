@@ -94,6 +94,9 @@ func onlineHarness(t *testing.T, diag *testutil.Diagnostics) (*harness, *testuti
 
 func TestDoctorAllPass(t *testing.T) {
 	h, srv := onlineHarness(t, testutil.FakeDiagnostics("api"))
+	if out, code := h.run(t, "setup", "hooks"); code != ExitOK {
+		t.Fatalf("setup hooks: %d\n%s", code, out)
+	}
 	r, out, code := runDoctorJSON(t, h)
 	if code != ExitOK {
 		t.Fatalf("exit %d\n%s", code, out)
@@ -113,8 +116,11 @@ func TestDoctorAllPass(t *testing.T) {
 			t.Errorf("%s: %+v", name, c)
 		}
 	}
-	if c := r.check(t, "hooks", sourceAXI); c.Status != statusSkip || !strings.Contains(c.Detail, "not installed") {
+	if c := r.check(t, "hooks", sourceAXI); c.Status != statusPass || !strings.Contains(c.Detail, "--brief` for Claude Code") {
 		t.Errorf("hooks: %+v", c)
+	}
+	if c := r.check(t, "skill", sourceAXI); c.Status != statusSkip || !strings.Contains(c.Detail, "whatsapp-axi setup skill") {
+		t.Errorf("skill: %+v", c)
 	}
 	for _, name := range []string{"version", "data_dir", "archive", "pairing", "owner", "health", "agents_registry", "agent", "journal"} {
 		r.check(t, name, sourceWasync)
@@ -138,7 +144,7 @@ func TestDoctorAllPass(t *testing.T) {
 		t.Fatal(text)
 	}
 	mustContain(t, text, "transport: api", "result: pass", "checks[", "{area,name,status,source,detail,fix}:",
-		"installation,wasync_bin,pass,whatsapp-axi", "pairing,pairing,pass,wasync", "hooks,hooks,skip", "last_event_at: \"2026-10-19T08:00:00Z\"")
+		"installation,wasync_bin,pass,whatsapp-axi", "pairing,pairing,pass,wasync", "hooks,hooks,pass", "last_event_at: \"2026-10-19T08:00:00Z\"")
 	if strings.Contains(text, testToken) || strings.Contains(out, testToken) {
 		t.Fatal("credential printed")
 	}

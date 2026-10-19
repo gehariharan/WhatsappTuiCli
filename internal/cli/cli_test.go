@@ -34,6 +34,7 @@ func newHarness(t *testing.T) *harness {
 		"WASYNC_API_ADDR":         testutil.ClosedAddr(t),
 		"WASYNC_BIN":              filepath.Join(t.TempDir(), "no-wasync"),
 		"WHATSAPP_AXI_CONFIG_DIR": t.TempDir(),
+		"WHATSAPP_AXI_AGENT_HOME": t.TempDir(),
 	}}
 }
 
@@ -44,6 +45,7 @@ func (h *harness) run(t *testing.T, args ...string) (string, int) {
 	a.Getenv = func(k string) string { return h.env[k] }
 	a.Executable = func() (string, error) { return filepath.Join(home, "bin", "whatsapp-axi"), nil }
 	a.HomeDir = func() (string, error) { return home, nil }
+	a.LookPath = func(string) (string, error) { return "", os.ErrNotExist }
 	a.ProbeTimeout = 2 * time.Second
 	code := a.Run(context.Background(), args)
 	return out.String(), code
@@ -84,7 +86,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 		want []string
 	}{
 		{[]string{"version", "--bogus"}, []string{"error: unknown flag --bogus for `version`", "help: valid flags for `version`: --json (--help always allowed)"}},
-		{[]string{"--limit=5"}, []string{"error: unknown flag --limit for `whatsapp-axi`", "valid flags for `whatsapp-axi`: --json"}},
+		{[]string{"--limit=5"}, []string{"error: unknown flag --limit for `whatsapp-axi`", "valid flags for `whatsapp-axi`: --brief, --json"}},
 		{[]string{"help", "-x"}, []string{"unknown flag -x for `help`"}},
 		{[]string{"chat"}, []string{`error: unknown command "chat"`, "valid commands: chats, messages, search, thread, message, version, doctor, help"}},
 		{[]string{"messages"}, []string{"`messages` needs CHAT", "usage: whatsapp-axi messages CHAT"}},
@@ -137,11 +139,11 @@ func TestHelpCatalogListsOnlyImplementedCommands(t *testing.T) {
 			t.Errorf("%s advertises unimplemented work", c.Name)
 		}
 	}
-	if !reflect.DeepEqual(names, []string{"whatsapp-axi", "chats", "messages", "search", "thread", "message", "version", "doctor", "help", "observe"}) {
+	if !reflect.DeepEqual(names, []string{"whatsapp-axi", "chats", "messages", "search", "thread", "message", "version", "doctor", "help", "observe", "setup"}) {
 		t.Fatalf("catalog %v", names)
 	}
 	text, _ := h.run(t, "help")
-	mustContain(t, text, "commands[10]{name,usage,description}:", "help[1]:")
+	mustContain(t, text, "commands[11]{name,usage,description}:", "help[1]:")
 	// Every command that talks to wasync has a compatibility entry.
 	if got := compat.Default().CommandNames(); !reflect.DeepEqual(got, []string{"chats", "doctor", "home", "message", "messages", "observe", "search", "thread", "version"}) {
 		t.Fatalf("compat entries %v", got)
