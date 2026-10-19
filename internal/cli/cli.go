@@ -130,6 +130,15 @@ func (a *App) Run(parent context.Context, args []string) (result error) {
 		return err
 	}
 	args = root.Args()
+	// Agent credential management is file-based and never opens WhatsApp or
+	// the archive. It is kept out of the help catalog until a deliberate
+	// snapshot update; wasync agents --help documents it.
+	if len(args) > 0 && args[0] == "agents" {
+		return a.runAgents(parent, cfg, args[1:])
+	}
+	if len(args) == 2 && args[0] == "help" && args[1] == "agents" {
+		return a.runAgents(parent, cfg, nil)
+	}
 	if handled, helpErr := a.dispatchHelp(args); handled {
 		return helpErr
 	}
