@@ -1,0 +1,318 @@
+[
+  {
+    "args": [
+      "chats",
+      "--v1",
+      "--match",
+      "first"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "chat_kind": "group",
+            "history_batch_messages": 0,
+            "history_request_state": "queued",
+            "history_state": "not_observed",
+            "id": "one@g.us",
+            "last_message_at": "2026-10-01T00:00:00Z",
+            "media_policy": "inherit",
+            "message_count": 3,
+            "name": "First",
+            "potential_account_gaps": 0,
+            "sync_enabled": true
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "chats",
+      "--v1",
+      "--match",
+      "team"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "details": {
+        "candidates": [
+          {
+            "chat_kind": "group",
+            "id": "team-a@g.us",
+            "name": "Team A"
+          },
+          {
+            "chat_kind": "group",
+            "id": "team-b@g.us",
+            "name": "Team B"
+          }
+        ],
+        "match": "team"
+      },
+      "error": "chat name \"team\" matches 2 chats",
+      "error_code": "chat_ambiguous",
+      "help": "Several chats match; repeat the request with one candidate id (a chat JID) from details.candidates.",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "messages",
+      "--chat",
+      "two@g.us",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "chat_id": "two@g.us",
+            "chat_kind": "group",
+            "group_id": "two@g.us",
+            "id": 7,
+            "is_from_me": false,
+            "message_id": "t3",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDM",
+            "sender_id": "other@lid",
+            "source": "live",
+            "text_content": "after",
+            "timestamp": "2026-10-01T00:00:03Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "two@g.us",
+            "chat_kind": "group",
+            "deleted_at": "2026-10-01T01:00:00Z",
+            "group_id": "two@g.us",
+            "id": 5,
+            "is_from_me": false,
+            "message_id": "t1",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDE",
+            "sender_id": "other@lid",
+            "source": "live",
+            "text_content": "",
+            "timestamp": "2026-10-01T00:00:01Z"
+          },
+          {
+            "account_id": 1,
+            "chat_id": "two@g.us",
+            "chat_kind": "group",
+            "group_id": "two@g.us",
+            "id": 4,
+            "is_from_me": false,
+            "message_id": "t0",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDA",
+            "sender_id": "other@lid",
+            "source": "live",
+            "text_content": "hello two",
+            "timestamp": "2026-10-01T00:00:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": false,
+        "next_cursor": ""
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "search",
+      "hello",
+      "--chat",
+      "one@g.us",
+      "--context",
+      "1",
+      "--limit",
+      "1",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "items": [
+          {
+            "account_id": 1,
+            "after": [],
+            "before": [
+              {
+                "account_id": 1,
+                "chat_id": "one@g.us",
+                "chat_kind": "group",
+                "group_id": "one@g.us",
+                "id": 2,
+                "is_from_me": false,
+                "message_id": "1",
+                "message_type": "text",
+                "received_at": "<received_at>",
+                "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMQ",
+                "sender_id": "sender@lid",
+                "source": "live",
+                "text_content": "hello archive",
+                "timestamp": "2026-10-01T00:00:00Z"
+              }
+            ],
+            "chat_id": "one@g.us",
+            "chat_kind": "group",
+            "group_id": "one@g.us",
+            "id": 3,
+            "is_from_me": false,
+            "message_id": "2",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAb25lQGcudXMAMg",
+            "sender_id": "sender@lid",
+            "source": "live",
+            "text_content": "hello archive",
+            "timestamp": "2026-10-01T00:00:00Z"
+          }
+        ]
+      },
+      "page": {
+        "has_more": true,
+        "next_cursor": "<next_cursor>"
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "message",
+      "--ref",
+      "m1_dGVzdEBsaWQAdHdvQGcudXMAdDE",
+      "--v1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "account_id": 1,
+        "chat_id": "two@g.us",
+        "chat_kind": "group",
+        "deleted_at": "2026-10-01T01:00:00Z",
+        "group_id": "two@g.us",
+        "id": 5,
+        "is_from_me": false,
+        "message_id": "t1",
+        "message_type": "text",
+        "received_at": "<received_at>",
+        "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDE",
+        "sender_id": "other@lid",
+        "source": "live",
+        "text_content": "",
+        "timestamp": "2026-10-01T00:00:01Z"
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "thread",
+      "--ref",
+      "m1_dGVzdEBsaWQAdHdvQGcudXMAdDE",
+      "--before",
+      "1",
+      "--after",
+      "1"
+    ],
+    "exit_error": false,
+    "stdout": {
+      "data": {
+        "after": [
+          {
+            "account_id": 1,
+            "chat_id": "two@g.us",
+            "chat_kind": "group",
+            "group_id": "two@g.us",
+            "id": 7,
+            "is_from_me": false,
+            "message_id": "t3",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDM",
+            "sender_id": "other@lid",
+            "source": "live",
+            "text_content": "after",
+            "timestamp": "2026-10-01T00:00:03Z"
+          }
+        ],
+        "anchor": {
+          "account_id": 1,
+          "chat_id": "two@g.us",
+          "chat_kind": "group",
+          "deleted_at": "2026-10-01T01:00:00Z",
+          "group_id": "two@g.us",
+          "id": 5,
+          "is_from_me": false,
+          "message_id": "t1",
+          "message_type": "text",
+          "received_at": "<received_at>",
+          "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDE",
+          "sender_id": "other@lid",
+          "source": "live",
+          "text_content": "",
+          "timestamp": "2026-10-01T00:00:01Z"
+        },
+        "before": [
+          {
+            "account_id": 1,
+            "chat_id": "two@g.us",
+            "chat_kind": "group",
+            "group_id": "two@g.us",
+            "id": 4,
+            "is_from_me": false,
+            "message_id": "t0",
+            "message_type": "text",
+            "received_at": "<received_at>",
+            "ref": "m1_dGVzdEBsaWQAdHdvQGcudXMAdDA",
+            "sender_id": "other@lid",
+            "source": "live",
+            "text_content": "hello two",
+            "timestamp": "2026-10-01T00:00:00Z"
+          }
+        ]
+      },
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "thread",
+      "--ref",
+      "m1_dGVzdEBsaWQAdHdvQGcudXMAdDI"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "message is not in the current account's archive; it may have expired, been purged, or belong to another account",
+      "error_code": "not_found",
+      "request_id": "<request_id>"
+    }
+  },
+  {
+    "args": [
+      "thread",
+      "--ref",
+      "m1_bad"
+    ],
+    "exit_error": true,
+    "stdout": {
+      "error": "invalid message ref: wrong number of parts",
+      "error_code": "invalid_argument",
+      "request_id": "<request_id>"
+    }
+  }
+]

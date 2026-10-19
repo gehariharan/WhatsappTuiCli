@@ -28,6 +28,7 @@ type V1Error struct {
 	Error     string `json:"error"`
 	Help      string `json:"help,omitempty"`
 	State     string `json:"state,omitempty"`
+	Details   any    `json:"details,omitempty"`
 }
 
 const (
