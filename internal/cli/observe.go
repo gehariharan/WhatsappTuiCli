@@ -530,6 +530,9 @@ type observeEvent struct {
 	Help       []string           `json:"help,omitempty"`
 }
 
+// observeCommitTimeout bounds a checkpoint commit that outlives cancellation.
+const observeCommitTimeout = 10 * time.Second
+
 func observeSleep(ctx context.Context, d time.Duration) bool {
 	if d <= 0 {
 		return ctx.Err() == nil
@@ -618,7 +621,11 @@ func (a *App) observeFollow(ctx context.Context, jsonMode bool, o observeOptions
 		if want == "" || want == committed {
 			return false, nil
 		}
-		cp, err := observeCommit(ctx, tr, o.consumer, want)
+		// Finish a commit once started even if the run is being cancelled, so
+		// every checkpoint the server stores is also reported to the caller.
+		cctx, cancelCommit := context.WithTimeout(context.WithoutCancel(ctx), observeCommitTimeout)
+		cp, err := observeCommit(cctx, tr, o.consumer, want)
+		cancelCommit()
 		if err != nil {
 			if ctx.Err() == nil && observeTransient(err) {
 				return true, retry(err)
