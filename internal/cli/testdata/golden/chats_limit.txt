@@ -1,0 +1,8 @@
+transport: api
+total: 4
+chats[2]{id,kind,messages,last_message_at,sync,untrusted_name}:
+  family@g.us,group,4,"2026-10-01T09:00:00Z",true,"Family red"
+  team-a@g.us,group,2,"2026-10-02T10:00:00Z",true,"Team A"
+help[2]:
+  Showing 2 of 4 chats; run `whatsapp-axi chats --limit 0` for all, or `whatsapp-axi chats --match <name>` to narrow
+  Run `whatsapp-axi messages <id>` to read a chat, `whatsapp-axi search <text>` to search

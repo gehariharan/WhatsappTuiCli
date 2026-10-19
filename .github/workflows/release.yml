@@ -1,0 +1,250 @@
+name: Release
+
+# A release happens only when a maintainer pushes a vX.Y.Z tag. A manual run
+# is a dry run by default: it builds and checks everything and uploads the
+# files as a workflow artifact, but creates no release. See docs/releasing.md.
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and check only; upload a workflow artifact instead of creating a release"
+        type: boolean
+        default: true
+      version:
+        description: "Dry-run version without v (default 0.0.0-dryrun.RUN_NUMBER; ignored on a tag)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+      publish: ${{ steps.version.outputs.publish }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Choose version and mode
+        id: version
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          publish=false
+          if [[ "$REF_TYPE" == tag ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            # Publish on a tag push, or on a manual rerun from the tag with dry_run unticked.
+            if [[ "$EVENT" == push || "$DRY_RUN" == false ]]; then publish=true; fi
+          else
+            if [[ "$DRY_RUN" == false ]]; then
+              echo "::error::A release needs a vX.Y.Z tag; run this workflow from the tag or push the tag." >&2
+              exit 1
+            fi
+            version="${REQUESTED_VERSION:-0.0.0-dryrun.$GITHUB_RUN_NUMBER}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9][A-Za-z0-9.-]*)?$ ]]; then
+            echo "::error::Invalid version '$version' (expected vX.Y.Z or vX.Y.Z-pre)" >&2
+            exit 1
+          fi
+          if [[ "$publish" == true ]]; then
+            # Only release commits that are already on main.
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "::error::Tag v$version points to $GITHUB_SHA, which is not on main." >&2
+              exit 1
+            fi
+          fi
+          prerelease=false
+          if [[ "$version" == *-* ]]; then prerelease=true; fi
+          {
+            echo "value=$version"
+            echo "publish=$publish"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=$version publish=$publish prerelease=$prerelease"
+
+  test:
+    needs: version
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            race: "-race"
+          - runner: macos-15
+            race: "-race"
+          - runner: windows-2022
+            race: ""
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Check formatting
+        if: runner.os != 'Windows'
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test ${{ matrix.race }} ./...
+
+  package:
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build archives and SHA256SUMS
+        env:
+          VERSION: ${{ needs.version.outputs.value }}
+          PUBLISH: ${{ needs.version.outputs.publish }}
+        run: |
+          if [[ "$PUBLISH" == true ]]; then
+            bash scripts/package.sh "$VERSION"
+          else
+            bash scripts/package.sh --dry-run "$VERSION"
+          fi
+      - name: Check archives and checksums
+        env:
+          VERSION: ${{ needs.version.outputs.value }}
+        run: bash scripts/check-dist.sh "$VERSION"
+      - name: Test the Homebrew formula generator
+        run: bash scripts/test-homebrew-formula.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: whatsapp-axi-${{ needs.version.outputs.value }}
+          path: dist/${{ needs.version.outputs.value }}/*
+          if-no-files-found: error
+          retention-days: 14
+
+  # Run each archive's binary on its own OS and CPU before anything is released.
+  smoke:
+    needs: [version, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux_amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux_arm64
+          - runner: macos-15
+            platform: darwin_arm64
+          - runner: macos-15-intel
+            platform: darwin_amd64
+          - runner: windows-2022
+            platform: windows_amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: whatsapp-axi-${{ needs.version.outputs.value }}
+          path: dist
+      - name: Verify checksum and run --version
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.value }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          cd dist
+          base="whatsapp-axi_${VERSION}_${PLATFORM}"
+          mkdir x
+          if [[ "$PLATFORM" == windows_* ]]; then
+            grep " $base.zip\$" SHA256SUMS | sha256sum -c -
+            unzip -q "$base.zip" -d x
+            got="$(./x/whatsapp-axi.exe --version | tr -d '\r')"
+          else
+            grep " $base.tar.gz\$" SHA256SUMS | shasum -a 256 -c -
+            tar -xzf "$base.tar.gz" -C x
+            got="$(./x/whatsapp-axi --version)"
+          fi
+          test "$got" = "$VERSION" || { echo "::error::$PLATFORM reports '$got', expected '$VERSION'"; exit 1; }
+          echo "$PLATFORM: whatsapp-axi --version = $got"
+
+  release:
+    needs: [version, package, smoke]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: whatsapp-axi-${{ needs.version.outputs.value }}
+          path: dist
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.value }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::A release for $tag already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+          cd dist
+          sha256sum -c SHA256SUMS
+          cat > RELEASE_NOTES.md <<NOTES
+          Prebuilt whatsapp-axi $VERSION. It needs [wasync](https://github.com/gehariharan/WhatsappTuiCli) to read anything.
+
+          - macOS: install from source with \`brew install gehariharan/tap/whatsapp-axi\` or \`go install\` (see the README). The \`darwin_arm64\` and \`darwin_amd64\` archives are not signed or notarized, so macOS quarantines a browser download and blocks it.
+          - Linux: \`linux_amd64\` or \`linux_arm64\` .tar.gz (static, no glibc requirement).
+          - Windows: \`windows_amd64\` or \`windows_arm64\` .zip.
+
+          Extract the archive and put \`whatsapp-axi\` on your PATH. Verify downloads first: \`sha256sum -c SHA256SUMS --ignore-missing\` (macOS: \`shasum -a 256 -c SHA256SUMS --ignore-missing\`).
+          NOTES
+          flags=()
+          if [[ "$PRERELEASE" == true ]]; then flags+=(--prerelease); fi
+          gh release create "$tag" --verify-tag "${flags[@]}" \
+            --title "whatsapp-axi $VERSION" --notes-file RELEASE_NOTES.md --generate-notes \
+            ./*.tar.gz ./*.zip SHA256SUMS
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          path: src
+      - name: Attach Homebrew formula (for the tap; the tap is not changed here)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.value }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/$GH_REPO/archive/refs/tags/v$VERSION.tar.gz"
+          curl -fsSL --retry 3 -o source.tar.gz "$url"
+          sum="$(sha256sum source.tar.gz | cut -d' ' -f1)"
+          python3 src/scripts/homebrew-formula.py "$VERSION" "$sum" whatsapp-axi.rb --commit "${GITHUB_SHA:0:12}"
+          ruby -c whatsapp-axi.rb
+          gh release upload "v$VERSION" whatsapp-axi.rb
+          echo "Formula for v$VERSION: source sha256 $sum" >> "$GITHUB_STEP_SUMMARY"

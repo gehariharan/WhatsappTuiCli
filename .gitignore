@@ -1,0 +1,13 @@
+/bin/
+/dist/
+/whatsapp-axi
+/whatsapp-axi.exe
+*.test
+*.out
+coverage.*
+.DS_Store
+
+# Local credentials and environment files
+credential
+.env
+.env.*
