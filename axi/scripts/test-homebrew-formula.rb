@@ -100,6 +100,7 @@ work, version, checksum, commit = ARGV
     end
     raise "wrong #{platform} dependencies: #{klass.dependencies.inspect}" unless klass.dependencies == expected_deps
     formula = klass.new
+    ENV["GOTOOLCHAIN"] = "local"
     formula.install
     if binary == "whatsapp-axi"
       caveat = formula.caveats
@@ -115,6 +116,6 @@ work, version, checksum, commit = ARGV
     args += ["-tags", "sqlite_fts5"] if binary == "wasync"
     args << "./cmd/#{binary}"
     raise "wrong build invocation: #{formula.commands.inspect}" unless formula.commands == [[directory, args]]
-    raise "wrong build environment" unless ENV["CGO_ENABLED"] == (binary == "wasync" ? "1" : "0") && ENV["GOWORK"] == "off"
+    raise "wrong build environment" unless ENV["CGO_ENABLED"] == (binary == "wasync" ? "1" : "0") && ENV["GOWORK"] == "off" && ENV["GOTOOLCHAIN"] == "auto"
   end
 end

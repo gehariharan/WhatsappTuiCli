@@ -80,22 +80,20 @@ rejects the wrong CPU architecture, unsupported macOS versions and an existing
 The source repository is also the Homebrew tap. Existing users should run the
 custom-remote command below once to migrate from the former standalone tap.
 
-After the first verified combined release, Linux Homebrew installs both tools
-from source:
+Linux Homebrew installs both tools from source:
 
 ```sh
 brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
+# On Homebrew versions with tap trust, authorize the core dependency:
+if brew help trust >/dev/null 2>&1; then brew trust --formula gehariharan/tap/wasync; fi
 brew install gehariharan/tap/whatsapp-axi
 ```
 
 On macOS, install the signed core cask below, then install the optional agent
 CLI with `brew install gehariharan/tap/whatsapp-axi`. The combined release's core
-source formula is Linux-only. The AXI formula builds from source using Homebrew's Go.
-
-Until that combined release is verified and published, the checked-in definitions
-remain pinned to the previous standalone releases. The legacy AXI formula does
-not install the Linux core; install a core archive from the prebuilt downloads
-above in the meantime. Publication replaces the pins with generated definitions.
+source formula is Linux-only. The source formulas use Homebrew's Go and allow
+Go to download the project-selected toolchain when Homebrew's compiler is older
+than the project's required patch version.
 
 Each release generates `wasync.rb`, a Homebrew **cask** that installs the
 prebuilt native macOS executable and verifies its archive checksum. It performs

@@ -39,6 +39,7 @@ class WhatsappAxi < Formula
   def install
     ENV["CGO_ENABLED"] = "0"
     ENV["GOWORK"] = "off"
+    ENV["GOTOOLCHAIN"] = "auto"
     ldflags = %W[
       -s -w
       -X {BUILDINFO}.Version=#{{version}}{commit_flag}

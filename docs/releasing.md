@@ -10,6 +10,10 @@ CLI. Repository and release ownership is defined in
 PR CI runs core tests on Linux x64/ARM64, macOS Intel/Apple Silicon and Windows,
 Windows installer/MSIX tests, AXI tests and reproducible packaging checks, the
 real synthetic API/offline pair smoke test, and Homebrew publisher tests.
+Changes to Homebrew installation also run native Linux and Mac installation
+checks against the PR checkout's tap definitions before merge. Formula builds
+allow Go's project-selected toolchain so an older Homebrew Go patch cannot block
+an otherwise supported installation; Linux CI explicitly trusts the core dependency.
 
 Locally use `bash scripts/check.sh` with Go 1.27.2 on PATH. CI and packaging
 never use a paired account. Review both modules and run no-mistakes before merge.
