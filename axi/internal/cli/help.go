@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/output"
+	"github.com/gehariharan/wasync/axi/internal/output"
 )
 
 type flagJSON struct {

@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 func env(m map[string]string) Getenv { return func(k string) string { return m[k] } }

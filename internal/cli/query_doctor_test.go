@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/golden"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/query"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/golden"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/query"
 )
 
 func doctorRun(t *testing.T, a *App, out *bytes.Buffer, dir string, args ...string) query.Diagnostics {

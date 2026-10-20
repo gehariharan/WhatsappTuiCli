@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // DefaultTruncate is the default preview size for long text fields.

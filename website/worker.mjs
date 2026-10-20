@@ -1,4 +1,4 @@
-const repository = "gehariharan/WhatsappTuiCli";
+const repository = "gehariharan/wasync";
 const github = `https://github.com/${repository}`;
 const versionPattern = /^v([0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?)$/;
 

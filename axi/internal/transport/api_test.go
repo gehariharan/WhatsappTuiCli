@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/config"
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/config"
+	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
 func codeOf(t *testing.T, err error) string {

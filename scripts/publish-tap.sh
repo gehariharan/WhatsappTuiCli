@@ -1,30 +1,19 @@
 #!/usr/bin/env bash
-# Publish the wasync cask to the shared Homebrew tap.
+# Publish the release's Homebrew definitions back to the source monorepo.
 #
-# The tap may hold casks owned by other repositories (for example
-# whatsapp-axi). This script only writes Casks/wasync.rb and the wasync
-# download-strategy helper; it never deletes or edits other files under Casks/
-# or Formula/. README.md and LICENSE are seeded only when the tap lacks them,
-# after which the tap repository maintains them.
-#
-# Environment:
-#   WASYNC_TAP_REMOTE  Tap remote (default git@github.com:gehariharan/homebrew-tap.git).
-#                      A local path or file:// URL skips SSH key setup (tests).
-#   WASYNC_TAP_BRANCH  Branch to publish to (default main).
+# Updates the owned root Homebrew definitions while preserving application code,
+# documentation, and unrelated formulas. WASYNC_TAP_REMOTE can override the
+# monorepo remote (including a local bare repository in tests). Authenticate Git
+# with `gh auth setup-git` before calling this in CI. No separate tap key needed.
 set -euo pipefail
 asset_directory="${1:?Usage: scripts/publish-tap.sh ASSET_DIRECTORY}"
 asset_directory="$(cd "$asset_directory" && pwd)"
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
-tap_remote="${WASYNC_TAP_REMOTE:-git@github.com:gehariharan/homebrew-tap.git}"
+tap_remote="${WASYNC_TAP_REMOTE:-https://github.com/${GITHUB_REPOSITORY:-gehariharan/wasync}.git}"
 tap_branch="${WASYNC_TAP_BRANCH:-main}"
 max_attempts=3
 
-case "$tap_remote" in
-  /*|./*|../*|file://*)
-    tap_ssh_dir="$(mktemp -d)" ;;
-  *)
-    source "$project_dir/scripts/tap-ssh.sh" ;;
-esac
+tap_ssh_dir="$(mktemp -d)"
 trap 'rm -rf "$tap_ssh_dir"' EXIT
 
 cask_version() {
@@ -54,10 +43,12 @@ tap_has_newer() {
 # Writes wasync-owned files into the working tree and stages them. Returns 0
 # when a commit was created, 1 when there is nothing to change.
 apply_and_commit() {
-  mkdir -p Casks lib
+  mkdir -p Casks Formula lib
   cp "$asset_directory/wasync.rb" Casks/wasync.rb
+  cp "$asset_directory/wasync-formula.rb" Formula/wasync.rb
+  cp "$asset_directory/whatsapp-axi.rb" Formula/whatsapp-axi.rb
   cp "$project_dir/packaging/homebrew/lib/wasync_github_release_download_strategy.rb" lib/
-  local paths=(Casks/wasync.rb lib/wasync_github_release_download_strategy.rb)
+  local paths=(Casks/wasync.rb Formula/wasync.rb Formula/whatsapp-axi.rb lib/wasync_github_release_download_strategy.rb)
   if [[ ! -e README.md ]]; then
     cp "$project_dir/packaging/homebrew/README.md" README.md
     paths+=(README.md)

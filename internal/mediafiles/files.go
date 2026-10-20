@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"whatsappsync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/localfs"
 )
 
 func Directory(root string, account int64, chat string) string {

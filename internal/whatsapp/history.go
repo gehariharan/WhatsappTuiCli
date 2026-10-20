@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
-	"whatsappsync/internal/storage"
 )
 
 const historyPageSize = 50

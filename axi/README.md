@@ -1,7 +1,7 @@
 # whatsapp-axi
 
 `whatsapp-axi` is a command-line tool for AI agents to read your local WhatsApp archive. The archive
-belongs to [wasync](https://github.com/gehariharan/WhatsappTuiCli); `whatsapp-axi` only asks wasync for
+belongs to [wasync](https://github.com/gehariharan/wasync); `whatsapp-axi` only asks wasync for
 data and formats the answer for agents, following the [AXI](https://github.com/kunchenguid/axi)
 principles: compact output, explicit empty states, structured errors on stdout, next-step hints.
 
@@ -55,24 +55,35 @@ Settings, all optional:
 
 ## Install
 
-No release has been published yet; until then, build from source (below). From the first release on
-([docs/releasing.md](docs/releasing.md)):
+whatsapp-axi is part of the [wasync monorepo](https://github.com/gehariharan/wasync).
+Both tools ship from its [releases page](https://github.com/gehariharan/wasync/releases).
+Existing standalone AXI releases remain available at the old repository.
+See the [common release guide](../docs/releasing.md).
 
-- **macOS:** use the Homebrew formula, which builds from source with Homebrew's Go:
-  `brew install gehariharan/tap/whatsapp-axi`. whatsapp-axi is not signed or notarized by Apple, so a
-  `darwin_*` archive downloaded with a browser is quarantined and macOS refuses to run it; the formula
-  and `go install` avoid that because nothing prebuilt is downloaded.
+Register or migrate the Homebrew tap once:
+
+```sh
+brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
+```
+
+Installation options:
+
+- **macOS:** `brew install --cask gehariharan/tap/wasync`, then
+  `brew install gehariharan/tap/whatsapp-axi`. The source formula builds AXI with
+  Homebrew's Go. Combined releases also sign and notarize AXI's Mac archives;
+  old standalone AXI archives were unsigned.
 - **Linux and Windows:** download the archive for your OS and CPU from the
-  [releases page](https://github.com/gehariharan/whatsapp-axi/releases), check it against `SHA256SUMS`
-  (`sha256sum -c SHA256SUMS --ignore-missing`), extract it and put `whatsapp-axi` (`whatsapp-axi.exe`)
+  [releases page](https://github.com/gehariharan/wasync/releases), check it against `checksums.txt`
+  (`sha256sum -c checksums.txt --ignore-missing`), extract it and put `whatsapp-axi` (`whatsapp-axi.exe`)
   on your `PATH`. The binaries are static (no cgo).
 - **Any OS, from source** (Go 1.27 or newer):
 
   ```sh
-  go install github.com/gehariharan/whatsapp-axi/cmd/whatsapp-axi@latest
+  go install github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest
   ```
 
-You also need wasync: `brew install --cask gehariharan/tap/wasync`.
+You also need wasync. Linux Homebrew installs it as a dependency; macOS users
+install the signed cask as shown above. Direct-download users install both binaries.
 
 ## Usage
 

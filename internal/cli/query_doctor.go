@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 const queryDoctorUsage = `Usage: wasync [--data-dir PATH] query doctor [--json]

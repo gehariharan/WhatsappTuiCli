@@ -16,11 +16,11 @@ sum=1111111111111111111111111111111111111111111111111111111111111111
 commit=0123456789ab
 python3 "$gen" "$version" "$sum" "$work/whatsapp-axi.rb" --commit "$commit"
 formula="$(cat "$work/whatsapp-axi.rb")"
-bi=github.com/gehariharan/whatsapp-axi/internal/buildinfo
+bi=github.com/gehariharan/wasync/axi/internal/buildinfo
 
 has() { [[ "$formula" == *"$1"* ]] || fail "formula lacks: $1"; }
 has 'class WhatsappAxi < Formula'
-has "url \"https://github.com/gehariharan/whatsapp-axi/archive/refs/tags/v$version.tar.gz\""
+has "url \"https://github.com/gehariharan/wasync/archive/refs/tags/v$version.tar.gz\""
 has "sha256 \"$sum\""
 has 'license "MIT"'
 has 'depends_on "go" => :build'
@@ -31,7 +31,9 @@ has "-X $bi.Date=#{time.iso8601}"
 has 'system "go", "build", *std_go_args(ldflags:), "./cmd/whatsapp-axi"'
 has 'livecheck do'
 has 'strategy :github_latest'
-has 'brew install --cask gehariharan/tap/wasync'
+has 'depends_on "gehariharan/tap/wasync"'
+has 'cd "axi" do'
+has "version \"$version\""
 has 'test do'
 has 'shell_output("#{bin}/whatsapp-axi --version").strip'
 [[ "$(tail -n 1 "$work/whatsapp-axi.rb")" == end ]] || fail "formula does not end with end"

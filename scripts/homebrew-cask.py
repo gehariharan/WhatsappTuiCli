@@ -29,10 +29,10 @@ Path(output).write_text(f'''# Generated from release archive checksums. Installs
   sha256 arm:   "{hashes['arm64']}",
          intel: "{hashes['amd64']}"
 
-  url "https://github.com/gehariharan/WhatsappTuiCli/releases/download/v#{{version}}/wasync_#{{version}}_darwin_#{{arch}}.tar.gz"{strategy}
-  name "WhatsappTuiCli"
+  url "https://github.com/gehariharan/wasync/releases/download/v#{{version}}/wasync_#{{version}}_darwin_#{{arch}}.tar.gz"{strategy}
+  name "wasync"
   desc "Local WhatsApp group archive with a terminal UI and agent query CLI"
-  homepage "https://github.com/gehariharan/WhatsappTuiCli"
+  homepage "https://github.com/gehariharan/wasync"
 
   depends_on macos: :sequoia
 

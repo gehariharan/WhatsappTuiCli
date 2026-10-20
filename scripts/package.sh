@@ -30,7 +30,7 @@ if [[ "$platform" == darwin ]]; then
   fi
 fi
 CGO_ENABLED=1 GOOS="$platform" GOARCH="$architecture" go build -trimpath -tags sqlite_fts5 \
-  -ldflags "-s -w -X whatsappsync/internal/buildinfo.Version=$version -X whatsappsync/internal/buildinfo.Commit=$commit -X whatsappsync/internal/buildinfo.BuiltAt=$built_at" \
+  -ldflags "-s -w -X github.com/gehariharan/wasync/internal/buildinfo.Version=$version -X github.com/gehariharan/wasync/internal/buildinfo.Commit=$commit -X github.com/gehariharan/wasync/internal/buildinfo.BuiltAt=$built_at" \
   -o "$stage/wasync" ./cmd/wasync
 if [[ "$platform" == darwin ]]; then
   if [[ -n "${WASYNC_CODESIGN_IDENTITY:-}" ]]; then

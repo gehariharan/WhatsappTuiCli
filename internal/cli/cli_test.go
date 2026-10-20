@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"io"
 	"log/slog"
 	"os"
@@ -11,8 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
 )
 
 type fakeClient struct {

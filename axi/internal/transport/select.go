@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // SelectOptions configures transport selection. Either transport may be

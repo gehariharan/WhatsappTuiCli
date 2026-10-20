@@ -17,16 +17,16 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/api"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/buildinfo"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"go.mau.fi/whatsmeow/types"
 	"golang.org/x/term"
-	"whatsappsync/internal/api"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/buildinfo"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
 )
 
 type Client interface {

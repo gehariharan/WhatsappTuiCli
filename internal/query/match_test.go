@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func TestMatchChatsTiers(t *testing.T) {

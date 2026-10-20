@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // Environment variables that drive the fake wasync.

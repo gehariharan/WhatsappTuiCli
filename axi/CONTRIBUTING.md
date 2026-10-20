@@ -1,7 +1,7 @@
 # Contributing
 
-whatsapp-axi is the agent-facing CLI for [wasync](https://github.com/gehariharan/WhatsappTuiCli). Read
-[ADR-001](https://github.com/gehariharan/WhatsappTuiCli/blob/main/docs/architecture/ADR-001-repository-boundaries.md)
+whatsapp-axi lives in the wasync monorepo under `axi/` and is the agent-facing CLI for [wasync](https://github.com/gehariharan/wasync). Read
+[ADR-001](https://github.com/gehariharan/wasync/blob/main/docs/architecture/ADR-001-repository-boundaries.md)
 before changing anything: it decides what belongs here and what belongs in wasync.
 
 ## The boundary

@@ -1,4 +1,4 @@
-module github.com/gehariharan/whatsapp-axi
+module github.com/gehariharan/wasync/axi
 
 go 1.27.1
 

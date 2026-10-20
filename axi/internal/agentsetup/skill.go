@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // SkillFrontmatterName returns the `name:` of a SKILL.md's YAML

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gehariharan/wasync/internal/localfs"
 	"golang.org/x/sys/windows"
-	"whatsappsync/internal/localfs"
 )
 
 var ErrBusy = errors.New("another wasync command owns this data directory; manage groups in the running TUI or quit it first")

@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 type fakeBackend struct {

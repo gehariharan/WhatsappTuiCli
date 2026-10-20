@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"whatsappsync/internal/api"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/tui"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/api"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/tui"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 // withAPI closes all HTTP handlers before the caller closes the store/client.

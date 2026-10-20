@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func TestQueryMessageByRef(t *testing.T) {

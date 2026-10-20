@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"os"
 
-	"whatsappsync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/localfs"
 )
 
 // HealthCounts are archive facts for deep health checks.

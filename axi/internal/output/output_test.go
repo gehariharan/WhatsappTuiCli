@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 func TestSanitize(t *testing.T) {

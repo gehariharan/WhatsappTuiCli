@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
 )
 
 // Agent-facing destructive commands only enqueue requests. There is no --yes.

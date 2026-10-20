@@ -6,12 +6,12 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/localfs"
 	_ "github.com/mattn/go-sqlite3"
 	"net/url"
 	"path/filepath"
 	"runtime"
 	"time"
-	"whatsappsync/internal/localfs"
 )
 
 //go:embed migrations/001_groups.sql

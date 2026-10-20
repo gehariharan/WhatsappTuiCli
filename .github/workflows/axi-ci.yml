@@ -1,4 +1,4 @@
-name: Validate changes
+name: Validate AXI
 on:
   pull_request:
     branches: [main]
@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    working-directory: axi
 jobs:
   test:
     strategy:
@@ -29,7 +32,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version-file: axi/go.mod
           cache: true
       - name: Check formatting
         if: runner.os != 'Windows'
@@ -48,7 +51,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version-file: axi/go.mod
           cache: true
       - name: Package (dry run)
         run: bash scripts/package.sh --dry-run 0.0.0-ci

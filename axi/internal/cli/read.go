@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
-	"github.com/gehariharan/whatsapp-axi/internal/output"
-	"github.com/gehariharan/whatsapp-axi/internal/transport"
+	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/output"
+	"github.com/gehariharan/wasync/axi/internal/transport"
 )
 
 // Read commands compose wasync v1 reads and format them. Matching, search,

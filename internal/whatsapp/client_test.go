@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/gehariharan/wasync/internal/localfs"
 	"go.mau.fi/whatsmeow/proto/waAdv"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -12,7 +13,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-	"whatsappsync/internal/localfs"
 )
 
 func TestUnpairedSessionReopensWithoutNetwork(t *testing.T) {

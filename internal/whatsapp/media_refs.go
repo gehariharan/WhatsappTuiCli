@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/mediafiles"
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/mediafiles"
-	"whatsappsync/internal/storage"
 )
 
 // These are credentials, not archive metadata. Only store fields required by

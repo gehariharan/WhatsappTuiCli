@@ -3,7 +3,7 @@ package query
 import (
 	"context"
 
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func init() {

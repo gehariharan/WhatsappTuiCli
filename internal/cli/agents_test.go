@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"whatsappsync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/agentauth"
 )
 
 func agentsApp(in string, interactive bool) (*App, *bytes.Buffer, *bytes.Buffer) {

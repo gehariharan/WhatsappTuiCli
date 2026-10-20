@@ -2,13 +2,13 @@ package tui
 
 import (
 	"context"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"path/filepath"
 	"testing"
 	"time"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
 )
 
 type syncClient struct{ status whatsapp.CaptureStatus }

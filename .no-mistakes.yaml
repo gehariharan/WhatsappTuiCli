@@ -1,0 +1,10 @@
+commands:
+  prepare: mise install go@1.27.2
+  test: mise exec go@1.27.2 -- bash scripts/check.sh
+  lint: mise exec go@1.27.2 -- bash scripts/lint.sh
+test:
+  instructions: |
+    Use scripts/smoke-pair.py with the built pair and its temporary synthetic
+    archive for live validation. Do not use the machine's real paired account,
+    archive, agent grants, tokens, signing keychain, or WhatsApp network.
+    CI owns native Windows/MSIX and actual post-merge Mac notarization checks.

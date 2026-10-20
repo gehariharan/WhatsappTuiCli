@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/config"
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/config"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // ValidateAddr accepts only literal loopback host:port addresses, the same

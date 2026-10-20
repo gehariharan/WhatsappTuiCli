@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // Change journal endpoints (ADR-001 D-4). Reading changes and checkpoints

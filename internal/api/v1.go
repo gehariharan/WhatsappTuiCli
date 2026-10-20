@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/query"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/query"
 )
 
 func isV1(path string) bool { return path == "/api/v1" || strings.HasPrefix(path, "/api/v1/") }

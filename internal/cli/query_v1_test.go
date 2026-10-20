@@ -12,10 +12,10 @@ import (
 	"regexp"
 	"testing"
 
-	"whatsappsync/internal/golden"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/golden"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 var cliRequestID = regexp.MustCompile(`^[0-9a-f]{32}$`)

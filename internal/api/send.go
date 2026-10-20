@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 func (h *handler) send(w http.ResponseWriter, r *http.Request) {

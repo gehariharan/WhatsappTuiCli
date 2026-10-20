@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
-	"github.com/gehariharan/whatsapp-axi/internal/output"
-	"github.com/gehariharan/whatsapp-axi/internal/transport"
+	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/output"
+	"github.com/gehariharan/wasync/axi/internal/transport"
 )
 
 // `observe` follows wasync's change journal (ADR-001 D-4). Positions are

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
 func TestMain(m *testing.M) {

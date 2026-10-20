@@ -6,11 +6,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/localfs"
 	"io"
 	"net/url"
 	"os"
 	"time"
-	"whatsappsync/internal/localfs"
 )
 
 // OpenReadOnly opens an existing archive without migrations, chmods, or a

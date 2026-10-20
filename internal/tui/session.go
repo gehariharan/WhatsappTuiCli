@@ -5,14 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/mediafiles"
 	"os"
 	"sync"
 	"time"
-	"whatsappsync/internal/mediafiles"
 
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 type Client interface {

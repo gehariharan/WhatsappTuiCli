@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/msgref"
 )
 
 const refAccount = "one@s.whatsapp.net"

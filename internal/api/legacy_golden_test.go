@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/golden"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/golden"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // TestLegacyAPISnapshots freezes every existing /api/* and /health response

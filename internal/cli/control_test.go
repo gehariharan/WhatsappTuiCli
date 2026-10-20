@@ -5,17 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/api"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/tui"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
-	"whatsappsync/internal/api"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/tui"
-	"whatsappsync/internal/whatsapp"
 )
 
 func TestCLIControlsReuseOwnerAndRequireTypedApproval(t *testing.T) {

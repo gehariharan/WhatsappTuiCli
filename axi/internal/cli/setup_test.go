@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/agentsetup"
-	"github.com/gehariharan/whatsapp-axi/skills"
+	"github.com/gehariharan/wasync/axi/internal/agentsetup"
+	"github.com/gehariharan/wasync/axi/skills"
 )
 
 // The harness runs whatsapp-axi as /home/user/bin/whatsapp-axi with

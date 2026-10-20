@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
 var update = flag.Bool("update", false, "rewrite testdata/golden files")

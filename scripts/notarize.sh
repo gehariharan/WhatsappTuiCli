@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Signatures must already exist. Credentials stay in the signing Mac's Keychain.
 set -euo pipefail
-if [[ $# != 3 ]]; then
-  echo 'Usage: scripts/notarize.sh KEYCHAIN_PROFILE SIGNED_BINARY SIGNED_PKG' >&2
+if [[ $# != 2 && $# != 3 ]]; then
+  echo 'Usage: scripts/notarize.sh KEYCHAIN_PROFILE SIGNED_BINARY [SIGNED_PKG]' >&2
   exit 1
 fi
 profile="$1"
 binary="$2"
-package="$3"
+package="${3:-}"
 notary_args=(--keychain-profile "$profile")
 if [[ -n "${WASYNC_SIGNING_KEYCHAIN:-}" ]]; then
   notary_args+=(--keychain "$WASYNC_SIGNING_KEYCHAIN")
@@ -18,10 +18,12 @@ trap 'rm -rf "$work"' EXIT
 # Reject development and ad hoc signatures before contacting Apple's service.
 codesign --verify --strict \
   -R='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists' "$binary"
-pkgutil --check-signature "$package" > "$work/package-signature.txt"
-if ! /usr/bin/grep -q 'Developer ID Installer:' "$work/package-signature.txt"; then
-  echo 'The package needs a Developer ID Installer signature.' >&2
-  exit 1
+if [[ -n "$package" ]]; then
+  pkgutil --check-signature "$package" > "$work/package-signature.txt"
+  if ! /usr/bin/grep -q 'Developer ID Installer:' "$work/package-signature.txt"; then
+    echo 'The package needs a Developer ID Installer signature.' >&2
+    exit 1
+  fi
 fi
 
 submit() {
@@ -41,10 +43,12 @@ PY
 
 # Mach-O executables and tarballs cannot hold stapled tickets. Submit a ZIP of
 # the exact signed executable so Apple's online lookup recognizes its code hash.
-ditto -c -k --keepParent "$binary" "$work/wasync.zip"
-submit "$work/wasync.zip" "$work/binary-notarization.json"
-submit "$package" "$work/package-notarization.json"
-xcrun stapler staple "$package"
-xcrun stapler validate "$package"
-spctl --assess --type install --verbose=2 "$package"
-echo 'Notarization accepted and installer ticket stapled. Generate package checksums after this step.'
+ditto -c -k --keepParent "$binary" "$work/binary.zip"
+submit "$work/binary.zip" "$work/binary-notarization.json"
+if [[ -n "$package" ]]; then
+  submit "$package" "$work/package-notarization.json"
+  xcrun stapler staple "$package"
+  xcrun stapler validate "$package"
+  spctl --assess --type install --verbose=2 "$package"
+fi
+echo 'Notarization accepted. Generate release checksums after this step.'

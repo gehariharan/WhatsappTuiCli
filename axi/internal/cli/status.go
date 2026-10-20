@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/buildinfo"
-	"github.com/gehariharan/whatsapp-axi/internal/config"
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
-	"github.com/gehariharan/whatsapp-axi/internal/output"
-	"github.com/gehariharan/whatsapp-axi/internal/transport"
+	"github.com/gehariharan/wasync/axi/internal/buildinfo"
+	"github.com/gehariharan/wasync/axi/internal/config"
+	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/output"
+	"github.com/gehariharan/wasync/axi/internal/transport"
 )
 
 // wasync states shown by the home and version views.

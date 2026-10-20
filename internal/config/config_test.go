@@ -1,11 +1,11 @@
 package config
 
 import (
+	"github.com/gehariharan/wasync/internal/buildinfo"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-	"whatsappsync/internal/buildinfo"
 )
 
 func TestDistributionDefaultAndExplicitDataDirectory(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"whatsappsync/internal/golden"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/golden"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 var requestIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)

@@ -1,4 +1,4 @@
-# WhatsappTuiCli
+# wasync
 
 A personal, local WhatsApp chat archive with a **full-screen terminal UI**,
 written in Go using [whatsmeow](https://github.com/tulir/whatsmeow) and
@@ -6,6 +6,14 @@ written in Go using [whatsmeow](https://github.com/tulir/whatsmeow) and
 
 The executable is named **`wasync`**: launch it for the terminal UI, or use
 **`wasync query …`** for read-only JSON queries from local agents.
+
+This monorepo also contains **whatsapp-axi**, the agent-facing reader in
+[`axi/`](axi/). Both binaries, their documentation, release automation, and
+Homebrew definitions are maintained here. wasync owns the WhatsApp connection
+and archive; AXI reads it through the local API or `wasync query`.
+
+For development see [CONTRIBUTING.md](CONTRIBUTING.md). For releases and the
+one-time tap migration see [docs/releasing.md](docs/releasing.md).
 
 ## Install a prebuilt package
 
@@ -24,7 +32,7 @@ The release workflow builds native Intel/Apple Silicon macOS packages and
 Linux and Windows packages. Manual builds can remain drafts; publishing also updates the
 Homebrew tap and runs installation checks on both Mac architectures. Downloadable
 versions appear on the
-[GitHub Releases page](https://github.com/gehariharan/WhatsappTuiCli/releases).
+[GitHub Releases page](https://github.com/gehariharan/wasync/releases).
 Source code and prebuilt downloads are public. No GitHub account is needed to install.
 
 On macOS the package installs `/usr/local/bin/wasync` and dependency notices under
@@ -68,13 +76,28 @@ rejects the wrong CPU architecture, unsupported macOS versions and an existing
 
 ### Homebrew installation
 
+The source repository is also the Homebrew tap. Existing users should run the
+custom-remote command below once to migrate from the former standalone tap.
+
+On Linux, install both tools from source:
+
+```sh
+brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
+brew install gehariharan/tap/whatsapp-axi
+```
+
+On macOS, install the signed core cask below, then install the optional agent
+CLI with `brew install gehariharan/tap/whatsapp-axi`. The core source formula is
+also available; choose either the formula or cask to avoid duplicate binaries.
+
+
 Each release generates `wasync.rb`, a Homebrew **cask** that installs the
 prebuilt native macOS executable and verifies its archive checksum. It performs
 no source build. The public tap downloads signed release assets without GitHub
 authentication:
 
 ```sh
-brew tap gehariharan/tap
+brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
 # On Homebrew versions with tap trust:
 brew trust --cask gehariharan/tap/wasync
 brew install --cask gehariharan/tap/wasync
@@ -93,8 +116,8 @@ Requires macOS, Linux, or Windows x64, Go 1.27.1 or newer (the project selects G
 C compiler. On macOS, install the Xcode Command Line Tools if needed.
 
 ```sh
-git clone https://github.com/gehariharan/WhatsappTuiCli.git
-cd WhatsappTuiCli
+git clone https://github.com/gehariharan/wasync.git
+cd wasync
 go build -tags sqlite_fts5 -o bin/wasync ./cmd/wasync
 ./bin/wasync
 ```
@@ -579,7 +602,9 @@ The original design and risk review are saved in
 
 ### Automatic releases from main
 
-Every push to `main` runs **Release main updates**:
+Code updates to `main` run **Release main updates**. Documentation and generated
+Homebrew-only updates are excluded. Both binaries share the release; see
+[the release guide](docs/releasing.md). The pipeline will:
 
 1. Choose a unique increasing version, `0.1.0-preview.YYYYMMDDHHMMSS` (UTC).
 2. Test and build native macOS and Linux packages for Intel and ARM64 on GitHub
@@ -589,7 +614,7 @@ Every push to `main` runs **Release main updates**:
    `wasync-notary` login-Keychain profile.
 4. Verify signatures, notarization, installer tickets, checksums and signed
    executable behavior on fresh Intel and Apple Silicon runners.
-5. Publish the prerelease, update `gehariharan/homebrew-tap`, and test real
+5. Publish the prerelease, update the Homebrew definitions in this repository, and test real
    Homebrew installations on both Mac architectures with quarantine enabled.
 
 The Air must be awake, online and logged in as the signing user, with its login
@@ -609,7 +634,7 @@ automatically. Its installation is outside this repository at
 For a new installation:
 
 ```sh
-brew tap gehariharan/tap
+brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
 brew trust --cask gehariharan/tap/wasync # on Homebrew versions with tap trust
 brew install --cask gehariharan/tap/wasync
 ```
@@ -652,43 +677,15 @@ and Linux. Run **Build prebuilt installers** manually with a version, or push a
 creates a prerelease with archives, macOS installers, aggregate checksums and the
 generated Homebrew cask. This workflow creates drafts only, including manual
 tag builds. The automatic main pipeline signs and notarizes these drafts before
-calling **Verify and publish signed release**, updating `gehariharan/homebrew-tap`
+calling **Verify and publish signed release**, updating this repository’s Homebrew definitions
 and running Homebrew installation checks on Intel and Apple Silicon. Existing
 published releases are not overwritten. No workflow changes repository visibility.
 
-`HOMEBREW_TAP_SSH_KEY` is an encrypted Actions secret containing a write deploy
-key restricted to the tap. It is not a personal GitHub token. Release jobs use
-their temporary `GITHUB_TOKEN` for assets in the application repository. Private
-Public Homebrew downloads do not use credentials. The optional private-release
-download strategy invokes `gh`; authentication is not embedded in casks, URLs,
-or cache metadata. Do not print or commit credentials.
-
-The reusable Homebrew E2E workflow can also be run independently against an
-existing release. Its explicit `allow_unsigned_preview` option removes quarantine
-only from the installed test executable on a disposable GitHub-hosted runner.
-The cask itself never disables quarantine. This option is false by default for
-manual runs and the signed automatic pipeline. The option is retained only for
-explicitly checking old unsigned previews on disposable runners.
-The jobs install the actual release archive and validate the installed binary's
-version and native architecture, concurrent read-only JSON queries, FTS5 search,
-pagination, graceful shutdown, and offline TUI rendering/exit with synthetic data.
-They do not link a real WhatsApp account or claim to validate Apple notarization.
-
-A local build can optionally use existing signing identities from your Keychain:
-
-```sh
-WASYNC_CODESIGN_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' \
-WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
-  scripts/package.sh 0.1.0
-```
-
-Unsigned builds use an ad hoc binary signature, which is not a Developer ID
-signature. The build stage creates unsigned drafts; the automatic release
-pipeline signs and notarizes them on the Air before publication. Never commit
-certificates or signing credentials. Before publishing, inspect the package
-contents and signatures, verify the checksum, and validate installation on each
-supported platform. No installer launches WhatsApp, starts capture or creates
-credentials during installation.
+The release job uses its temporary `GITHUB_TOKEN` to publish assets and update
+this repository's Homebrew definitions. It no longer needs a deploy key for a
+separate tap. Public Homebrew downloads do not require authentication. The
+optional private-release download strategy uses `gh`; credentials are never
+embedded in casks, download URLs or cache metadata.
 
 ### Signing and notarizing with a Keychain profile
 

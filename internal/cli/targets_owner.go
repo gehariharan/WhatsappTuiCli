@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
 )
 
 // The caller has already validated command syntax before acquiring the lock.

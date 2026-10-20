@@ -1,9 +1,9 @@
 package tui
 
 import (
+	"github.com/gehariharan/wasync/internal/storage"
 	"strings"
 	"testing"
-	"whatsappsync/internal/storage"
 )
 
 func TestRichAttachmentDetails(t *testing.T) {

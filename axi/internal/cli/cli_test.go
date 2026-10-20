@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/buildinfo"
-	"github.com/gehariharan/whatsapp-axi/internal/compat"
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
-	"github.com/gehariharan/whatsapp-axi/internal/output"
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/buildinfo"
+	"github.com/gehariharan/wasync/axi/internal/compat"
+	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/output"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
 func TestMain(m *testing.M) {

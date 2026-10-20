@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/buildinfo"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/buildinfo"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // Health states reported by GET /api/v1/health/deep and diagnostics.

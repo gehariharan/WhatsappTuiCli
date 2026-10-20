@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"whatsappsync/internal/approval"
+	"github.com/gehariharan/wasync/internal/approval"
 )
 
 func (h *handler) requestAction(w http.ResponseWriter, r *http.Request) {

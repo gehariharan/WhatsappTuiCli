@@ -37,6 +37,7 @@ make_assets() { # version -> prints asset directory
   printf 'arm64 %s' "$1" > "$dir/wasync_$1_darwin_arm64.tar.gz"
   printf 'amd64 %s' "$1" > "$dir/wasync_$1_darwin_amd64.tar.gz"
   python3 "$project_dir/scripts/homebrew-cask.py" "$1" "$dir" "$dir/wasync.rb"
+  python3 "$project_dir/scripts/homebrew-formulas.py" "$1" "$(printf '1%.0s' {1..64})" "$dir"
   echo "$dir"
 }
 tap_file() { "$real_git" --git-dir="$tap" show "main:$1"; }
@@ -71,6 +72,9 @@ out="$(PATH="$shim:$PATH" bash "$project_dir/scripts/publish-tap.sh" "$assets1" 
 pass "non-fast-forward push retried after rebase"
 diff <(tap_file Casks/wasync.rb) "$assets1/wasync.rb" >/dev/null || fail "wasync.rb not updated"
 pass "Casks/wasync.rb updated to $v1"
+diff <(tap_file Formula/wasync.rb) "$assets1/wasync-formula.rb" >/dev/null || fail "core formula not updated"
+diff <(tap_file Formula/whatsapp-axi.rb) "$assets1/whatsapp-axi.rb" >/dev/null || fail "AXI formula not updated"
+pass "both source formulas published with the cask"
 diff <(tap_file lib/wasync_github_release_download_strategy.rb) \
   "$project_dir/packaging/homebrew/lib/wasync_github_release_download_strategy.rb" >/dev/null || fail "lib helper not copied"
 pass "download strategy helper copied"

@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"slices"
 
-	"whatsappsync/internal/buildinfo"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/buildinfo"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // V1 envelopes are shared by /api/v1 and wasync query --v1 so agents parse

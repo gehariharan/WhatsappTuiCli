@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
 // The fake wasync is this test binary; init runs before TestMain, so the

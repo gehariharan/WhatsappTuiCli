@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"whatsappsync/internal/changecursor"
-	"whatsappsync/internal/query"
+	"github.com/gehariharan/wasync/internal/changecursor"
+	"github.com/gehariharan/wasync/internal/query"
 )
 
 func queryV1Err(t *testing.T, a *App, out *bytes.Buffer, dir, code string, args ...string) query.V1Error {

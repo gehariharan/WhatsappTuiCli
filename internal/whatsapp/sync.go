@@ -2,8 +2,8 @@ package whatsapp
 
 import (
 	"context"
+	"github.com/gehariharan/wasync/internal/storage"
 	"time"
-	"whatsappsync/internal/storage"
 )
 
 // SyncInput bounds observation time; it is not a server completeness checkpoint.

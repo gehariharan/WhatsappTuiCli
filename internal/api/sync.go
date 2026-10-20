@@ -2,11 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"io"
 	"net/http"
 	"strings"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
 )
 
 func (h *handler) syncNow(w http.ResponseWriter, r *http.Request) {

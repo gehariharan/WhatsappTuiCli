@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gehariharan/whatsapp-axi/internal/cli"
+	"github.com/gehariharan/wasync/axi/internal/cli"
 )
 
 func main() {

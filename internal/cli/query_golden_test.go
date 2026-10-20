@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"whatsappsync/internal/golden"
+	"github.com/gehariharan/wasync/internal/golden"
 )
 
 // TestQuerySnapshots freezes the agent-facing wasync query and help --json

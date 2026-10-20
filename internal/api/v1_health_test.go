@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/golden"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/golden"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 type liveStatus struct {

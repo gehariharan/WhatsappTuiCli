@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
-"""Generate Formula/whatsapp-axi.rb for the gehariharan/homebrew-tap repository.
+"""Generate the AXI formula from the root wasync release source archive.
 
-    scripts/homebrew-formula.py VERSION SOURCE_SHA256 OUTPUT [--commit SHA]
-
-SOURCE_SHA256 is the SHA-256 of GitHub's source tarball for tag vVERSION:
-https://github.com/gehariharan/whatsapp-axi/archive/refs/tags/vVERSION.tar.gz
-
-The formula builds from source with Homebrew's Go, so nothing downloaded is a
-prebuilt macOS binary and Gatekeeper never quarantines it (whatsapp-axi is not
-signed). This script only writes OUTPUT; publishing it to the tap is a
-separate, manual step (docs/releasing.md).
+The root release workflow publishes this definition into the same repository.
+The formula builds the independent module in axi/ with CGO disabled.
 """
 import argparse
 from pathlib import Path
 import re
 import sys
 
-REPO = "gehariharan/whatsapp-axi"
-BUILDINFO = "github.com/gehariharan/whatsapp-axi/internal/buildinfo"
+REPO = "gehariharan/wasync"
+BUILDINFO = "github.com/gehariharan/wasync/axi/internal/buildinfo"
 VERSION_RE = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?"
 
 
@@ -29,6 +22,7 @@ class WhatsappAxi < Formula
   desc "Agent-facing CLI that reads a local wasync WhatsApp archive"
   homepage "https://github.com/{REPO}"
   url "https://github.com/{REPO}/archive/refs/tags/v{version}.tar.gz"
+  version "{version}"
   sha256 "{source_sha256}"
   license "MIT"
 
@@ -38,15 +32,21 @@ class WhatsappAxi < Formula
   end
 
   depends_on "go" => :build
+  on_linux do
+    depends_on "gehariharan/tap/wasync"
+  end
 
   def install
     ENV["CGO_ENABLED"] = "0"
+    ENV["GOWORK"] = "off"
     ldflags = %W[
       -s -w
       -X {BUILDINFO}.Version=#{{version}}{commit_flag}
       -X {BUILDINFO}.Date=#{{time.iso8601}}
     ]
-    system "go", "build", *std_go_args(ldflags:), "./cmd/whatsapp-axi"
+    cd "axi" do
+      system "go", "build", *std_go_args(ldflags:), "./cmd/whatsapp-axi"
+    end
   end
 
   def caveats

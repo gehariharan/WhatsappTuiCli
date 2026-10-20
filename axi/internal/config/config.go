@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // Environment variables read by whatsapp-axi.

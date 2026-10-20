@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
 // obsOnline returns a harness reading j through a fake API with a credential.

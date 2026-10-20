@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/agentsetup"
-	"github.com/gehariharan/whatsapp-axi/internal/config"
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
-	"github.com/gehariharan/whatsapp-axi/internal/output"
-	"github.com/gehariharan/whatsapp-axi/skills"
+	"github.com/gehariharan/wasync/axi/internal/agentsetup"
+	"github.com/gehariharan/wasync/axi/internal/config"
+	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/output"
+	"github.com/gehariharan/wasync/axi/skills"
 )
 
 // `setup` installs whatsapp-axi's opt-in agent integrations (AXI principle

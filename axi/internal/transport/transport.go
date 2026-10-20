@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // Transport is one way of reading wasync.

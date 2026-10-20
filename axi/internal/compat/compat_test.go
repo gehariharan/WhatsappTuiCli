@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 func v(major, minor int, features ...string) contract.VersionInfo {

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/types"
-	"whatsappsync/internal/storage"
 )
 
 // These methods are called only after human CLI or TUI confirmation.

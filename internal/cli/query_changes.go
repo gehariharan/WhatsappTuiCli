@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // Full references for the journal commands, appended to their catalog help.

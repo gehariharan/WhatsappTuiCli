@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func init() {

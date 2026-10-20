@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/gehariharan/wasync/internal/api"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/storage"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
-	"whatsappsync/internal/api"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/storage"
 
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 type fakeSendingClient struct {

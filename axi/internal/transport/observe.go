@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gehariharan/whatsapp-axi/internal/config"
-	"github.com/gehariharan/whatsapp-axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/config"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 )
 
 // The change journal reads (`whatsapp-axi observe`). Checkpoints are read

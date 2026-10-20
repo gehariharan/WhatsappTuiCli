@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 func TestSendCredentialIsSeparateAndSignedRequestsCannotReplay(t *testing.T) {

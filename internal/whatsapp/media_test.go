@@ -3,14 +3,14 @@ package whatsapp
 import (
 	"bytes"
 	"context"
+	"github.com/gehariharan/wasync/internal/mediafiles"
+	"github.com/gehariharan/wasync/internal/storage"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-	"whatsappsync/internal/mediafiles"
-	"whatsappsync/internal/storage"
 )
 
 func TestMediaDownloadBoundIncludesCopyFastPath(t *testing.T) {

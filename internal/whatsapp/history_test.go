@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -17,7 +18,6 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
-	"whatsappsync/internal/storage"
 )
 
 func historyClient(t *testing.T) (*Client, *storage.Store, int64) {

@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"time"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
 )
 
 // Sync uses the existing connection. Incoming events persist independently.

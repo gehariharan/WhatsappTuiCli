@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 	"google.golang.org/protobuf/proto"
-	"whatsappsync/internal/storage"
 )
 
 // SupportedChat excludes status broadcasts, newsletters and protocol destinations.

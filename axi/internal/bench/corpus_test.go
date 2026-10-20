@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
-	"github.com/gehariharan/whatsapp-axi/internal/transport"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/transport"
 )
 
 // The synthetic corpus: invented chat names, people and sentences from a

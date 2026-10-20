@@ -44,7 +44,7 @@ jobs:
           fi
           # Create the immutable release tag while this commit is still HEAD.
           # A later release upload then needs only the normal contents permission.
-          tag="v$version"
+          for tag in "v$version" "axi/v$version"; do
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
             existing="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)"
             if [[ "$existing" != "$GITHUB_SHA" ]]; then
@@ -55,6 +55,7 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/git/refs" --method POST \
               -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" >/dev/null
           fi
+          done
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
   build:
@@ -129,8 +130,75 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  axi:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: axi
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: axi/go.mod
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: bash scripts/package.sh "${{ needs.version.outputs.value }}"
+      - run: bash scripts/check-dist.sh "${{ needs.version.outputs.value }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-axi
+          path: axi/dist/${{ needs.version.outputs.value }}/*
+          if-no-files-found: error
+
+  axi-smoke:
+    needs: [version, axi]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux_amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux_arm64
+          - runner: macos-15
+            platform: darwin_arm64
+          - runner: macos-15-intel
+            platform: darwin_amd64
+          - runner: windows-2022
+            platform: windows_amd64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-axi
+          path: dist
+      - name: Verify and run native AXI archive
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.value }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          cd dist
+          base="whatsapp-axi_${VERSION}_${PLATFORM}"
+          mkdir x
+          if [[ "$PLATFORM" == windows_* ]]; then
+            grep " $base.zip\$" SHA256SUMS | sha256sum -c -
+            unzip -q "$base.zip" -d x
+            got="$(./x/whatsapp-axi.exe --version | tr -d '\r')"
+          else
+            grep " $base.tar.gz\$" SHA256SUMS | shasum -a 256 -c -
+            tar -xzf "$base.tar.gz" -C x
+            got="$(./x/whatsapp-axi --version)"
+          fi
+          test "$got" = "$VERSION"
+
   release:
-    needs: [version, build, windows]
+    needs: [version, build, windows, axi-smoke]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -151,6 +219,9 @@ jobs:
           extra=()
           if [[ "$PRIVATE_REPOSITORY" == "true" ]]; then extra+=(--private); fi
           python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/release/wasync.rb "${extra[@]}"
+          curl -fsSL --retry 3 "https://github.com/$GITHUB_REPOSITORY/archive/refs/tags/v$PACKAGE_VERSION.tar.gz" -o dist/source.tar.gz
+          source_sum="$(sha256sum dist/source.tar.gz | cut -d' ' -f1)"
+          python3 scripts/homebrew-formulas.py "$PACKAGE_VERSION" "$source_sum" dist/release --commit "${GITHUB_SHA:0:12}"
           cd dist/release
           sha256sum ./*.tar.gz ./*.pkg ./*.zip ./*.exe > checksums.txt
       - name: Create draft prerelease
@@ -178,4 +249,4 @@ jobs:
           NOTES
           gh release create "$tag" --draft --prerelease --verify-tag \
             --title "wasync $PACKAGE_VERSION" --notes-file dist/release/RELEASE_NOTES.md \
-            dist/release/*.tar.gz dist/release/*.pkg dist/release/*.zip dist/release/*.exe dist/release/checksums.txt dist/release/wasync.rb
+            dist/release/*.tar.gz dist/release/*.pkg dist/release/*.zip dist/release/*.exe dist/release/checksums.txt dist/release/*.rb

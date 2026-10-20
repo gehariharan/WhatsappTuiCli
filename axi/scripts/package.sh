@@ -74,7 +74,7 @@ mkdir -p "$out"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
-pkg=github.com/gehariharan/whatsapp-axi/internal/buildinfo
+pkg=github.com/gehariharan/wasync/axi/internal/buildinfo
 ldflags="-s -w -X $pkg.Version=$version -X $pkg.Commit=$commit -X $pkg.Date=$build_date"
 host="$(go env GOHOSTOS)/$(go env GOHOSTARCH)"
 targets=(darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64)

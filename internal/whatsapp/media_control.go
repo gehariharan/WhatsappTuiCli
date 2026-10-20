@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/mediafiles"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/mediafiles"
 )
 
 var ErrMediaQueueFull = errors.New("media queue is full; retry this message later")

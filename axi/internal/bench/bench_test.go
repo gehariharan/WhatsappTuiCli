@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gehariharan/whatsapp-axi/internal/cli"
-	"github.com/gehariharan/whatsapp-axi/internal/testutil"
-	"github.com/gehariharan/whatsapp-axi/internal/transport"
+	"github.com/gehariharan/wasync/axi/internal/cli"
+	"github.com/gehariharan/wasync/axi/internal/testutil"
+	"github.com/gehariharan/wasync/axi/internal/transport"
 )
 
 func TestMain(m *testing.M) {

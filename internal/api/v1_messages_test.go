@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/golden"
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/golden"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 type v1Body struct {

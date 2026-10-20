@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/changecursor"
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/changecursor"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // V1Change is one change-journal entry. It never carries message content;
