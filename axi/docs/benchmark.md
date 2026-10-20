@@ -83,10 +83,11 @@ Sizes vary by a few bytes between machines because the home view and the brief v
   instead of two raw calls: whatsapp-axi resolves the name with wasync's `?match=` and, when the name is
   ambiguous, prints the candidates instead of guessing. Orientation takes one call because the home view
   combines the version handshake with the chat list.
-- **Smaller output everywhere.** whatsapp-axi prints four columns per message table (`ref`, `time`,
-  `sender`, text), with additional columns available through `--fields` instead of 14 JSON keys per message, cuts message text at 200
-  characters with a hint to `message REF --full`, and leaves out per-change cursors (only `next_cursor`
-  matters). The home view shows the 5 most recent chats and the total instead of every chat.
+- **Smaller output everywhere.** The compact [list views](../README.md#usage) omit
+  JSON keys and unselected fields. The context-search task uses `hit`, `role`,
+  `ref` and `untrusted_text`; the chat-list task explicitly selects last activity.
+  Truncation and omission of per-change cursors also reduce output. The home view
+  shows the 5 most recent chats and aggregates instead of every chat.
 - **What the savings cost.** whatsapp-axi drops fields; `--json` on any command returns wasync's v1 data
   unchanged when an agent needs them. Truncation means a long message may need a second call. The
   `help:` hints cost a few dozen tokens per command and are counted above.

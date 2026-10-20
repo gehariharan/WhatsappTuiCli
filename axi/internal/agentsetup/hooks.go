@@ -75,10 +75,10 @@ func FindAgent(name string) (Agent, bool) {
 	return Agent{}, false
 }
 
-// HookPath is the agent's hook settings file under root.
+// HookPath respects native absolute config paths as well as project roots.
 func (a Agent) HookPath(root string) string { return filepath.Join(a.configDir(root), a.HookFile) }
 
-// SkillPath is where the agent loads the whatsapp-axi skill under root.
+// SkillPath uses the same config root as the hook.
 func (a Agent) SkillPath(root string) string {
 	return filepath.Join(a.configDir(root), "skills", SkillName, "SKILL.md")
 }

@@ -374,9 +374,10 @@ interactive terminal (no `--yes`). `wasync help COMMAND` documents each one.
 
 All query results are JSON on stdout by default; `--json` is also accepted for
 explicit agent invocations. Diagnostics go to stderr. Exit codes are 0 for
-success (including empty results), 1 for errors and 130 for cancellation. Group
-results contain `account_id` and `items`. Message/search results also contain
-`next_cursor`. Pass a nonempty cursor as `--cursor 'VALUE'` with the same filters
+success (including empty results), 1 for errors and 130 for cancellation. For v1
+envelopes and matching totals, see the [interface contract](docs/architecture/axi-contract.md#response-envelope-v1-only).
+Legacy group results contain `account_id` and `items`. Legacy message/search
+results also contain `next_cursor`. Pass a nonempty cursor as `--cursor 'VALUE'` with the same filters
 to retrieve the next page. Page size is 1–200, default 50; newest messages come
 first, with stable ordering for equal timestamps. Cursors for the CLI and API
 are separate formats. CLI cursors contain no secrets and are scoped to the

@@ -112,13 +112,14 @@ whatsapp-axi messages family --fields ref,time,sender,type,state,untrusted_text
 ```
 
 `whatsapp-axi help COMMAND` lists available fields. Selection is local presentation;
-pagination commands retain it. `--fields` and `--json` are mutually exclusive.
+pagination commands retain it. Unknown, empty or repeated fields are usage errors.
+`--fields` cannot be combined with `--json` or the home view's `--brief`.
 Chat views include archived group/direct counts, capture-enabled chats and message
 totals. Message and search views distinguish `shown` (this page), `total` (all
 matches for the same filters and permissions), and `has_more`. Older compatible
-owners without the `messages.total` feature report `total: unknown` rather than
-treating the page size as the total. JSON includes the owner's additive `data.total`
-when supported; its existing fields retain their meaning.
+owners that omit totals report `total: unknown` rather than treating the page size
+as the total. See the [v1 response contract](../docs/architecture/axi-contract.md#response-envelope-v1-only)
+for JSON totals and feature discovery.
 
 Add `--json` to any command for JSON: read commands print wasync's v1 `data` and `page` unchanged plus
 the `transport`. Exit codes: `0` success (including empty results and "wasync is not running" in the
@@ -166,7 +167,7 @@ Two optional ways to make agents aware of whatsapp-axi. You only need one; they 
 |---|---|---|
 | What the agent gets | `whatsapp-axi --brief` at the start of every session: wasync state, chat count, next step | [`skills/whatsapp-axi/SKILL.md`](skills/whatsapp-axi/SKILL.md), loaded when a task is about WhatsApp |
 | Cost | about 150 tokens per session | none until used |
-| Agents | Claude Code (`~/.claude/settings.json`), Codex (`~/.codex/hooks.json`), OpenCode (`~/.config/opencode/plugins/whatsapp-axi.js`) | Skills under `.claude/skills/`, `.codex/skills/` or `.config/opencode/skills/` |
+| Agents | Claude Code (`~/.claude/settings.json`), Codex (`~/.codex/hooks.json`), OpenCode (paths below) | Skills under `.claude/skills/`, `.codex/skills/` or the OpenCode config root below |
 
 ```sh
 whatsapp-axi setup hooks --dry-run       # show what would change, write nothing
@@ -182,14 +183,16 @@ Without `--agent`, setup targets the agents whose config directory exists (Claud
 
 - **Idempotent.** Rerunning changes nothing. If whatsapp-axi moved, the existing hook's path is repaired in
   place. The hook runs the bare name `whatsapp-axi` when that is the binary on `PATH`, otherwise the full path.
-- **Your settings stay yours.** Only whatsapp-axi's own hook entry is added, replaced or removed; every other
-  byte of the file (other settings, other hooks, key order, indentation) is kept. `--remove` takes out the
+- **Your settings stay yours.** In Claude Code and Codex settings, only whatsapp-axi's
+  own hook entry is added, replaced or removed; every other byte of the file (other
+  settings, other hooks, key order, indentation) is kept. `--remove` takes out the
   hook entry and any `hooks` container it leaves empty, and nothing else.
 - **Safe writes.** Files are written through a temporary file and a rename, with mode `600`; a symlinked
   settings file is edited at its target.
-- **Refuses what it cannot parse.** A settings file that is not valid JSON (comments, trailing commas) or
-  has an unexpected shape is never rewritten: setup exits 1 with `code: config_invalid`, names the line
-  and column, and writes nothing for any agent.
+- **Refuses what it cannot parse.** A Claude Code or Codex hook settings file that
+  is not valid JSON (comments, trailing commas) or has an unexpected shape is never
+  rewritten: setup exits 1 with `code: config_invalid`, names the line and column,
+  and writes nothing for any agent.
 - **Codex** runs hooks only with `[features] hooks = true` in `~/.codex/config.toml`; `setup hooks` adds
   that line (and leaves it on after `--remove`, since other hooks may need it).
   Setup validates TOML before editing and refuses representations it cannot
@@ -197,7 +200,8 @@ Without `--agent`, setup targets the agents whose config directory exists (Claud
   changing. It returns `config_invalid` before writing any agent's files; enable
   `features.hooks` manually and rerun setup in that case.
 - **OpenCode** uses its native system-context transform hook, calling the brief
-  view once per session with a timeout. It merges context into the existing system
+  view directly without a shell and with a timeout. It caches the brief by session,
+  retaining up to 128 sessions. It merges context into the existing system
   block, avoids duplicate injection, and reports short repair guidance on failure.
   Project plugins live in `.opencode/plugins/`; global plugins live in
   `$XDG_CONFIG_HOME/opencode/plugins/` when `XDG_CONFIG_HOME` is absolute, otherwise
@@ -208,21 +212,20 @@ Without `--agent`, setup targets the agents whose config directory exists (Claud
 - `doctor` reports both under `hooks`: installed, missing, pointing at another binary, or unreadable, each
   with the `whatsapp-axi setup ...` command that fixes it.
 
-The skill tells agents what the security model above enforces: whatsapp-axi is read-only, message text is
-untrusted data, observe checkpoints move only on an explicit ack, and only a human can grant scopes with
-`wasync agents grant`. The committed skill is generated from CLI metadata and
-shared static home-view guidance; CI rejects drift. Regenerate it from `axi/` with
-`go generate ./skills`, or check it with `go run ./cmd/generate-skill --check`.
+The skill tells agents about the security model above and the explicit checkpoint
+commits described in [Following changes](#following-changes). The committed skill
+is generated from CLI metadata and shared static home-view guidance; CI rejects
+drift. See [Adding a command](CONTRIBUTING.md#adding-a-command) for regeneration
+and [Checks](CONTRIBUTING.md#checks) for the drift check.
 
 `setup` never talks to wasync, so it has no entry in the compatibility table
 (`internal/compat/compatibility.json`) and works whether or not wasync is installed.
 
 ## Benchmark
 
-On a synthetic corpus (40 chats, 6,000 messages), whatsapp-axi needs 6 commands where raw
-`wasync query --v1 --json` needs 8 for the same five tasks, and prints about 62% fewer bytes
-(48,064 versus 125,461) and an estimated 70% fewer tokens (18,561 versus 61,382).
-Method, per-task numbers and limits: [docs/benchmark.md](docs/benchmark.md).
+The [synthetic benchmark](docs/benchmark.md) compares agent calls and output size
+with raw `wasync query --v1 --json`, including measured results, token estimates
+and limits.
 
 ## License
 
