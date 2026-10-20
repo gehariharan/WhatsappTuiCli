@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 )
 
 //go:embed compatibility.json
@@ -76,6 +77,7 @@ func Default() *Matrix {
 	if err != nil {
 		panic(err)
 	}
+	m.UpgradeHelp = installhint.UpgradeCore()
 	return m
 }
 

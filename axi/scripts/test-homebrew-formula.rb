@@ -1,6 +1,12 @@
 require "pathname"
 require "time"
 
+module OS
+  def self.linux?
+    Formula.platform == :linux
+  end
+end
+
 class Formula
   class << self
     attr_accessor :platform
@@ -95,6 +101,11 @@ work, version, checksum, commit = ARGV
     raise "wrong #{platform} dependencies: #{klass.dependencies.inspect}" unless klass.dependencies == expected_deps
     formula = klass.new
     formula.install
+    if binary == "whatsapp-axi"
+      caveat = formula.caveats
+      raise "Linux caveat recommends a Mac cask" if platform == :linux && caveat.include?("--cask")
+      raise "Mac caveat omitted signed cask" if platform == :macos && !caveat.include?("brew install --cask gehariharan/tap/wasync")
+    end
     prefix = "github.com/gehariharan/wasync/#{binary == 'whatsapp-axi' ? 'axi/' : ''}internal/buildinfo"
     flags = ["-s", "-w", "-X", "#{prefix}.Version=#{version}"]
     flags += ["-X", "#{prefix}.Commit=#{revision}"] if revision

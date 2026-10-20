@@ -15,6 +15,7 @@ import (
 	"github.com/gehariharan/wasync/axi/internal/buildinfo"
 	"github.com/gehariharan/wasync/axi/internal/compat"
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/internal/output"
 	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
@@ -170,7 +171,7 @@ func TestHomeWithoutWasync(t *testing.T) {
 		"state: not_installed",
 		"transport: none",
 		"(owner_offline)",
-		"brew install --cask gehariharan/tap/wasync",
+		installhint.InstallCore(),
 		"WASYNC_BIN=<path to wasync>",
 	)
 	if strings.Contains(out, "error:") {
@@ -266,8 +267,8 @@ func TestIncompatibleWasync(t *testing.T) {
 	h.env["WASYNC_BIN"] = bin
 	out, _ = h.run(t)
 	mustContain(t, out, "state: unavailable", "status: wasync_too_old")
-	mustContain(t, out, "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync")
-	if strings.Count(out, "brew upgrade --cask gehariharan/tap/wasync") != 1 {
+	mustContain(t, out, installhint.UpgradeCore())
+	if strings.Count(out, installhint.UpgradeCore()) != 1 {
 		t.Fatalf("upgrade hint missing or repeated:\n%s", out)
 	}
 }
@@ -280,7 +281,7 @@ func TestOldMinorFailsCompat(t *testing.T) {
 	h := newHarness(t)
 	h.env["WASYNC_API_ADDR"] = srv.Addr()
 	out, _ := h.run(t, "version")
-	mustContain(t, out, "status: wasync_too_old", "brew upgrade --cask gehariharan/tap/wasync")
+	mustContain(t, out, "status: wasync_too_old", installhint.UpgradeCore())
 }
 
 func TestWasyncStringsAreSanitized(t *testing.T) {

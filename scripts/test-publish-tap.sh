@@ -23,6 +23,7 @@ unset HOMEBREW_TAP_SSH_KEY || true
 seed="$work/seed"
 git init -q "$seed"
 mkdir -p "$seed/Casks" "$seed/Formula" "$seed/lib"
+printf '# Source helper newer than the release checkout\n' > "$seed/lib/wasync_github_release_download_strategy.rb"
 printf 'cask "wasync" do\n  version "0.1.0-preview.20261018060349"\nend\n' > "$seed/Casks/wasync.rb"
 printf 'cask "whatsapp-axi" do\n  version "0.1.0"\nend\n' > "$seed/Casks/whatsapp-axi.rb"
 printf 'class Example < Formula\nend\n' > "$seed/Formula/example.rb"
@@ -55,6 +56,7 @@ if [[ "\${1:-}" == push && ! -e "$work/raced" ]]; then
   other="$work/other-publisher"
   "$real_git" clone -q "$tap" "\$other"
   printf 'cask "whatsapp-axi" do\n  version "0.2.0"\nend\n' > "\$other/Casks/whatsapp-axi.rb"
+  printf '# Canonical helper changed on main\n' > "\$other/lib/wasync_github_release_download_strategy.rb"
   "$real_git" -C "\$other" commit -q -am 'Update whatsapp-axi 0.2.0'
   "$real_git" -C "\$other" push -q origin HEAD:main
 fi
@@ -75,9 +77,8 @@ pass "Casks/wasync.rb updated to $v1"
 diff <(tap_file Formula/wasync.rb) "$assets1/wasync-formula.rb" >/dev/null || fail "core formula not updated"
 diff <(tap_file Formula/whatsapp-axi.rb) "$assets1/whatsapp-axi.rb" >/dev/null || fail "AXI formula not updated"
 pass "both source formulas published with the cask"
-diff <(tap_file lib/wasync_github_release_download_strategy.rb) \
-  "$project_dir/lib/wasync_github_release_download_strategy.rb" >/dev/null || fail "lib helper not copied"
-pass "download strategy helper copied"
+[[ "$(tap_file lib/wasync_github_release_download_strategy.rb)" == "# Canonical helper changed on main" ]] || fail "publisher overwrote a concurrent source change"
+pass "canonical download helper source preserved across a racing release"
 [[ "$(tap_file Casks/whatsapp-axi.rb)" == *'version "0.2.0"'* ]] || fail "concurrent whatsapp-axi update lost"
 pass "Casks/whatsapp-axi.rb kept the other publisher's version"
 [[ "$(tap_file Formula/example.rb)" == *"class Example"* ]] || fail "Formula changed"

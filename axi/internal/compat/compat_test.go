@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 )
 
 func v(major, minor int, features ...string) contract.VersionInfo {
@@ -42,7 +43,7 @@ func TestCheckAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := m.CheckAPI(v(0, 9))
-	if code(err) != contract.CodeWasyncTooOld || !strings.Contains(err.(*contract.Error).Help, "brew upgrade --cask gehariharan/tap/wasync") {
+	if code(err) != contract.CodeWasyncTooOld || !strings.Contains(err.(*contract.Error).Help, installhint.UpgradeCore()) {
 		t.Fatalf("old api: %v", err)
 	}
 	if code(m.CheckAPI(v(2, 0))) != contract.CodeAXITooOld {
@@ -55,7 +56,7 @@ func TestCheckAPI(t *testing.T) {
 }
 
 func TestCheckFeatures(t *testing.T) {
-	m, err := Parse([]byte(`{"format":1,"min_api":"1.0","upgrade_help":"brew upgrade --cask gehariharan/tap/wasync",
+	m, err := Parse([]byte(`{"format":1,"min_api":"1.0","upgrade_help":"upgrade fixture wasync",
 		"commands":{"observe":{"features":["changes","checkpoints"]}}}`))
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +66,7 @@ func TestCheckFeatures(t *testing.T) {
 	}
 	err = m.Check("observe", v(1, 0, "changes"))
 	ce, _ := err.(*contract.Error)
-	if ce == nil || ce.Code != contract.CodeWasyncTooOld || !strings.Contains(ce.Message, "checkpoints") || !strings.Contains(ce.Help, "brew upgrade --cask gehariharan/tap/wasync") {
+	if ce == nil || ce.Code != contract.CodeWasyncTooOld || !strings.Contains(ce.Message, "checkpoints") || !strings.Contains(ce.Help, "upgrade fixture wasync") {
 		t.Fatalf("missing feature: %v", err)
 	}
 	if code(m.Check("nope", v(1, 0))) != contract.CodeInternal {

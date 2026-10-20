@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
@@ -580,7 +581,7 @@ func TestObserveNeedsFeaturesAndCredential(t *testing.T) {
 	if code != ExitError {
 		t.Fatal(out)
 	}
-	mustContain(t, out, "code: wasync_too_old", "changes,checkpoints", "brew upgrade --cask gehariharan/tap/wasync")
+	mustContain(t, out, "code: wasync_too_old", "changes,checkpoints", installhint.UpgradeCore())
 
 	h2, srv2 := obsOnline(t, testutil.NewJournal(1))
 	delete(h2.env, "WHATSAPP_AXI_TOKEN")

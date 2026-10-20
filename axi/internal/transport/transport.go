@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 )
 
 // Transport is one way of reading wasync.
@@ -49,7 +50,7 @@ func decodeEnvelope(body []byte, transportName string, out any) error {
 	var env contract.Envelope
 	dec := json.NewDecoder(bytes.NewReader(body))
 	if err := dec.Decode(&env); err != nil {
-		return &contract.Error{Code: contract.CodeInvalidResponse, Message: "wasync returned a response that is not a v1 envelope", Help: "check that wasync is up to date: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync", Transport: transportName}
+		return &contract.Error{Code: contract.CodeInvalidResponse, Message: "wasync returned a response that is not a v1 envelope", Help: "check that wasync is up to date: " + installhint.UpgradeCore(), Transport: transportName}
 	}
 	if env.IsError() {
 		e := env.Err()

@@ -316,6 +316,23 @@ func TestDoctorMissingScopes(t *testing.T) {
 	}
 }
 
+func TestDoctorMissingScopesWithOlderCoreRepair(t *testing.T) {
+	for _, status := range []string{"pass", "warn"} {
+		diag := testutil.FakeDiagnostics("api")
+		diag.Agent = &testutil.DiagnosticsAgent{Name: "reader", Scopes: []string{"read.chats", "read.messages"}}
+		diag.SetCheck("agent", status, "older core does not check observe", "")
+		h, _ := onlineHarness(t, diag)
+		r, out, code := runDoctorJSON(t, h)
+		if code != ExitOK {
+			t.Fatalf("exit %d: %s", code, out)
+		}
+		check := r.check(t, "scopes", sourceAXI)
+		if check.Status != statusWarn || check.Fix != upgradeWasyncFix {
+			t.Fatalf("older core left scope warning without an upgrade: %+v", check)
+		}
+	}
+}
+
 func TestDoctorBadFilePermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX permission bits")

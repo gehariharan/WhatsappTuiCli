@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gehariharan/wasync/axi/internal/agentsetup"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/skills"
 )
 
@@ -356,7 +357,7 @@ func TestBriefHomeView(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("exit %d", code)
 	}
-	mustContain(t, out, "wasync: not_installed", "brew install --cask gehariharan/tap/wasync")
+	mustContain(t, out, "wasync: not_installed", installhint.InstallCore())
 }
 
 func TestSetupCodexInvalidConfigWritesNothing(t *testing.T) {

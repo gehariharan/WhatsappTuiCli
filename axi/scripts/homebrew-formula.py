@@ -50,6 +50,9 @@ class WhatsappAxi < Formula
   end
 
   def caveats
+    if OS.linux?
+      return "wasync is installed as a dependency. Run wasync to pair and capture WhatsApp."
+    end
     <<~EOS
       whatsapp-axi reads WhatsApp data only through wasync; install it with:
         brew install --cask gehariharan/tap/wasync

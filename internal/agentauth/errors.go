@@ -38,6 +38,9 @@ func unauthorized(message string) *Error {
 // regrantCommand returns the exact commands to replace client c with one
 // that also has extraScope and extraChat (either may be empty).
 func regrantCommand(c *Client, extraScope, extraChat string, rate int) string {
+	if c.ExpiresAt != nil {
+		return fmt.Sprintf("Ask a human to review wasync agents list and explicitly choose an expiry when replacing expiring agent %s (current expiry %s); retain its chat allowlist and rate limit. Do not create a permanent replacement.", c.Name, c.ExpiresAt.UTC().Format(time.RFC3339))
+	}
 	set := map[string]bool{}
 	for _, s := range c.Scopes {
 		set[s] = true

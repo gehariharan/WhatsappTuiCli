@@ -43,12 +43,13 @@ tap_has_newer() {
 # Writes wasync-owned files into the working tree and stages them. Returns 0
 # when a commit was created, 1 when there is nothing to change.
 apply_and_commit() {
-  mkdir -p Casks Formula lib
+  mkdir -p Casks Formula
   cp "$asset_directory/wasync.rb" Casks/wasync.rb
   cp "$asset_directory/wasync-formula.rb" Formula/wasync.rb
   cp "$asset_directory/whatsapp-axi.rb" Formula/whatsapp-axi.rb
-  cp "$project_dir/lib/wasync_github_release_download_strategy.rb" lib/
-  local paths=(Casks/wasync.rb Formula/wasync.rb Formula/whatsapp-axi.rb lib/wasync_github_release_download_strategy.rb)
+  # lib/ is canonical source on main. An older release checkout must not
+  # overwrite a helper fix merged while its signing job was in flight.
+  local paths=(Casks/wasync.rb Formula/wasync.rb Formula/whatsapp-axi.rb)
   if [[ ! -e README.md ]]; then
     cp "$project_dir/packaging/homebrew/README.md" README.md
     paths+=(README.md)

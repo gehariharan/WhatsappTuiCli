@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/internal/output"
 	"github.com/gehariharan/wasync/axi/internal/transport"
 )
@@ -221,7 +222,7 @@ type observeWriter interface {
 }
 
 func observeBadResponse(tr transport.Transport, msg string) error {
-	return &contract.Error{Code: contract.CodeInvalidResponse, Message: msg, Help: "check that wasync is up to date: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync", Transport: tr.Name()}
+	return &contract.Error{Code: contract.CodeInvalidResponse, Message: msg, Help: "check that wasync is up to date: " + installhint.UpgradeCore(), Transport: tr.Name()}
 }
 
 func observeFetch(ctx context.Context, tr transport.Transport, after string, limit int) (observePage, error) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/internal/testutil"
 )
 
@@ -212,7 +213,7 @@ func TestReadWithoutWasync(t *testing.T) {
 	h := newHarness(t)
 	for _, args := range [][]string{{"chats"}, {"messages", "x"}, {"search", "x"}, {"thread", refAnchor}, {"message", refAnchor, "--json"}} {
 		out, code := h.run(t, args...)
-		if code != ExitError || !strings.Contains(out, "wasync_not_found") || !strings.Contains(out, "brew install --cask gehariharan/tap/wasync") {
+		if code != ExitError || !strings.Contains(out, "wasync_not_found") || !strings.Contains(out, installhint.InstallCore()) {
 			t.Errorf("%v: exit %d\n%s", args, code, out)
 		}
 	}
@@ -227,7 +228,7 @@ func TestReadNeedsFeatures(t *testing.T) {
 	if code != ExitError {
 		t.Fatalf("exit %d\n%s", code, out)
 	}
-	mustContain(t, out, "code: wasync_too_old", "chats.match", "brew upgrade --cask gehariharan/tap/wasync")
+	mustContain(t, out, "code: wasync_too_old", "chats.match", installhint.UpgradeCore())
 	if len(srv.Requests) != 1 {
 		t.Fatalf("read attempted: %v", srv.Requests)
 	}

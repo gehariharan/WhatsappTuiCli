@@ -10,6 +10,7 @@ import (
 	"github.com/gehariharan/wasync/axi/internal/buildinfo"
 	"github.com/gehariharan/wasync/axi/internal/config"
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/internal/output"
 	"github.com/gehariharan/wasync/axi/internal/transport"
 )
@@ -201,7 +202,7 @@ func (a *App) hints(d detection) []string {
 	var h []string
 	switch d.state {
 	case StateNotInstalled:
-		h = append(h, "Install wasync: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew install --cask gehariharan/tap/wasync",
+		h = append(h, "Install wasync: "+installhint.InstallCore(),
 			"If wasync is installed elsewhere, set "+config.EnvBin+"=<path to wasync>")
 	case StateUnavailable:
 		var ce *contract.Error

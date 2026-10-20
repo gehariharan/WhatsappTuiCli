@@ -16,6 +16,7 @@ import (
 	"github.com/gehariharan/wasync/axi/internal/buildinfo"
 	"github.com/gehariharan/wasync/axi/internal/config"
 	"github.com/gehariharan/wasync/axi/internal/contract"
+	"github.com/gehariharan/wasync/axi/internal/installhint"
 	"github.com/gehariharan/wasync/axi/internal/output"
 	"github.com/gehariharan/wasync/axi/internal/transport"
 )
@@ -86,11 +87,12 @@ var scopeUses = []struct{ scope, use string }{
 // defaultAgentName is suggested when no agent is known yet.
 const defaultAgentName = "whatsapp-axi"
 
-const (
-	upgradeWasyncFix = "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync"
-	installWasyncFix = "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew install --cask gehariharan/tap/wasync"
-	upgradeAXIFix    = "go install github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest"
+var (
+	upgradeWasyncFix = installhint.UpgradeCore()
+	installWasyncFix = installhint.InstallCore()
 )
+
+const upgradeAXIFix = "go install github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest"
 
 type doctorCheck struct {
 	Area   string `json:"area"`
@@ -491,6 +493,9 @@ func (a *App) permissionChecks(d detection, f facts) []doctorCheck {
 					scopes.Fix = check.Fix
 					break
 				}
+			}
+			if strings.TrimSpace(scopes.Fix) == "" {
+				scopes.Fix = upgradeWasyncFix
 			}
 		}
 		if len(agent.Chats) > 0 {
