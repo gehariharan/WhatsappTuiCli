@@ -31,7 +31,7 @@ release workflow produces these downloads:
 
 The release workflow builds native Intel/Apple Silicon macOS packages and
 Linux and Windows packages. Manual builds can remain drafts; publishing also updates the
-Homebrew tap and runs installation checks on both Mac architectures. Downloadable
+Homebrew tap and runs the [installation checks](docs/releasing.md#validation). Downloadable
 versions appear on the
 [GitHub Releases page](https://github.com/gehariharan/wasync/releases).
 Source code and prebuilt downloads are public. No GitHub account is needed to install.
@@ -92,8 +92,7 @@ brew install gehariharan/tap/whatsapp-axi
 On macOS, install the signed core cask below, then install the optional agent
 CLI with `brew install gehariharan/tap/whatsapp-axi`. The combined release's core
 source formula is Linux-only. The source formulas use Homebrew's Go and allow
-Go to download the project-selected toolchain when Homebrew's compiler is older
-than the project's required patch version.
+Go to download the project-selected toolchain when needed.
 
 Each release generates `wasync.rb`, a Homebrew **cask** that installs the
 prebuilt native macOS executable and verifies its archive checksum. It performs
