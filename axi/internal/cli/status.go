@@ -278,6 +278,14 @@ type homeChatsJSON struct {
 }
 
 func (a *App) runHome(ctx context.Context, inv invocation) error {
+	cols, err := selectColumns(inv, chatFields, defaultChatFields)
+	if err != nil {
+		return err
+	}
+	if inv.has("--brief") && inv.has("--fields") {
+		return usageErr("use --fields with the full home view", "--brief cannot be combined with --fields")
+	}
+
 	d := a.detect(ctx, "home")
 	chats, chatsErr := a.homeChats(ctx, d)
 	if inv.has("--brief") {
@@ -290,6 +298,9 @@ func (a *App) runHome(ctx context.Context, inv invocation) error {
 		if len(chats.Items) == 0 {
 			first = append(first, "The archive has no chats yet; ask the user to pair wasync and enable capture for some chats")
 		} else {
+			if len(chats.Items) > len(recentChatList) {
+				first = append(first, allChatsHint(len(chats.Items)))
+			}
 			first = append(first, "Run `whatsapp-axi messages <id>` to read a chat, `whatsapp-axi search <text>` to search all chats")
 		}
 	}
@@ -318,12 +329,12 @@ func (a *App) runHome(ctx context.Context, inv invocation) error {
 	a.writeWasync(o, d, false)
 	if chats != nil {
 		o.Object(0, "chats")
-		o.Value(1, "total", len(chats.Items))
+		chatAggregates(o, 1, chats.Items)
 		rows := make([][]string, 0, len(recentChatList))
 		for _, c := range recentChatList {
 			rows = append(rows, chatRow(c))
 		}
-		o.TableCells(1, "recent", chatFields, rows)
+		cols.table(o, 1, "recent", rows)
 	}
 	if chatsErr != nil {
 		e := output.ToErrorJSON(chatsErr)

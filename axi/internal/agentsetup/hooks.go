@@ -38,6 +38,20 @@ type Agent struct {
 var Agents = []Agent{
 	{Name: "claude", Label: "Claude Code", Dir: ".claude", HookFile: "settings.json"},
 	{Name: "codex", Label: "Codex", Dir: ".codex", HookFile: "hooks.json"},
+	{Name: "opencode", Label: "OpenCode", Dir: ".config/opencode", HookFile: "plugins/whatsapp-axi.js"},
+}
+
+// AgentsAt distinguishes OpenCode's global config from project-local config.
+func AgentsAt(project bool) []Agent {
+	agents := append([]Agent(nil), Agents...)
+	if project {
+		for i := range agents {
+			if agents[i].Name == "opencode" {
+				agents[i].Dir = ".opencode"
+			}
+		}
+	}
+	return agents
 }
 
 // AgentNames returns the agent flag values.

@@ -88,7 +88,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 		want []string
 	}{
 		{[]string{"version", "--bogus"}, []string{"error: unknown flag --bogus for `version`", "help: valid flags for `version`: --json (--help always allowed)"}},
-		{[]string{"--limit=5"}, []string{"error: unknown flag --limit for `whatsapp-axi`", "valid flags for `whatsapp-axi`: --brief, --json"}},
+		{[]string{"--limit=5"}, []string{"error: unknown flag --limit for `whatsapp-axi`", "valid flags for `whatsapp-axi`: --brief, --fields, --json"}},
 		{[]string{"help", "-x"}, []string{"unknown flag -x for `help`"}},
 		{[]string{"chat"}, []string{`error: unknown command "chat"`, "valid commands: chats, messages, search, thread, message, version, doctor, help"}},
 		{[]string{"messages"}, []string{"`messages` needs CHAT", "usage: whatsapp-axi messages CHAT"}},
@@ -98,7 +98,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 		{[]string{"search", "x", "--context=-1"}, []string{`--context must be a whole number`}},
 		{[]string{"thread", "12345"}, []string{`"12345" is not a message ref`, "m1_"}},
 		{[]string{"message", "m1_abc", "--full=yes"}, []string{"--full takes no value"}},
-		{[]string{"chats", "--cursor", "x"}, []string{"unknown flag --cursor for `chats`", "--json, --limit, --match"}},
+		{[]string{"chats", "--cursor", "x"}, []string{"unknown flag --cursor for `chats`", "--fields, --json, --limit, --match"}},
 		{[]string{"version", "extra"}, []string{`unexpected argument "extra" for ` + "`version`"}},
 		{[]string{"help", "a", "b"}, []string{`unexpected argument "b"`}},
 		{[]string{"help", "nope"}, []string{`unknown command "nope"`}},

@@ -31,6 +31,7 @@ have the shape of wasync's v1 data, including the fields whatsapp-axi does not p
 paths: whatsapp-axi runs in process with no API listening, so it selects the offline `wasync query`
 transport and spawns the fake exactly as it would spawn wasync; the raw side spawns the fake with the
 argument list `transport.QueryArgs` builds (`wasync query <cmd> ... --v1 --json`) and keeps its stdout.
+The fake includes current owner-provided totals for both message and search pages.
 Raw output is compact JSON on one line, which is the cheapest possible form of it; pretty-printed JSON
 would make the raw numbers larger.
 
@@ -64,12 +65,12 @@ Linux amd64, Go 1.27.2, full corpus (40 chats x 150 messages):
 
 | Task | Agent calls (axi / raw) | wasync calls by axi | Bytes (axi / raw) | Bytes saved | ~Tokens (axi / raw) | Tokens saved |
 |---|---|---|---|---|---|---|
-| orient | 1 / 2 | 2 | 1436 / 12218 | 88% | 557 / 6309 | 91% |
-| list_chats | 1 / 1 | 2 | 3563 / 11921 | 70% | 1728 / 6149 | 72% |
-| read_chat | 1 / 2 | 3 | 5032 / 11640 | 57% | 1880 / 5507 | 66% |
-| search_context | 1 / 1 | 2 | 22675 / 48187 | 53% | 8886 / 23122 | 62% |
-| follow_changes | 2 / 2 | 5 | 22724 / 41458 | 45% | 9561 / 20273 | 53% |
-| **total** | 6 / 8 | | 55430 / 125424 | 56% | 22612 / 61360 | 63% |
+| orient | 1 / 2 | 2 | 1417 / 12218 | 88% | 504 / 6309 | 92% |
+| list_chats | 1 / 1 | 2 | 2488 / 11921 | 79% | 1022 / 6149 | 83% |
+| read_chat | 1 / 2 | 3 | 4897 / 11652 | 58% | 1788 / 5514 | 68% |
+| search_context | 1 / 1 | 2 | 16344 / 48200 | 66% | 5399 / 23130 | 77% |
+| follow_changes | 2 / 2 | 5 | 22589 / 41470 | 46% | 9469 / 20280 | 53% |
+| **total** | 6 / 8 | | 47735 / 125461 | 62% | 18182 / 61382 | 70% |
 
 Session hook (`whatsapp-axi --brief`, offline, no credential): 466 bytes, about 149 tokens per session.
 
@@ -82,8 +83,8 @@ Sizes vary by a few bytes between machines because the home view and the brief v
   instead of two raw calls: whatsapp-axi resolves the name with wasync's `?match=` and, when the name is
   ambiguous, prints the candidates instead of guessing. Orientation takes one call because the home view
   combines the version handshake with the chat list.
-- **Smaller output everywhere.** whatsapp-axi prints a few columns per item as a table (`ref`, `time`,
-  `sender`, `type`, `state`, text) instead of 14 JSON keys per message, cuts message text at 200
+- **Smaller output everywhere.** whatsapp-axi prints four columns per message table (`ref`, `time`,
+  `sender`, text), with additional columns available through `--fields` instead of 14 JSON keys per message, cuts message text at 200
   characters with a hint to `message REF --full`, and leaves out per-change cursors (only `next_cursor`
   matters). The home view shows the 5 most recent chats and the total instead of every chat.
 - **What the savings cost.** whatsapp-axi drops fields; `--json` on any command returns wasync's v1 data

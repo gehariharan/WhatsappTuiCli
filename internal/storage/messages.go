@@ -171,12 +171,10 @@ func (s *Store) apply(ctx context.Context, account, batch int64, messages []Mess
 	}
 	return result, nil
 }
-func (s *Store) Messages(ctx context.Context, account int64, group string, q MessageQuery) (MessagePage, error) {
-	limit := q.Limit
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	query := `SELECT id,group_id,message_id,sender_id,sender_alt,timestamp,message_type,text_content,is_from_me,reply_to_message_id,media_metadata,source,edited_at,deleted_at,expires_at,received_at FROM archived_messages WHERE account_id=?`
+
+// messageFilter is shared by reads and totals; pagination is applied only to reads.
+func messageFilter(account int64, group string, q MessageQuery) (string, []any) {
+	query := ` FROM archived_messages WHERE account_id=?`
 	args := []any{account}
 	if group != "" {
 		query += " AND group_id=?"
@@ -206,6 +204,32 @@ func (s *Store) Messages(ctx context.Context, account int64, group string, q Mes
 		query += " AND id IN(SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)"
 		args = append(args, `"`+strings.ReplaceAll(q.Search, `"`, `""`)+`"`)
 	}
+	return query, args
+}
+
+// CountMessages counts the full filtered result, independent of cursor and limit.
+// A nonempty allowlist restricts the count before it leaves the archive owner.
+func (s *Store) CountMessages(ctx context.Context, account int64, group string, q MessageQuery, allowedChats []string) (int64, error) {
+	q.Before = Cursor{}
+	filter, args := messageFilter(account, group, q)
+	if len(allowedChats) > 0 {
+		filter += " AND group_id IN (" + strings.TrimSuffix(strings.Repeat("?,", len(allowedChats)), ",") + ")"
+		for _, chat := range allowedChats {
+			args = append(args, chat)
+		}
+	}
+	var total int64
+	err := s.db.QueryRowContext(ctx, "SELECT count(*)"+filter, args...).Scan(&total)
+	return total, err
+}
+
+func (s *Store) Messages(ctx context.Context, account int64, group string, q MessageQuery) (MessagePage, error) {
+	limit := q.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	filter, args := messageFilter(account, group, q)
+	query := "SELECT id,group_id,message_id,sender_id,sender_alt,timestamp,message_type,text_content,is_from_me,reply_to_message_id,media_metadata,source,edited_at,deleted_at,expires_at,received_at" + filter
 	query += " ORDER BY timestamp DESC,id DESC LIMIT ?"
 	args = append(args, limit+1)
 	rows, err := s.db.QueryContext(ctx, query, args...)

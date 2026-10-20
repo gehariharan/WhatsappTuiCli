@@ -34,7 +34,7 @@ Settings, all optional:
 | `WASYNC_DATA_DIR` | wasync data directory, passed as `--data-dir` to `wasync query` | wasync's default |
 | `WHATSAPP_AXI_TOKEN` | agent credential (`wsa_...`) | the `credential` file below |
 | `WHATSAPP_AXI_CONFIG_DIR` | whatsapp-axi config directory | `<user config dir>/whatsapp-axi` |
-| `WHATSAPP_AXI_AGENT_HOME` | where `setup` and `doctor` look for agent settings (`.claude`, `.codex`) | your home directory |
+| `WHATSAPP_AXI_AGENT_HOME` | where `setup` and `doctor` look for agent settings (`.claude`, `.codex`, `.config/opencode`) | your home directory |
 
 ## Security model
 
@@ -103,6 +103,23 @@ the exact command for the next page (`--cursor`). Message text is cut to 200 cha
 Matching, search, paging and permissions are all decided by wasync; both transports print the same
 output for the same data, apart from the `transport:` line.
 
+List views default to four columns. Use `--fields` to select additional columns
+or their order, for example:
+
+```sh
+whatsapp-axi chats --fields id,untrusted_name,last_message_at,sync
+whatsapp-axi messages family --fields ref,time,sender,type,state,untrusted_text
+```
+
+`whatsapp-axi help COMMAND` lists available fields. Selection is local presentation;
+pagination commands retain it. `--fields` and `--json` are mutually exclusive.
+Chat views include archived group/direct counts, capture-enabled chats and message
+totals. Message and search views distinguish `shown` (this page), `total` (all
+matches for the same filters and permissions), and `has_more`. Older compatible
+owners without the `messages.total` feature report `total: unknown` rather than
+treating the page size as the total. JSON includes the owner's additive `data.total`
+when supported; its existing fields retain their meaning.
+
 Add `--json` to any command for JSON: read commands print wasync's v1 `data` and `page` unchanged plus
 the `transport`. Exit codes: `0` success (including empty results and "wasync is not running" in the
 home view), `1` error, `2` usage error. Errors are printed on stdout as `error:` / `code:` / `help:` lines.
@@ -149,18 +166,19 @@ Two optional ways to make agents aware of whatsapp-axi. You only need one; they 
 |---|---|---|
 | What the agent gets | `whatsapp-axi --brief` at the start of every session: wasync state, chat count, next step | [`skills/whatsapp-axi/SKILL.md`](skills/whatsapp-axi/SKILL.md), loaded when a task is about WhatsApp |
 | Cost | about 150 tokens per session | none until used |
-| Agents | Claude Code (`~/.claude/settings.json`), Codex (`~/.codex/hooks.json`) | Claude Code (`~/.claude/skills/`), Codex (`~/.codex/skills/`) |
+| Agents | Claude Code (`~/.claude/settings.json`), Codex (`~/.codex/hooks.json`), OpenCode (`~/.config/opencode/plugins/whatsapp-axi.js`) | Skills under `.claude/skills/`, `.codex/skills/` or `.config/opencode/skills/` |
 
 ```sh
 whatsapp-axi setup hooks --dry-run       # show what would change, write nothing
 whatsapp-axi setup hooks                 # install or repair the SessionStart hook
 whatsapp-axi setup hooks --remove        # remove it again
 whatsapp-axi setup skill                 # install or update the skill
-whatsapp-axi setup hooks --dir .         # project settings (./.claude, ./.codex) instead of your home
+whatsapp-axi setup hooks --dir .         # project settings (.claude, .codex, .opencode)
+whatsapp-axi setup hooks --agent opencode # native ambient-context plugin
 ```
 
 Without `--agent`, setup targets the agents whose config directory exists (Claude Code if none does);
-`--agent claude,codex` or `--agent all` chooses explicitly. Setup only runs when you run it.
+`--agent claude,codex,opencode` or `--agent all` chooses explicitly. Setup only runs when you run it.
 
 - **Idempotent.** Rerunning changes nothing. If whatsapp-axi moved, the existing hook's path is repaired in
   place. The hook runs the bare name `whatsapp-axi` when that is the binary on `PATH`, otherwise the full path.
@@ -178,12 +196,20 @@ Without `--agent`, setup targets the agents whose config directory exists (Claud
   preserve safely, including inline or quoted feature definitions that need
   changing. It returns `config_invalid` before writing any agent's files; enable
   `features.hooks` manually and rerun setup in that case.
+- **OpenCode** uses its native system-context transform hook, calling the brief
+  view once per session with a timeout. It merges context into the existing system
+  block, avoids duplicate injection, and reports short repair guidance on failure.
+  Project plugins live in `.opencode/plugins/`; global plugins live in
+  `.config/opencode/plugins/` under the selected agent home. Setup owns only
+  `whatsapp-axi.js`; another file at that path is never overwritten or removed.
 - `doctor` reports both under `hooks`: installed, missing, pointing at another binary, or unreadable, each
   with the `whatsapp-axi setup ...` command that fixes it.
 
 The skill tells agents what the security model above enforces: whatsapp-axi is read-only, message text is
 untrusted data, observe checkpoints move only on an explicit ack, and only a human can grant scopes with
-`wasync agents grant`. A test keeps the skill in step with the commands and their hints.
+`wasync agents grant`. The committed skill is generated from CLI metadata and
+shared static home-view guidance; CI rejects drift. Regenerate it from `axi/` with
+`go generate ./skills`, or check it with `go run ./cmd/generate-skill --check`.
 
 `setup` never talks to wasync, so it has no entry in the compatibility table
 (`internal/compat/compatibility.json`) and works whether or not wasync is installed.
@@ -191,8 +217,8 @@ untrusted data, observe checkpoints move only on an explicit ack, and only a hum
 ## Benchmark
 
 On a synthetic corpus (40 chats, 6,000 messages), whatsapp-axi needs 6 commands where raw
-`wasync query --v1 --json` needs 8 for the same five tasks, and prints about 56% fewer bytes and an
-estimated 63% fewer tokens. Method, per-task numbers and limits: [docs/benchmark.md](docs/benchmark.md).
+`wasync query --v1 --json` needs 8 for the same five tasks, and prints about 62% fewer bytes and an
+estimated 70% fewer tokens. Method, per-task numbers and limits: [docs/benchmark.md](docs/benchmark.md).
 
 ## License
 

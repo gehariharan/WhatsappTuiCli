@@ -242,7 +242,7 @@ func TestHomeShowsRecentChats(t *testing.T) {
 		if code != ExitOK {
 			t.Fatalf("%s: exit %d\n%s", name, code, out)
 		}
-		mustContain(t, out, "chats:\n  total: 4\n  recent[4]{id,kind,messages,last_message_at,sync,untrusted_name}:\n    team-a@g.us,",
+		mustContain(t, out, "chats:\n  total: 4\n  groups: 3\n  direct: 1\n  capture_enabled: 3\n  archived_messages: 7\n  recent[4]{id,kind,messages,untrusted_name}:\n    team-a@g.us,",
 			"Run `whatsapp-axi messages <id>` to read a chat")
 		// Newest first; a chat without messages sorts last.
 		if i, j := strings.Index(out, "    family@g.us,"), strings.Index(out, "    team-b@g.us,"); i < 0 || j < i {

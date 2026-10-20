@@ -52,12 +52,14 @@ type SearchHit struct {
 
 // MessageList is the data of chat message pages.
 type MessageList struct {
+	Total     *int64    `json:"total,omitempty"`
 	AccountID int64     `json:"account_id"`
 	Items     []Message `json:"items"`
 }
 
 // SearchList is the data of searches.
 type SearchList struct {
+	Total     *int64      `json:"total,omitempty"`
 	AccountID int64       `json:"account_id"`
 	Items     []SearchHit `json:"items"`
 }

@@ -1,9 +1,11 @@
 transport: api
 query: dinner
-hits: 2
+shown: 2
+total: unknown
+has_more: false
 order: newest first
-results[2]{chat,ref,time,sender,type,state,untrusted_text}:
-  family@g.us,m1_bWVAbGlkAGZhbWlseUBnLnVzAGYy,"2026-10-01T08:05:00Z",me,text,edited,"me, dinner at 8"
-  family@g.us,m1_bWVAbGlkAGZhbWlseUBnLnVzAGYx,"2026-10-01T08:00:00Z",alice@lid,text,"","Who is cooking dinner?"
+results[2]{chat,ref,time,untrusted_text}:
+  family@g.us,m1_bWVAbGlkAGZhbWlseUBnLnVzAGYy,"2026-10-01T08:05:00Z","me, dinner at 8"
+  family@g.us,m1_bWVAbGlkAGZhbWlseUBnLnVzAGYx,"2026-10-01T08:00:00Z","Who is cooking dinner?"
 help[1]:
   Run `whatsapp-axi thread <ref>` to read a message with its neighbours

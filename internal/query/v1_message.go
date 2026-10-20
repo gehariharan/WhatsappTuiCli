@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	for _, name := range []string{"chats", "chats.match", "messages", "search", "search.context", "message.ref", "thread"} {
+	for _, name := range []string{"chats", "chats.match", "messages", "search", "search.context", "message.ref", "thread", "messages.total"} {
 		RegisterFeature(name)
 	}
 }
@@ -48,8 +48,9 @@ type V1Thread struct {
 
 // V1MessageList is the data of message lists and searches.
 type V1MessageList struct {
-	AccountID int64 `json:"account_id"`
-	Items     any   `json:"items"`
+	AccountID int64  `json:"account_id"`
+	Items     any    `json:"items"`
+	Total     *int64 `json:"total,omitempty"`
 }
 
 func formatV1Messages(accountJID string, accountID int64, ms []storage.Message) []V1Message {
@@ -70,7 +71,7 @@ func V1Messages(ctx context.Context, s *storage.Store, account *storage.Account,
 		}
 	}
 	if around <= 0 {
-		return V1MessageList{account.ID, formatV1Messages(account.JID, account.ID, kept)}, nil
+		return V1MessageList{AccountID: account.ID, Items: formatV1Messages(account.JID, account.ID, kept)}, nil
 	}
 	hits := make([]V1SearchHit, 0, len(kept))
 	for _, m := range kept {
@@ -80,7 +81,7 @@ func V1Messages(ctx context.Context, s *storage.Store, account *storage.Account,
 		}
 		hits = append(hits, V1SearchHit{FormatV1Message(account.JID, account.ID, m), formatV1Messages(account.JID, account.ID, before), formatV1Messages(account.JID, account.ID, after)})
 	}
-	return V1MessageList{account.ID, hits}, nil
+	return V1MessageList{AccountID: account.ID, Items: hits}, nil
 }
 
 // ThreadFor builds the thread around anchor.

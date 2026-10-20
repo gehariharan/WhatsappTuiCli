@@ -107,9 +107,9 @@ func init() {
 	commands = []*command{
 		{
 			name:        "",
-			usage:       "whatsapp-axi [--brief] [--json]",
+			usage:       "whatsapp-axi [--brief] [--fields LIST] [--json]",
 			description: "Home view: this binary, the wasync transport in use, compatibility, recent chats and next steps",
-			flags:       []flagSpec{briefFlag, jsonFlag},
+			flags:       []flagSpec{briefFlag, listFieldsFlag(chatFields, defaultChatFields), jsonFlag},
 			examples:    []string{"whatsapp-axi", "whatsapp-axi --brief", "whatsapp-axi --json"},
 			run:         (*App).runHome,
 		},

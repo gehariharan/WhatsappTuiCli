@@ -37,12 +37,12 @@ var (
 
 var chatsCommand = &command{
 	name:        "chats",
-	usage:       "whatsapp-axi chats [--match TEXT] [--limit N] [--json]",
+	usage:       "whatsapp-axi chats [--match TEXT] [--limit N] [--fields LIST] [--json]",
 	description: "List archived chats, or find one by JID or name",
 	flags: []flagSpec{
 		{name: "--match", value: "TEXT", description: "find chats by JID or name (wasync matches exact id, then exact name, name prefix, substring)"},
 		{name: "--limit", value: "N", description: "chats to print (default 50, 0 prints all); --json always returns every chat"},
-		jsonFlag,
+		listFieldsFlag(chatFields, defaultChatFields), jsonFlag,
 	},
 	examples: []string{"whatsapp-axi chats", "whatsapp-axi chats --match family", "whatsapp-axi chats --json"},
 	run:      (*App).runChats,
@@ -50,9 +50,9 @@ var chatsCommand = &command{
 
 var messagesCommand = &command{
 	name:        "messages",
-	usage:       "whatsapp-axi messages CHAT [--limit N] [--cursor CURSOR] [--json]",
+	usage:       "whatsapp-axi messages CHAT [--limit N] [--cursor CURSOR] [--fields LIST] [--json]",
 	description: "Read a chat's messages, newest first; CHAT is a chat JID or name",
-	flags:       []flagSpec{limitFlag, cursorFlag, jsonFlag},
+	flags:       []flagSpec{limitFlag, cursorFlag, listFieldsFlag(messageFields, defaultMessageFields), jsonFlag},
 	minArgs:     1,
 	maxArgs:     1,
 	argsName:    "CHAT",
@@ -62,12 +62,12 @@ var messagesCommand = &command{
 
 var searchCommand = &command{
 	name:        "search",
-	usage:       "whatsapp-axi search TEXT [--chat CHAT] [--context N] [--limit N] [--cursor CURSOR] [--json]",
+	usage:       "whatsapp-axi search TEXT [--chat CHAT] [--context N] [--limit N] [--cursor CURSOR] [--fields LIST] [--json]",
 	description: "Search message text, newest first, optionally with the messages around each hit",
 	flags: []flagSpec{
 		{name: "--chat", value: "CHAT", description: "only this chat (JID or name)"},
 		{name: "--context", value: "N", description: "also show N messages before and after each hit"},
-		limitFlag, cursorFlag, jsonFlag,
+		limitFlag, cursorFlag, listFieldsFlag(append([]string{"hit", "role", "chat"}, messageFields...), []string{"chat", "ref", "time", "untrusted_text"}), jsonFlag,
 	},
 	minArgs:  1,
 	maxArgs:  1,
@@ -78,12 +78,12 @@ var searchCommand = &command{
 
 var threadCommand = &command{
 	name:        "thread",
-	usage:       "whatsapp-axi thread REF [--before N] [--after N] [--json]",
+	usage:       "whatsapp-axi thread REF [--before N] [--after N] [--fields LIST] [--json]",
 	description: "Show a message with the messages before and after it in its chat, oldest first",
 	flags: []flagSpec{
 		{name: "--before", value: "N", description: "earlier messages (wasync default 5)"},
 		{name: "--after", value: "N", description: "later messages (wasync default 5)"},
-		jsonFlag,
+		listFieldsFlag(append([]string{"role"}, messageFields...), []string{"role", "ref", "sender", "untrusted_text"}), jsonFlag,
 	},
 	minArgs:  1,
 	maxArgs:  1,
@@ -282,7 +282,15 @@ func chatRow(c contract.Chat) []string {
 
 var chatFields = []string{"id", "kind", "messages", "last_message_at", "sync", "untrusted_name"}
 
+var defaultChatFields = []string{"id", "kind", "messages", "untrusted_name"}
+var defaultMessageFields = []string{"ref", "time", "sender", "untrusted_text"}
+
 func (a *App) runChats(ctx context.Context, inv invocation) error {
+	cols, err := selectColumns(inv, chatFields, defaultChatFields)
+	if err != nil {
+		return err
+	}
+
 	limit := defaultChatLimit
 	if v, ok, err := intFlag(inv, "--limit"); err != nil {
 		return err
@@ -312,12 +320,12 @@ func (a *App) runChats(ctx context.Context, inv invocation) error {
 	if limit > 0 && len(shown) > limit {
 		shown = shown[:limit]
 	}
-	o.Value(0, "total", len(list.Items))
+	chatAggregates(o, 0, list.Items)
 	rows := make([][]string, 0, len(shown))
 	for _, c := range shown {
 		rows = append(rows, chatRow(c))
 	}
-	o.TableCells(0, "chats", chatFields, rows)
+	cols.table(o, 0, "chats", rows)
 	var hints []string
 	switch {
 	case len(list.Items) == 0 && hasMatch:
@@ -383,6 +391,9 @@ func nextPageHint(what string, page *contract.Page, inv invocation, args func(fl
 		return ""
 	}
 	var flags []string
+	if v, ok := inv.flag("--fields"); ok {
+		flags = append(flags, "--fields", v)
+	}
 	if v, ok := inv.flag("--limit"); ok {
 		flags = append(flags, "--limit", v)
 	}
@@ -391,6 +402,11 @@ func nextPageHint(what string, page *contract.Page, inv invocation, args func(fl
 }
 
 func (a *App) runMessages(ctx context.Context, inv invocation) error {
+	cols, err := selectColumns(inv, messageFields, defaultMessageFields)
+	if err != nil {
+		return err
+	}
+
 	q := url.Values{}
 	if err := pageParams(inv, q); err != nil {
 		return err
@@ -421,19 +437,23 @@ func (a *App) runMessages(ctx context.Context, inv invocation) error {
 	o.Untrusted(1, "name", chat.Name, listTextLimit)
 	o.Field(0, "order", "newest first")
 	rows, cut := messageRows(list.Items)
-	o.TableCells(0, "messages", messageFields, rows)
+	total := list.Total
+	writeResultCount(o, len(list.Items), total, resp.Page)
+	cols.table(o, 0, "messages", rows)
 	var hints []string
 	if h := nextPageHint("Older messages", resp.Page, inv, func(flags ...string) []string { return append([]string{"messages", chat.ID}, flags...) }); h != "" {
 		hints = append(hints, h)
 	}
 	if len(list.Items) == 0 && len(hints) == 0 {
-		if inv.has("--cursor") {
+		if total != nil && *total > 0 && !inv.has("--cursor") {
+			hints = append(hints, "This page has no messages; the archive may have changed while reading")
+		} else if inv.has("--cursor") {
 			hints = append(hints, "No older messages; this is the start of the archived chat")
 		} else {
 			hints = append(hints, "No messages are archived for this chat")
 		}
 	}
-	hints = append(hints, listHints(len(list.Items) > 0, cut)...)
+	hints = append(hints, listHints(len(list.Items) > 0, cut && cols.has("untrusted_text"))...)
 	o.Help(hints...)
 	return o.Err()
 }
@@ -461,13 +481,24 @@ func listHints(nonEmpty, cut bool) []string {
 }
 
 func (a *App) runSearch(ctx context.Context, inv invocation) error {
+	around, hasContext, err := intFlag(inv, "--context")
+	if err != nil {
+		return err
+	}
+	available := append([]string{"chat"}, messageFields...)
+	defaults := []string{"chat", "ref", "time", "untrusted_text"}
+	if hasContext && around != "0" {
+		available = append([]string{"hit", "role", "chat"}, messageFields...)
+		defaults = []string{"hit", "role", "ref", "untrusted_text"}
+	}
+	cols, err := selectColumns(inv, available, defaults)
+	if err != nil {
+		return err
+	}
+
 	text := inv.args[0]
 	q := url.Values{"q": {text}}
 	if err := pageParams(inv, q); err != nil {
-		return err
-	}
-	around, hasContext, err := intFlag(inv, "--context")
-	if err != nil {
 		return err
 	}
 	if hasContext {
@@ -505,11 +536,10 @@ func (a *App) runSearch(ctx context.Context, inv invocation) error {
 	if hasChat {
 		o.Field(0, "chat", chat.ID)
 	}
-	o.Value(0, "hits", len(list.Items))
+	writeResultCount(o, len(list.Items), list.Total, resp.Page)
 	o.Field(0, "order", "newest first")
 	anyCut := false
 	if hasContext && around != "0" {
-		fields := append([]string{"hit", "role", "chat"}, messageFields...)
 		var rows [][]string
 		add := func(hit int, role string, m contract.Message) {
 			row, cut := messageRow(m)
@@ -525,23 +555,24 @@ func (a *App) runSearch(ctx context.Context, inv invocation) error {
 				add(i+1, "after", m)
 			}
 		}
-		o.TableCells(0, "results", fields, rows)
+		cols.table(o, 0, "results", rows)
 	} else {
-		fields := append([]string{"chat"}, messageFields...)
 		rows := make([][]string, 0, len(list.Items))
 		for _, h := range list.Items {
 			row, cut := messageRow(h.Message)
 			anyCut = anyCut || cut
 			rows = append(rows, append([]string{output.Cell(h.ChatID)}, row...))
 		}
-		o.TableCells(0, "results", fields, rows)
+		cols.table(o, 0, "results", rows)
 	}
 	var hints []string
 	if h := nextPageHint("More results", resp.Page, inv, func(flags ...string) []string { return searchArgs(text, append(hintFlags, flags...)...) }); h != "" {
 		hints = append(hints, h)
 	}
 	if len(list.Items) == 0 && len(hints) == 0 {
-		if inv.has("--cursor") {
+		if list.Total != nil && *list.Total > 0 && !inv.has("--cursor") {
+			hints = append(hints, "This page has no visible matches; the archive may have changed while reading")
+		} else if inv.has("--cursor") {
 			hints = append(hints, "No more results")
 		} else if hasChat {
 			hints = append(hints, "No messages in this chat match; try other words or drop --chat")
@@ -549,7 +580,7 @@ func (a *App) runSearch(ctx context.Context, inv invocation) error {
 			hints = append(hints, "No messages match; try other or fewer words")
 		}
 	}
-	hints = append(hints, listHints(len(list.Items) > 0, anyCut)...)
+	hints = append(hints, listHints(len(list.Items) > 0, anyCut && cols.has("untrusted_text"))...)
 	o.Help(hints...)
 	return o.Err()
 }
@@ -563,6 +594,11 @@ func refArg(inv invocation) (string, error) {
 }
 
 func (a *App) runThread(ctx context.Context, inv invocation) error {
+	cols, err := selectColumns(inv, append([]string{"role"}, messageFields...), []string{"role", "ref", "sender", "untrusted_text"})
+	if err != nil {
+		return err
+	}
+
 	ref, err := refArg(inv)
 	if err != nil {
 		return err
@@ -607,12 +643,16 @@ func (a *App) runThread(ctx context.Context, inv invocation) error {
 	for _, m := range th.After {
 		add("after", m)
 	}
-	o.TableCells(0, "thread", append([]string{"role"}, messageFields...), rows)
+	cols.table(o, 0, "thread", rows)
 	var hints []string
-	if anyCut {
+	if anyCut && cols.has("untrusted_text") {
 		hints = append(hints, strings.Replace(fullTextHintFmt, "%d", strconv.Itoa(listTextLimit), 1))
 	}
-	hints = append(hints, "For a wider window run "+commandLine("thread", ref, "--before", "10", "--after", "10"))
+	wider := []string{"thread", ref, "--before", "10", "--after", "10"}
+	if selected, ok := inv.flag("--fields"); ok {
+		wider = append(wider, "--fields", selected)
+	}
+	hints = append(hints, "For a wider window run "+commandLine(wider...))
 	o.Help(hints...)
 	return o.Err()
 }
