@@ -129,7 +129,7 @@ func init() {
 		{
 			name:        "doctor",
 			usage:       "whatsapp-axi doctor [--json]",
-			description: "Check installation, pairing, service, permissions, compatibility and hooks; each problem comes with a fix command",
+			description: "Check installation, pairing, service, permissions, compatibility and hooks; each problem comes with repair guidance",
 			flags:       []flagSpec{jsonFlag},
 			examples:    []string{"whatsapp-axi doctor", "whatsapp-axi doctor --json"},
 			run:         (*App).runDoctor,
