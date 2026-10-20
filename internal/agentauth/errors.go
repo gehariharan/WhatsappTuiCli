@@ -15,13 +15,13 @@ const (
 )
 
 // Error is a typed authorization failure. Message and Help are safe to return
-// to the caller: they never contain secrets or hashes. Help tells the agent
-// which command a human must run; agents cannot run grant themselves.
+// to the caller: they never contain secrets or hashes. Help describes the human
+// action required; agents cannot grant themselves access.
 type Error struct {
 	Code       string        // unauthorized | forbidden | rate_limited
 	Status     int           // 401 | 403 | 429
 	Message    string        // short description
-	Help       string        // human action, naming the missing scope and exact command
+	Help       string        // human repair guidance
 	Scope      string        // scope that was checked, if any
 	Chat       string        // chat that was checked, if any
 	RetryAfter time.Duration // rate_limited only
@@ -35,8 +35,7 @@ func unauthorized(message string) *Error {
 	return &Error{Code: CodeUnauthorized, Status: 401, Message: message, Help: grantHelpDefault}
 }
 
-// regrantCommand returns the exact commands to replace client c with one
-// that also has extraScope and extraChat (either may be empty).
+// RegrantCommand documents the replacement policy shared by these error hints.
 func regrantCommand(c *Client, extraScope, extraChat string, rate int) string {
 	if c.ExpiresAt != nil {
 		return fmt.Sprintf("Ask a human to review wasync agents list and explicitly choose an expiry when replacing expiring agent %s (current expiry %s); retain its chat allowlist and rate limit. Do not create a permanent replacement.", c.Name, c.ExpiresAt.UTC().Format(time.RFC3339))

@@ -74,5 +74,6 @@ name a message by `ref` but carry no content: re-read it with `whatsapp-axi mess
 
 ## When something is wrong
 
-Run `whatsapp-axi doctor`. Each `warn` or `fail` check has one `fix` command. Fixes that start with
-`wasync` (granting, starting `wasync serve`, pairing) are for the user to run; ask them.
+Run `whatsapp-axi doctor` and follow its `fix` guidance; see
+[doctor usage](https://github.com/gehariharan/wasync/blob/main/axi/README.md#usage).
+Grant changes, starting `wasync serve` and pairing are for the user; ask them.

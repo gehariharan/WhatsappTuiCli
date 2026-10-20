@@ -58,7 +58,8 @@ Test of the rule: if a feature would need SQL, a whatsmeow call, a policy decisi
 
 ### D-5. `whatsapp-axi doctor`
 
-`doctor` checks and reports, each with pass/warn/fail and one fix command:
+`doctor` checks and reports with pass/warn/fail and repair guidance; see
+[doctor usage](../../axi/README.md#usage):
 
 1. Installation: both binaries found, versions, install source (Homebrew cask, ZIP, other), PATH.
 2. Data dir: located, private permissions, schema version supported.

@@ -17,7 +17,7 @@ AXI never touches WhatsApp, the SQLite archive, the session store or `device.loc
 - Scoped agent clients created only by a human in wasync (`wasync agents grant|list|revoke`, interactive terminal or TUI).
 - Scopes: `read.chats`, `read.messages`, `read.media`, `observe`, `send`, `react`, `edit.own`, `chat.state`, `group.admin`, `capture.manage`, `export`. Destructive operations are not grantable and stay on the human approval queue.
 - Chat allowlists, rate limits and expiry enforced in wasync handlers. Audit log of every v1 mutation attempt without bodies or tokens.
-- `GET /api/v1/whoami` returns the client name, scopes and constraints so AXI and `doctor` can explain a denial (`error_code: forbidden`, `help:` names the missing scope and the `wasync agents grant` command a human must run).
+- `GET /api/v1/whoami` returns the client name, scopes and constraints so AXI and `doctor` can explain a denial (`error_code: forbidden`). Human repair guidance follows the shared policy in [`agentauth.RegrantCommand`](../../internal/agentauth/regrant.go).
 - Legacy `/api/*` routes and tokens unchanged.
 
 ### Version handshake

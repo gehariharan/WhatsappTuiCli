@@ -89,7 +89,7 @@ whatsapp-axi search TEXT [--chat CHAT] [--context N]
 whatsapp-axi thread REF [--before N] [--after N]
 whatsapp-axi message REF [--full]           # one message; --full prints all of its text
 whatsapp-axi observe [--consumer NAME]      # change journal by cursor; see below
-whatsapp-axi doctor                         # pass/warn/fail checks with a fix command each
+whatsapp-axi doctor                         # pass/warn/fail checks with repair guidance
 whatsapp-axi setup hooks|skill              # opt-in agent integration; see below
 whatsapp-axi version                        # whatsapp-axi version plus wasync version, features and transport
 whatsapp-axi help [COMMAND]                 # commands, or flags and examples for one command
@@ -111,8 +111,14 @@ home view), `1` error, `2` usage error. Errors are printed on stdout as `error:`
 its own client-side checks (wasync binary, API reachability, credential, config file modes, granted
 scopes, the compatibility table) with wasync's checks from `GET /api/v1/diagnostics`, or from offline
 `wasync query doctor` when the API is not running or no credential is configured; `transport:` says
-which. Every `warn` or `fail` check carries one fix command. It exits `1` when any check fails and `0`
-when the worst result is a warning. Credentials and hashes are never printed.
+which. Every `warn` or `fail` check carries a `fix` field with repair guidance.
+It exits `1` when any check fails and `0` when the worst result is a warning.
+Credentials and hashes are never printed.
+
+The `fix` field can contain instructions for a human rather than a shell command.
+Replacing an expiring grant requires an explicit human choice of expiry while
+retaining its chat allowlist and rate limit. If an older core supplies no scope
+repair, doctor recommends upgrading wasync first.
 
 ### Following changes
 
