@@ -3,10 +3,10 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"github.com/gehariharan/wasync/internal/localfs"
 	"path/filepath"
 	"testing"
 	"time"
-	"whatsappsync/internal/localfs"
 )
 
 func captureStore(t *testing.T) (*Store, int64) {

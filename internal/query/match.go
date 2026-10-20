@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // MatchChats resolves a chat by JID or name deterministically, shared by

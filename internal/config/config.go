@@ -3,11 +3,11 @@ package config
 
 import (
 	"fmt"
+	"github.com/gehariharan/wasync/internal/buildinfo"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
-	"whatsappsync/internal/buildinfo"
 )
 
 type Config struct {

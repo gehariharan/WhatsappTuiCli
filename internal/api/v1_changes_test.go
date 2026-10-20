@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/changecursor"
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/changecursor"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func (f fixture) grantObserver(t *testing.T, name string, chats ...string) string {

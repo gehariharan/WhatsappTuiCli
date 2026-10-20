@@ -17,7 +17,7 @@ AXI never touches WhatsApp, the SQLite archive, the session store or `device.loc
 - Scoped agent clients created only by a human in wasync (`wasync agents grant|list|revoke`, interactive terminal or TUI).
 - Scopes: `read.chats`, `read.messages`, `read.media`, `observe`, `send`, `react`, `edit.own`, `chat.state`, `group.admin`, `capture.manage`, `export`. Destructive operations are not grantable and stay on the human approval queue.
 - Chat allowlists, rate limits and expiry enforced in wasync handlers. Audit log of every v1 mutation attempt without bodies or tokens.
-- `GET /api/v1/whoami` returns the client name, scopes and constraints so AXI and `doctor` can explain a denial (`error_code: forbidden`, `help:` names the missing scope and the `wasync agents grant` command a human must run).
+- `GET /api/v1/whoami` returns the client name, scopes and constraints so AXI and `doctor` can explain a denial (`error_code: forbidden`). Human repair guidance follows the shared policy in [`agentauth.RegrantCommand`](../../internal/agentauth/regrant.go).
 - Legacy `/api/*` routes and tokens unchanged.
 
 ### Version handshake
@@ -30,7 +30,9 @@ AXI never touches WhatsApp, the SQLite archive, the session store or `device.loc
               "auth.scopes","changes","checkpoints","diagnostics"]}
 ```
 
-AXI keeps `compatibility.yaml` with `min_api` and required features per command; a missing feature disables that command with `wasync_too_old` and an upgrade hint.
+The embedded [AXI compatibility matrix](../../axi/internal/compat/compatibility.json)
+owns the minimum API version and required features per command; a missing feature
+disables that command with `wasync_too_old` and an upgrade hint.
 
 ### Response envelope (v1 only)
 
@@ -55,7 +57,7 @@ Error codes: `unauthorized`, `forbidden`, `not_found`, `invalid_argument`, `inva
 | `GET /api/v1/diagnostics` | `query doctor` | `doctor` | any |
 | `GET /api/v1/health/deep` | `query status --v1` | `status`, home view | `read.chats` |
 | `GET /api/v1/chats[?match=]` | `query chats --v1 [--match]` | `chats` | `read.chats` |
-| `GET /api/v1/chats/{jid}/messages` | `query messages --v1` | `chats <chat>` | `read.messages` |
+| `GET /api/v1/chats/{jid}/messages` | `query messages --v1` | `messages CHAT` | `read.messages` |
 | `GET /api/v1/messages/search?context=` | `query search --v1 --context` | `search` | `read.messages` |
 | `GET /api/v1/messages/{ref}` | `query message --ref` | `message` | `read.messages` |
 | `GET /api/v1/messages/{ref}/thread` | `query thread --ref` | `thread` | `read.messages` |

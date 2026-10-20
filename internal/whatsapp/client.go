@@ -13,12 +13,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
-	"whatsappsync/internal/storage"
 )
 
 var ErrNotPaired = errors.New("no saved WhatsApp session; run wasync login")

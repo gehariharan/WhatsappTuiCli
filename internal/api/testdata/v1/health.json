@@ -134,10 +134,10 @@
             "status": "pass"
           },
           {
-            "detail": "agent credential valid",
-            "fix": "",
+            "detail": "agent lacks observe",
+            "fix": "wasync agents revoke test-agent && wasync agents grant test-agent --scope read.chats,read.messages,observe",
             "name": "agent",
-            "status": "pass"
+            "status": "warn"
           },
           {
             "detail": "<detail>",

@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
-	"whatsappsync/internal/storage"
 )
 
 type CaptureStatus struct {

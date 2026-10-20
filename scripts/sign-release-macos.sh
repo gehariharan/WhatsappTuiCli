@@ -55,11 +55,25 @@ for architecture in arm64 amd64; do
   archive_files=(wasync README.md THIRD_PARTY_LICENSES)
   if [[ -f "$work/$architecture/LICENSE" ]]; then archive_files+=(LICENSE); fi
   tar -czf "$work/$name.tar.gz" -C "$work/$architecture" "${archive_files[@]}"
+
+  axi_name="whatsapp-axi_${version}_darwin_${architecture}"
+  mkdir "$work/axi-$architecture"
+  tar -xzf "$assets/$axi_name.tar.gz" -C "$work/axi-$architecture"
+  axi_binary="$work/axi-$architecture/whatsapp-axi"
+  [[ "$(lipo -archs "$axi_binary")" == "$expected_cpu" ]]
+  codesign --force --options runtime --timestamp \
+    --keychain "$WASYNC_SIGNING_KEYCHAIN" \
+    --identifier com.gehariharan.wasynctuicli.axi \
+    --sign "$WASYNC_CODESIGN_IDENTITY" "$axi_binary"
+  bash "$scripts_dir/notarize.sh" "$WASYNC_NOTARY_PROFILE" "$axi_binary"
+  codesign --verify --strict --verbose=2 -R='notarized' --check-notarization "$axi_binary"
+  tar -czf "$work/$axi_name.tar.gz" -C "$work/axi-$architecture" whatsapp-axi README.md LICENSE
 done
 # Replace inputs only after both architectures pass signing and notarization.
 for architecture in arm64 amd64; do
   name="wasync_${version}_darwin_${architecture}"
   cp "$work/$name.tar.gz" "$work/$name.pkg" "$assets/"
+  cp "$work/whatsapp-axi_${version}_darwin_${architecture}.tar.gz" "$assets/"
   (cd "$assets"; shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"; shasum -a 256 "$name.pkg" > "$name.pkg.sha256")
 done
 printf 'Signed and notarized both macOS architectures in %s\n' "$assets"

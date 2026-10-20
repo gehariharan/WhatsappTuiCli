@@ -10,9 +10,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
 )
 
 // agentsUsage is the full reference for agent credential management, appended

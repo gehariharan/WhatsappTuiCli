@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func TestPrivateWindowsArchiveLockAndFTS(t *testing.T) {

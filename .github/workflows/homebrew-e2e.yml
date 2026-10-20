@@ -25,6 +25,24 @@ permissions:
   contents: read
 
 jobs:
+  linux-install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878
+      - name: Install both tools from the monorepo tap on Linux
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_ANALYTICS: '1'
+          HOMEBREW_NO_ASK: '1'
+          PACKAGE_VERSION: ${{ inputs.version }}
+        run: |
+          brew tap --custom-remote gehariharan/tap "https://github.com/$GITHUB_REPOSITORY.git"
+          brew install gehariharan/tap/whatsapp-axi
+          test "$(whatsapp-axi --version)" = "$PACKAGE_VERSION"
+          wasync version | grep -F "wasync $PACKAGE_VERSION "
+          brew test gehariharan/tap/wasync
+          brew test gehariharan/tap/whatsapp-axi
   install:
     strategy:
       fail-fast: false
@@ -44,24 +62,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
-          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
-          PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
           HOMEBREW_NO_AUTO_UPDATE: '1'
           HOMEBREW_NO_ANALYTICS: '1'
           HOMEBREW_NO_ASK: '1'
           HOMEBREW_NO_INSTALL_CLEANUP: '1'
         shell: bash
         run: |
-          if [[ "$PRIVATE_REPOSITORY" == true ]]; then
-            source scripts/tap-ssh.sh
-            trap 'rm -rf "$tap_ssh_dir"' EXIT
-            brew tap gehariharan/tap git@github.com:gehariharan/homebrew-tap.git
-          else
-            unset GH_TOKEN HOMEBREW_GITHUB_API_TOKEN HOMEBREW_TAP_SSH_KEY
-            brew tap gehariharan/tap https://github.com/gehariharan/homebrew-tap
-          fi
+          brew tap --custom-remote gehariharan/tap "https://github.com/$GITHUB_REPOSITORY.git"
           if brew help trust >/dev/null 2>&1; then brew trust --cask gehariharan/tap/wasync; fi
           brew install --cask gehariharan/tap/wasync
+          brew install gehariharan/tap/whatsapp-axi
+          test "$(whatsapp-axi --version)" = "${{ inputs.version }}"
       - name: Explicit CI-only exception for unsigned preview
         if: inputs.allow_unsigned_preview
         run: bash scripts/test-unsigned-preview.sh

@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 type fixture struct {

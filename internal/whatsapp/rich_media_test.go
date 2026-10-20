@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/mediafiles"
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -13,8 +15,6 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"google.golang.org/protobuf/proto"
 	"path/filepath"
-	"whatsappsync/internal/mediafiles"
-	"whatsappsync/internal/storage"
 )
 
 func TestDesktopPairingIdentity(t *testing.T) {

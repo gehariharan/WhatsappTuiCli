@@ -23,16 +23,16 @@ if [[ "$(gh release view "v$version" --json isDraft --jq .isDraft)" != true ]]; 
   echo 'Only draft releases may be published by this workflow.' >&2; exit 1
 fi
 name="wasync_${version}_darwin_${architecture}"
-gh release download "v$version" --pattern "$name.*" --pattern checksums.txt --dir "$work"
+axi_name="whatsapp-axi_${version}_darwin_${architecture}"
+gh release download "v$version" --pattern "$name.*" --pattern "$axi_name.tar.gz" --pattern checksums.txt --dir "$work"
 cd "$work"
 # Require the aggregate checksum manifest to cover both assets.
-python3 - "$name" <<'PY'
+python3 - "$name" "$axi_name" <<'PY'
 import hashlib, sys
 from pathlib import Path
 lines = Path('checksums.txt').read_text().splitlines()
 entries = {line.split()[1].removeprefix('./'): line.split()[0] for line in lines}
-for suffix in ('.tar.gz', '.pkg'):
-    name = sys.argv[1] + suffix
+for name in (sys.argv[1] + '.tar.gz', sys.argv[1] + '.pkg', sys.argv[2] + '.tar.gz'):
     if entries.get(name) != hashlib.sha256(Path(name).read_bytes()).hexdigest():
         raise SystemExit('Missing or invalid checksum: ' + name)
 PY
@@ -51,3 +51,11 @@ cmp archive/wasync expanded/Payload/usr/local/bin/wasync
 # Exercise the exact signed executable with a quarantine attribute intact.
 xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");wasync-release-check;" archive/wasync
 python3 "$project_dir/scripts/smoke-installed.py" "$work/archive/wasync" "$version" "$architecture"
+mkdir axi
+tar -xzf "$axi_name.tar.gz" -C axi
+[[ "$(lipo -archs axi/whatsapp-axi)" == "$cpu" ]]
+codesign --verify --strict \
+  -R='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "57V379V642"' axi/whatsapp-axi
+retry_check codesign --verify --strict --verbose=2 -R='notarized' --check-notarization axi/whatsapp-axi
+xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");wasync-release-check;" axi/whatsapp-axi
+[[ "$(axi/whatsapp-axi --version)" == "$version" ]]

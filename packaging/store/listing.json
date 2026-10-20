@@ -11,9 +11,9 @@
   ],
   "categorySuggestion": "Developer tools",
   "price": "Free",
-  "supportUrl": "https://github.com/gehariharan/WhatsappTuiCli/issues",
-  "websiteUrl": "https://github.com/gehariharan/WhatsappTuiCli",
-  "privacyPolicyUrl": "https://github.com/gehariharan/WhatsappTuiCli#store-privacy-policy",
+  "supportUrl": "https://github.com/gehariharan/wasync/issues",
+  "websiteUrl": "https://github.com/gehariharan/wasync",
+  "privacyPolicyUrl": "https://github.com/gehariharan/wasync#store-privacy-policy",
   "certificationNotes": "This is a desktop console/TUI application, not a graphical dashboard. Open Windows Terminal and run wasync, or launch the Start-menu entry. The runFullTrust capability is required by the Go desktop executable, local SQLite/WAL storage and CLI interoperation. No automatic startup, system service, administrator privileges or background-task capability is requested. Pairing requires the reviewer’s own WhatsApp account and phone via Linked Devices; do not use developer credentials. Offline review is available with wasync tui --offline, wasync status, and wasync query --help. New installations contain no conversations. No data is uploaded to a developer-operated service. The application connects to WhatsApp servers and performs account-linked protocol synchronization requested by the user. Archives are plaintext, protected by private filesystem permissions. The Store edition retains data under the user-profile .wasync directory across upgrades and uninstall. Please assess linked-device account functionality only with a consenting test account.",
   "submissionState": "Draft; reserved identity, publisher verification, screenshots, age rating, capability review and certification are still required."
 }

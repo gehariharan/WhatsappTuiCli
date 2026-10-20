@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/mediafiles"
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/mediafiles"
-	"whatsappsync/internal/storage"
 )
 
 type mediaJob struct {

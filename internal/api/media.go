@@ -2,9 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"io"
 	"net/http"
-	"whatsappsync/internal/whatsapp"
 )
 
 func (h *handler) mediaControl(w http.ResponseWriter, r *http.Request) {

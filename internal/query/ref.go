@@ -1,8 +1,8 @@
 package query
 
 import (
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // RefFor returns the stable, account-scoped reference for an archived message.

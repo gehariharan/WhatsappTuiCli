@@ -19,12 +19,12 @@ import (
 	"sync"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 type Server struct {

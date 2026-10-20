@@ -6,17 +6,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/tui"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/tui"
-	"whatsappsync/internal/whatsapp"
 )
 
 func (a *App) ownerCommand(ctx context.Context, cfg config.Config, method, path string, body []byte, credential string) error {

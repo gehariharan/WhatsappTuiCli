@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
-	"whatsappsync/internal/storage"
 )
 
 func TestLargeAttachmentOpensWithoutApplicationSizeCap(t *testing.T) {

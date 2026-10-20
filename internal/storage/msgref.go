@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"whatsappsync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/msgref"
 )
 
 // ErrMessageNotFound reports that a message is not (or no longer) in the

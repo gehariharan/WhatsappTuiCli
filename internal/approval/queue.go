@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 type Input struct {

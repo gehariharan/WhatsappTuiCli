@@ -15,9 +15,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/storage"
 	"github.com/mdp/qrterminal/v3"
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/storage"
 )
 
 type backend interface {

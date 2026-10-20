@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/localfs"
 )
 
 const (

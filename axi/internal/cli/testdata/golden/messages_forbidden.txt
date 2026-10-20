@@ -1,0 +1,3 @@
+error: client scoped is not allowed chat team-a@g.us
+code: forbidden
+help: Chat team-a@g.us is not in the allowlist for scope read.messages. A human must re-grant the client in an interactive terminal.

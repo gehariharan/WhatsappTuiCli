@@ -8,12 +8,12 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"whatsappsync/internal/approval"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/tui"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/approval"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/tui"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 func (a *App) tuiAction(offline bool) action {

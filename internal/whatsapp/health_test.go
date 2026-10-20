@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow/proto/waAdv"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
-	"whatsappsync/internal/storage"
 )
 
 func TestHealthFactsFromEvents(t *testing.T) {

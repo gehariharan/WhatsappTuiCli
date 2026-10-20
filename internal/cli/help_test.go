@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 func TestCommandHelpIsDiscoverableWithoutLocalState(t *testing.T) {

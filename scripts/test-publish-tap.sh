@@ -23,6 +23,7 @@ unset HOMEBREW_TAP_SSH_KEY || true
 seed="$work/seed"
 git init -q "$seed"
 mkdir -p "$seed/Casks" "$seed/Formula" "$seed/lib"
+printf '# Source helper newer than the release checkout\n' > "$seed/lib/wasync_github_release_download_strategy.rb"
 printf 'cask "wasync" do\n  version "0.1.0-preview.20261018060349"\nend\n' > "$seed/Casks/wasync.rb"
 printf 'cask "whatsapp-axi" do\n  version "0.1.0"\nend\n' > "$seed/Casks/whatsapp-axi.rb"
 printf 'class Example < Formula\nend\n' > "$seed/Formula/example.rb"
@@ -37,6 +38,7 @@ make_assets() { # version -> prints asset directory
   printf 'arm64 %s' "$1" > "$dir/wasync_$1_darwin_arm64.tar.gz"
   printf 'amd64 %s' "$1" > "$dir/wasync_$1_darwin_amd64.tar.gz"
   python3 "$project_dir/scripts/homebrew-cask.py" "$1" "$dir" "$dir/wasync.rb"
+  python3 "$project_dir/scripts/homebrew-formulas.py" "$1" "$(printf '1%.0s' {1..64})" "$dir"
   echo "$dir"
 }
 tap_file() { "$real_git" --git-dir="$tap" show "main:$1"; }
@@ -54,6 +56,7 @@ if [[ "\${1:-}" == push && ! -e "$work/raced" ]]; then
   other="$work/other-publisher"
   "$real_git" clone -q "$tap" "\$other"
   printf 'cask "whatsapp-axi" do\n  version "0.2.0"\nend\n' > "\$other/Casks/whatsapp-axi.rb"
+  printf '# Canonical helper changed on main\n' > "\$other/lib/wasync_github_release_download_strategy.rb"
   "$real_git" -C "\$other" commit -q -am 'Update whatsapp-axi 0.2.0'
   "$real_git" -C "\$other" push -q origin HEAD:main
 fi
@@ -71,9 +74,11 @@ out="$(PATH="$shim:$PATH" bash "$project_dir/scripts/publish-tap.sh" "$assets1" 
 pass "non-fast-forward push retried after rebase"
 diff <(tap_file Casks/wasync.rb) "$assets1/wasync.rb" >/dev/null || fail "wasync.rb not updated"
 pass "Casks/wasync.rb updated to $v1"
-diff <(tap_file lib/wasync_github_release_download_strategy.rb) \
-  "$project_dir/packaging/homebrew/lib/wasync_github_release_download_strategy.rb" >/dev/null || fail "lib helper not copied"
-pass "download strategy helper copied"
+diff <(tap_file Formula/wasync.rb) "$assets1/wasync-formula.rb" >/dev/null || fail "core formula not updated"
+diff <(tap_file Formula/whatsapp-axi.rb) "$assets1/whatsapp-axi.rb" >/dev/null || fail "AXI formula not updated"
+pass "both source formulas published with the cask"
+[[ "$(tap_file lib/wasync_github_release_download_strategy.rb)" == "# Canonical helper changed on main" ]] || fail "publisher overwrote a concurrent source change"
+pass "canonical download helper source preserved across a racing release"
 [[ "$(tap_file Casks/whatsapp-axi.rb)" == *'version "0.2.0"'* ]] || fail "concurrent whatsapp-axi update lost"
 pass "Casks/whatsapp-axi.rb kept the other publisher's version"
 [[ "$(tap_file Formula/example.rb)" == *"class Example"* ]] || fail "Formula changed"

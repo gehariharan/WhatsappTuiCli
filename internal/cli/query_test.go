@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 func queryFixture(t *testing.T) (*App, *bytes.Buffer, *storage.Store, int64, string) {

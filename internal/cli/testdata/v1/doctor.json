@@ -54,7 +54,7 @@
       },
       {
         "detail": "no active agent credential",
-        "fix": "wasync agents grant NAME --scope read.chats,read.messages",
+        "fix": "wasync agents grant NAME --scope read.chats,read.messages,observe",
         "name": "agent",
         "status": "warn"
       },

@@ -1,5 +1,11 @@
 # Platform roadmap
 
+This is the historical implementation plan from 2026-10-19. Repository labels,
+separate release milestones and the AXI cask proposal below describe that plan,
+not the current distribution layout. [ADR-002](ADR-002-monorepo.md) supersedes
+those decisions; the [common release guide](../releasing.md) owns the current
+coordinated pipeline.
+
 ## Dependency graph
 
 ```mermaid
@@ -47,7 +53,7 @@ graph TD
 
 ## Ordered backlog
 
-Rules for every wasync PR: CI green on Linux, macOS, Windows and MSIX; existing `/api/*`, `wasync query` default output and TUI unchanged (golden snapshots prove it); no migration unless listed; release-safe on its own because every merge to main publishes (finding 1).
+Rules for every wasync PR: CI green on Linux, macOS, Windows and MSIX; existing `/api/*`, `wasync query` default output and TUI unchanged (golden snapshots prove it); no migration unless listed; release-safe on its own under the [current release policy](../releasing.md).
 
 | # | ID | Repo | Deliverable | Depends | Tests | Acceptance |
 |---|---|---|---|---|---|---|
@@ -64,7 +70,7 @@ Rules for every wasync PR: CI green on Linux, macOS, Windows and MSIX; existing 
 | 10 | **W-04** | WhatsappTuiCli | Migration 006: `change_journal` + `journal_meta` (epoch, low-water mark) + `consumer_checkpoints`; journal writes in the same tx as `apply`, `PurgeGroup`, `Expire`, `SetEnabled`; `/api/v1/changes`, `/api/v1/checkpoints/{consumer}`; `query changes` | W-07, W-09 | handoff §7 list: crash between commit and read, late history, edit-before-original, revoke-before-original, purge, capture disable, retention expiry, epoch change, multi-account checkpoint isolation, offline read cannot commit | additive only; no bodies in journal; cursors never derived from timestamps |
 | 11 | **W-10** | WhatsappTuiCli | `GET /api/v1/diagnostics` + `query doctor --json`: install/distribution, data dir perms, schema, paired yes/no (without connecting), owner and API state, journal state | W-02b, W-09 | each check pass/warn/fail with synthetic fixtures | no secrets or bodies in output |
 | 12 | **REL** | WhatsappTuiCli | wasync preview release containing W-02a…W-10 (via the normal pipeline, after your go) | 2–11 | Homebrew E2E, signed verify | existing installs upgrade in place, archive and pairing intact |
-| 13 | **A-01** | whatsapp-axi (new, after B-00 + your go) | Go skeleton, version fast path, transport selector (API ↔ `wasync query`), envelope parser, credential loading, `compatibility.yaml`, fixture server from W-02a goldens | W-02a | transport fallback, exit codes 0/1/2, no SQLite/WhatsApp imports (lint check) | AXI binary has no sqlite or whatsmeow dependency |
+| 13 | **A-01** | whatsapp-axi (new, after B-00 + your go) | Go skeleton, version fast path, transport selector (API ↔ `wasync query`), envelope parser, credential loading, [the AXI compatibility matrix](../../axi/internal/compat/compatibility.json), fixture server from W-02a goldens | W-02a | transport fallback, exit codes 0/1/2, no SQLite/WhatsApp imports (lint check) | AXI binary has no sqlite or whatsmeow dependency |
 | 14 | **A-02** | whatsapp-axi | home view, `status`, `chats`, `search --context`, `thread`, `message --full`, compact/TOON + `--json` | A-01, W-02b, W-03a/b/c | golden output, truncation, empty states, both transports | AXI principles 1–6, 8–10 |
 | 15 | **A-05** | whatsapp-axi | `observe` with cursors, named consumers, `--follow`, explicit ack | A-01, W-04 | resume after restart, cursor_expired path, offline read without commit | no timestamp cursors anywhere |
 | 16 | **A-06** | whatsapp-axi | `doctor` | A-01, W-10 | each check rendered with a fix command | covers install, pairing, service, permissions, compatibility, hooks |

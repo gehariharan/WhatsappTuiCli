@@ -3,6 +3,16 @@ name: Release main updates
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "Formula/**"
+      - "Casks/**"
+      - "lib/**"
+      - "docs/**"
+      - "*.md"
+      - "axi/*.md"
+      - "axi/docs/**"
+      - "packaging/**/*.md"
+      - "website/**/*.md"
   workflow_dispatch:
 
 permissions:
@@ -36,7 +46,7 @@ jobs:
   sign:
     needs: [version, build]
     runs-on: [self-hosted, macOS, ARM64, wasync-signing]
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

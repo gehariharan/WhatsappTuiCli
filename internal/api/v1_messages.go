@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // W-03b/W-03c: chats, messages, search with context, message refs and threads.

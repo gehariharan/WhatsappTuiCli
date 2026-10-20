@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 type groupJSON = query.Group

@@ -1,0 +1,67 @@
+name: Validate AXI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    working-directory: axi
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            race: "-race"
+          - runner: macos-15
+            race: "-race"
+          # The race detector needs cgo and a C compiler on Windows; the
+          # code has no cgo, so Windows runs the same tests without it.
+          - runner: windows-2022
+            race: ""
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: axi/go.mod
+          cache: true
+      - name: Check formatting
+        if: runner.os != 'Windows'
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test ${{ matrix.race }} ./...
+
+  # Release packaging dry run: builds every archive, checks contents and
+  # checksums, and checks that a rebuild is byte-identical. Publishes nothing.
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: axi/go.mod
+          cache: true
+      - name: Package (dry run)
+        run: bash scripts/package.sh --dry-run 0.0.0-ci
+      - name: Check archives and checksums
+        run: bash scripts/check-dist.sh 0.0.0-ci
+      - name: Check the rebuild is reproducible
+        run: |
+          # Keep the copy outside the checkout: an untracked file marks the build dirty.
+          mv dist/0.0.0-ci/SHA256SUMS "$RUNNER_TEMP/first-SHA256SUMS"
+          bash scripts/package.sh --dry-run 0.0.0-ci >/dev/null
+          diff "$RUNNER_TEMP/first-SHA256SUMS" dist/0.0.0-ci/SHA256SUMS
+      - name: Test the Homebrew formula generator
+        run: bash scripts/test-homebrew-formula.sh

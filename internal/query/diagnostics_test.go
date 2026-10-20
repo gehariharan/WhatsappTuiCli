@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/gehariharan/wasync/internal/agentauth"
 )
 
 func TestHealthStateNeverConnectedFromStaleKeepalive(t *testing.T) {
@@ -48,6 +50,31 @@ func TestDiagnoseEmptyDataDirWithoutCreating(t *testing.T) {
 	for i, c := range d.Checks {
 		if c.Name != want[i] || (c.Status != "pass" && c.Fix == "") {
 			t.Fatalf("check %d %+v", i, c)
+		}
+	}
+}
+
+func TestDiagnoseScopeRepairPreservesRestrictions(t *testing.T) {
+	for _, scopes := range [][]string{
+		{agentauth.ScopeReadChats, agentauth.ScopeReadMessages},
+		{agentauth.ScopeObserve},
+		{agentauth.ScopeReadMessages},
+		{},
+	} {
+		agent := &agentauth.Client{Name: "reader", Scopes: scopes, Chats: []string{"family@g.us", "team@g.us"}, RatePerMinute: 5}
+		d := Diagnose(context.Background(), DiagnosticsInput{Transport: "api", DataDir: t.TempDir(), Agent: agent})
+		found := false
+		for _, check := range d.Checks {
+			if check.Name == "agent" {
+				found = true
+				want := "wasync agents revoke reader && wasync agents grant reader --scope read.chats,read.messages,observe --chat family@g.us --chat team@g.us --rate 5"
+				if check.Status != "warn" || check.Fix != want {
+					t.Fatalf("scopes %v: %+v", scopes, check)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("agent diagnostic missing")
 		}
 	}
 }

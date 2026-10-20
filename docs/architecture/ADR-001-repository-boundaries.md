@@ -1,6 +1,7 @@
 # ADR-001: Repository boundaries, AXI transports and agent authorization
 
 - **Status:** Accepted by Hari on 2026-10-19 (decisions 1–6 below). Implementation is gated on the baseline audit (B-00).
+- **Superseded in part:** [ADR-002](ADR-002-monorepo.md) owns repository and release coordination; the process and authorization boundaries below remain in force.
 - **Context source:** the platform handoff plan and the Phase 0 inspection ([inventory](inventory.md), [parity matrix](parity-matrix.md)) of WhatsappTuiCli `891ef40`, homebrew-tap `9bfb347`, openclaw/wacli `8c61e16` and kunchenguid/axi `6244245`.
 - **Related:** [interface contract](axi-contract.md), [roadmap](roadmap.md), [threat model](threat-model.md).
 
@@ -38,11 +39,11 @@ CLI flags, AXI confirmations, agent skills and hook instructions are UX only. Th
 - **Legacy behaviour is preserved.** Existing `/api/*` routes and the three existing tokens keep working unchanged for the TUI, `wasync` CLI and current scripts. v1 routes accept only scoped agent credentials (or the legacy tokens with an explicit equivalent scope set, documented). Tightening the legacy read-token mutation is a separate, opt-in follow-up, not part of this change.
 - **Offline transport boundary:** reading the archive via `wasync query` is equivalent to the OS user reading their own files. It is allowed only for reads, and AXI states in `doctor` that offline reads are not scoped.
 
-### D-3. Business logic stays in WhatsappTuiCli
+### D-3. Business logic stays in the wasync core
 
-WhatsappTuiCli owns: WhatsApp protocol, capture policy, normalization, storage and migrations, search and context, identity resolution, the change journal and checkpoints, authorization, audit, sending and every other operation.
+The wasync core owns: WhatsApp protocol, capture policy, normalization, storage and migrations, search and context, identity resolution, the change journal and checkpoints, authorization, audit, sending and every other operation.
 
-whatsapp-axi owns only: command parsing and composition, transport selection, output formatting (compact text, TOON if justified, `--json`), truncation, hints, discovery/help, `doctor` presentation, `setup hooks`, agent skills, benchmarks and its own release.
+whatsapp-axi owns only: command parsing and composition, transport selection, output formatting (compact text, TOON if justified, `--json`), truncation, hints, discovery/help, `doctor` presentation, `setup hooks`, agent skills and benchmarks. Release ownership is defined in [ADR-002](ADR-002-monorepo.md).
 
 Test of the rule: if a feature would need SQL, a whatsmeow call, a policy decision or persistent state other than AXI's own config, it belongs in wasync behind an API endpoint and a `wasync query` equivalent.
 
@@ -57,21 +58,22 @@ Test of the rule: if a feature would need SQL, a whatsmeow call, a policy decisi
 
 ### D-5. `whatsapp-axi doctor`
 
-`doctor` checks and reports, each with pass/warn/fail and one fix command:
+`doctor` checks and reports with pass/warn/fail and repair guidance; see
+[doctor usage](../../axi/README.md#usage):
 
 1. Installation: both binaries found, versions, install source (Homebrew cask, ZIP, other), PATH.
 2. Data dir: located, private permissions, schema version supported.
 3. Pairing: whether wasync has a paired session (from wasync, never by opening the session store).
 4. Service: owner running, API reachable, deep health state, last event observed.
 5. Permissions: AXI credential present and valid, granted scopes vs scopes each AXI command needs.
-6. Compatibility: API version and feature list vs `compatibility.yaml`, journal available.
+6. Compatibility: API version and feature list vs the [AXI compatibility matrix](../../axi/internal/compat/compatibility.json), journal available.
 7. Agent integration: hooks and skill installed and pointing at the current binary.
 
 wasync provides the facts (`GET /api/v1/diagnostics` plus offline `wasync query doctor --json`); AXI only formats them (D-3).
 
 ### D-6. Ordering
 
-The durable change journal (W-04) and its checkpoint API ship in a wasync release before the first whatsapp-axi release (R-01). Optional webhook delivery (W-05) is deferred until after that first AXI release.
+Release ordering is superseded by [ADR-002](ADR-002-monorepo.md); see the [common release guide](../releasing.md). Optional webhook delivery (W-05) remains deferred until after the first AXI release.
 
 ## Consequences
 

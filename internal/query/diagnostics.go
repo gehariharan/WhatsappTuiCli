@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/agentauth"
-	"whatsappsync/internal/buildinfo"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/agentauth"
+	"github.com/gehariharan/wasync/internal/buildinfo"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 // Health states reported by GET /api/v1/health/deep and diagnostics.
@@ -275,7 +275,7 @@ func healthCheck(state string) (status, detail, fix string) {
 	return "warn", "not connected to WhatsApp", "wasync serve"
 }
 
-var neededScopes = []string{agentauth.ScopeReadChats, agentauth.ScopeReadMessages}
+var neededScopes = []string{agentauth.ScopeReadChats, agentauth.ScopeReadMessages, agentauth.ScopeObserve}
 
 func agentCheck(in DiagnosticsInput) (status, detail, fix string) {
 	grant := "wasync agents grant NAME --scope " + strings.Join(neededScopes, ",")
@@ -307,7 +307,7 @@ func agentCheck(in DiagnosticsInput) (status, detail, fix string) {
 func UpgradeFix() string {
 	switch {
 	case runtime.GOOS == "darwin":
-		return "brew upgrade --cask gehariharan/tap/wasync"
+		return "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync"
 	case buildinfo.Distribution == "msix":
 		return "update wasync from the Microsoft Store"
 	}

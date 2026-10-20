@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"time"
 
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
 )
 
 const (

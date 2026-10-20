@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"whatsappsync/internal/api"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/api"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 func TestMediaCommandsReuseOwnerAndQueriesNeverDownload(t *testing.T) {

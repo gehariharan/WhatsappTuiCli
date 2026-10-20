@@ -3,8 +3,8 @@ package query
 
 import (
 	"encoding/json"
+	"github.com/gehariharan/wasync/internal/storage"
 	"time"
-	"whatsappsync/internal/storage"
 )
 
 type Group struct {

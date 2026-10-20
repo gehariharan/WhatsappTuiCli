@@ -1,0 +1,468 @@
+package agentsetup
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/gehariharan/wasync/axi/internal/contract"
+)
+
+// The managed session-start hook runs `whatsapp-axi --brief`, the compact
+// home view, with a timeout. A hook entry is whatsapp-axi's when its
+// command runs a binary named whatsapp-axi with HookFlag, wherever that
+// binary lives, so setup can repair the path after a reinstall.
+const (
+	BinaryName  = "whatsapp-axi"
+	HookFlag    = "--brief"
+	HookTimeout = 10 // seconds
+	SkillName   = "whatsapp-axi"
+)
+
+// Agent is an agent tool whose session hooks and skills setup manages.
+// Paths are relative to a root: the user's home directory, or a project
+// directory for project-scoped settings.
+type Agent struct {
+	Name     string // flag value
+	Label    string // display name
+	Dir      string // config directory under the root
+	HookFile string // hook settings file inside Dir
+}
+
+// Agents lists the supported agents in display order.
+var Agents = []Agent{
+	{Name: "claude", Label: "Claude Code", Dir: ".claude", HookFile: "settings.json"},
+	{Name: "codex", Label: "Codex", Dir: ".codex", HookFile: "hooks.json"},
+}
+
+// AgentNames returns the agent flag values.
+func AgentNames() []string {
+	out := make([]string, len(Agents))
+	for i, a := range Agents {
+		out[i] = a.Name
+	}
+	return out
+}
+
+// FindAgent returns the agent named name.
+func FindAgent(name string) (Agent, bool) {
+	for _, a := range Agents {
+		if a.Name == name {
+			return a, true
+		}
+	}
+	return Agent{}, false
+}
+
+// HookPath is the agent's hook settings file under root.
+func (a Agent) HookPath(root string) string { return filepath.Join(root, a.Dir, a.HookFile) }
+
+// SkillPath is where the agent loads the whatsapp-axi skill under root.
+func (a Agent) SkillPath(root string) string {
+	return filepath.Join(root, a.Dir, "skills", SkillName, "SKILL.md")
+}
+
+// Present reports whether the agent's config directory exists under root.
+func (a Agent) Present(root string) bool {
+	info, err := os.Stat(filepath.Join(root, a.Dir))
+	return err == nil && info.IsDir()
+}
+
+// CodexConfigPath is Codex's config.toml under root; Codex runs hooks only
+// with `[features] hooks = true` there.
+func CodexConfigPath(root string) string { return filepath.Join(root, ".codex", "config.toml") }
+
+// Change actions.
+const (
+	ActionAdd    = "add"
+	ActionUpdate = "update"
+	ActionNone   = "none"
+	ActionRemove = "remove"
+)
+
+// Items a change applies to.
+const (
+	ItemHook         = "session_start_hook"
+	ItemHooksFeature = "hooks_feature"
+	ItemSkill        = "skill"
+)
+
+// Change is one planned file change. Apply performs it; a change with
+// ActionNone writes nothing.
+type Change struct {
+	Agent  string `json:"agent"`
+	Item   string `json:"item"`
+	Path   string `json:"path"`
+	Action string `json:"change"`
+
+	target string
+	data   []byte
+	delete bool
+}
+
+// Apply writes the change. It is a no-op for ActionNone.
+func (c Change) Apply() error {
+	switch {
+	case c.Action == ActionNone:
+		return nil
+	case c.delete:
+		if err := os.Remove(c.target); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return ioErr(c.Path, "cannot remove", err)
+		}
+		// Remove the skill's own directory when it is now empty.
+		_ = os.Remove(filepath.Dir(c.target))
+		return nil
+	}
+	return writeAtomic(c.target, c.data)
+}
+
+// HookCommand is the managed hook's command line. onPath means the
+// whatsapp-axi found on PATH is exe itself, so the portable bare name is
+// used; otherwise the absolute path is quoted for the agent's shell.
+func HookCommand(exe string, onPath bool, goos string) string {
+	if onPath || exe == "" {
+		return BinaryName + " " + HookFlag
+	}
+	if goos == "windows" {
+		// Forward slashes work in cmd.exe, PowerShell and Git Bash alike.
+		p := strings.ReplaceAll(exe, `\`, "/")
+		if strings.ContainsAny(p, " &()^%!'\"") {
+			p = `"` + p + `"`
+		}
+		return p + " " + HookFlag
+	}
+	return shellQuote(exe) + " " + HookFlag
+}
+
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9._/~:@%+=-]+$`)
+
+func shellQuote(s string) string {
+	if shellSafe.MatchString(s) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// IsManagedCommand reports whether a hook command runs whatsapp-axi's
+// session-start view: its program is named whatsapp-axi (any directory,
+// optional .exe) and its arguments include HookFlag.
+func IsManagedCommand(cmd string) bool {
+	prog, rest := firstWord(strings.TrimSpace(cmd))
+	base := prog
+	if i := strings.LastIndexAny(base, `/\`); i >= 0 {
+		base = base[i+1:]
+	}
+	if strings.EqualFold(filepath.Ext(base), ".exe") {
+		base = base[:len(base)-4]
+	}
+	if base != BinaryName {
+		return false
+	}
+	for _, f := range strings.Fields(rest) {
+		if f == HookFlag {
+			return true
+		}
+	}
+	return false
+}
+
+// firstWord splits off the first shell word, honouring single and double
+// quotes. A backslash escapes only a space or quote, so Windows paths keep
+// their separators.
+func firstWord(s string) (word, rest string) {
+	var b strings.Builder
+	var quote byte
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case quote != 0 && c == quote:
+			quote = 0
+		case quote == '"' && c == '\\' && i+1 < len(s) && s[i+1] == '"':
+			i++
+			b.WriteByte('"')
+		case quote != 0:
+			b.WriteByte(c)
+		case c == '\'' || c == '"':
+			quote = c
+		case c == '\\' && i+1 < len(s) && strings.IndexByte(" '\"", s[i+1]) >= 0:
+			i++
+			b.WriteByte(s[i])
+		case c == ' ' || c == '\t':
+			return b.String(), s[i:]
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String(), ""
+}
+
+type hookEntry struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+	Timeout int    `json:"timeout"`
+}
+
+type hookGroup struct {
+	Matcher string      `json:"matcher"`
+	Hooks   []hookEntry `json:"hooks"`
+}
+
+func desiredEntry(command string) hookEntry {
+	return hookEntry{Type: "command", Command: command, Timeout: HookTimeout}
+}
+
+// hookLoc is a managed hook: SessionStart group g, entry h.
+type hookLoc struct {
+	g, h    int
+	command string
+	entry   *node
+}
+
+// hookTree is the parsed path to the SessionStart list. hooks or ss is nil
+// when absent.
+type hookTree struct {
+	root, hooks, ss *node
+	managed         []hookLoc
+}
+
+// parseHooks parses settings and locates the managed hooks. It refuses
+// shapes it cannot edit without guessing.
+func parseHooks(path string, src []byte) (hookTree, error) {
+	var t hookTree
+	if !json.Valid(src) {
+		return t, invalidJSON(path, src)
+	}
+	root, err := parseJSON(src)
+	if err != nil {
+		return t, invalidJSON(path, src)
+	}
+	t.root = root
+	if root.kind != '{' {
+		return t, shapeErr(path, "its top level is not a JSON object")
+	}
+	if t.hooks, _ = root.get("hooks"); t.hooks == nil {
+		return t, nil
+	}
+	if t.hooks.kind != '{' {
+		return t, shapeErr(path, `"hooks" is not an object`)
+	}
+	if t.ss, _ = t.hooks.get("SessionStart"); t.ss == nil {
+		return t, nil
+	}
+	if t.ss.kind != '[' {
+		return t, shapeErr(path, `"hooks.SessionStart" is not an array`)
+	}
+	for gi, g := range t.ss.elems {
+		if g.kind != '{' {
+			continue
+		}
+		list, _ := g.get("hooks")
+		if list == nil || list.kind != '[' {
+			continue
+		}
+		for hi, h := range list.elems {
+			if h.kind != '{' {
+				continue
+			}
+			c, _ := h.get("command")
+			if c == nil || c.kind != '"' {
+				continue
+			}
+			var cmd string
+			if json.Unmarshal(c.raw(src), &cmd) == nil && IsManagedCommand(cmd) {
+				t.managed = append(t.managed, hookLoc{g: gi, h: hi, command: cmd, entry: h})
+			}
+		}
+	}
+	return t, nil
+}
+
+// isCurrent reports whether a managed entry is exactly the desired one.
+func isCurrent(src []byte, entry *node, command string) bool {
+	var got map[string]any
+	if json.Unmarshal(entry.raw(src), &got) != nil {
+		return false
+	}
+	return got["type"] == "command" && got["command"] == command && got["timeout"] == float64(HookTimeout)
+}
+
+// removeHook deletes one managed entry, then each container it leaves
+// empty: its group, SessionStart, and hooks.
+func removeHook(src []byte, t hookTree, loc hookLoc) []byte {
+	e := newEditor(src)
+	group := t.ss.elems[loc.g]
+	list, _ := group.get("hooks")
+	switch {
+	case len(list.elems) > 1:
+		return e.removeElem(list, loc.h)
+	case len(t.ss.elems) > 1:
+		return e.removeElem(t.ss, loc.g)
+	case len(t.hooks.members) > 1:
+		_, i := t.hooks.get("SessionStart")
+		return e.removeMember(t.hooks, i)
+	default:
+		_, i := t.root.get("hooks")
+		return e.removeMember(t.root, i)
+	}
+}
+
+// installHook returns src with exactly one current managed hook. Extra
+// managed entries are removed and a stale one is replaced in place.
+func installHook(path string, src []byte, command string) ([]byte, error) {
+	if len(bytes.TrimSpace(src)) == 0 {
+		src = []byte("{}\n")
+	}
+	for range 64 {
+		t, err := parseHooks(path, src)
+		if err != nil {
+			return nil, err
+		}
+		e := newEditor(src)
+		switch {
+		case t.hooks == nil:
+			return e.addMember(t.root, "hooks", map[string][]hookGroup{"SessionStart": {{Hooks: []hookEntry{desiredEntry(command)}}}})
+		case t.ss == nil:
+			return e.addMember(t.hooks, "SessionStart", []hookGroup{{Hooks: []hookEntry{desiredEntry(command)}}})
+		case len(t.managed) == 0:
+			return e.addElem(t.ss, hookGroup{Hooks: []hookEntry{desiredEntry(command)}})
+		case len(t.managed) > 1:
+			src = removeHook(src, t, t.managed[len(t.managed)-1])
+		case isCurrent(src, t.managed[0].entry, command):
+			return src, nil
+		default:
+			return e.replace(t.managed[0].entry, desiredEntry(command))
+		}
+	}
+	return nil, shapeErr(path, "it holds too many whatsapp-axi hooks")
+}
+
+// uninstallHook returns src without any managed hook.
+func uninstallHook(path string, src []byte) ([]byte, error) {
+	for range 64 {
+		t, err := parseHooks(path, src)
+		if err != nil {
+			return nil, err
+		}
+		if len(t.managed) == 0 {
+			return src, nil
+		}
+		src = removeHook(src, t, t.managed[0])
+	}
+	return nil, shapeErr(path, "it holds too many whatsapp-axi hooks")
+}
+
+// PlanHook plans installing (or, with remove, removing) the managed
+// session-start hook in agent's settings under root. Nothing is written.
+func PlanHook(agent Agent, root, command string, remove bool) (Change, error) {
+	path := agent.HookPath(root)
+	c := Change{Agent: agent.Name, Item: ItemHook, Path: path, Action: ActionNone}
+	f, err := readFile(path)
+	if err != nil {
+		return c, err
+	}
+	c.target = f.Target
+	if remove {
+		if !f.Exists || len(bytes.TrimSpace(f.Data)) == 0 {
+			return c, nil
+		}
+		out, err := uninstallHook(path, f.Data)
+		if err != nil {
+			return c, err
+		}
+		if !bytes.Equal(out, f.Data) {
+			c.Action, c.data = ActionRemove, out
+		}
+		return c, nil
+	}
+	out, err := installHook(path, f.Data, command)
+	if err != nil {
+		return c, err
+	}
+	if !f.Exists || len(bytes.TrimSpace(f.Data)) == 0 {
+		if !bytes.HasSuffix(out, []byte("\n")) {
+			out = append(out, '\n')
+		}
+		c.Action, c.data = ActionAdd, out
+		return c, nil
+	}
+	if bytes.Equal(out, f.Data) {
+		return c, nil
+	}
+	c.Action, c.data = ActionUpdate, out
+	if t, err := parseHooks(path, f.Data); err == nil && len(t.managed) == 0 {
+		c.Action = ActionAdd
+	}
+	return c, nil
+}
+
+// HookStatus is what InspectHook found.
+type HookStatus struct {
+	Path      string
+	Exists    bool
+	Installed bool   // a managed hook is present
+	Current   bool   // it is exactly the desired hook
+	Command   string // the first managed hook's command
+	Err       error  // the file could not be read or parsed
+}
+
+// InspectHook reports the managed hook in agent's settings under root.
+func InspectHook(agent Agent, root, command string) HookStatus {
+	s := HookStatus{Path: agent.HookPath(root)}
+	f, err := readFile(s.Path)
+	if err != nil {
+		s.Err = err
+		return s
+	}
+	s.Exists = f.Exists
+	if !f.Exists || len(bytes.TrimSpace(f.Data)) == 0 {
+		return s
+	}
+	t, err := parseHooks(s.Path, f.Data)
+	if err != nil {
+		s.Err = err
+		return s
+	}
+	if len(t.managed) > 0 {
+		s.Installed, s.Command = true, t.managed[0].command
+		s.Current = len(t.managed) == 1 && isCurrent(f.Data, t.managed[0].entry, command)
+	}
+	return s
+}
+
+// invalidJSON explains where a settings file stops being JSON.
+func invalidJSON(path string, src []byte) error {
+	where := ""
+	var se *json.SyntaxError
+	var v any
+	if err := json.Unmarshal(src, &v); errors.As(err, &se) {
+		line, col := lineCol(src, int(se.Offset))
+		where = " (line " + strconv.Itoa(line) + ", column " + strconv.Itoa(col) + ": " + se.Error() + ")"
+	}
+	return &contract.Error{Code: CodeConfigInvalid, Message: path + " is not valid JSON" + where,
+		Help: "fix the JSON by hand (comments and trailing commas are not allowed) or move the file away, then rerun; whatsapp-axi never rewrites a file it cannot parse"}
+}
+
+func shapeErr(path, why string) error {
+	return &contract.Error{Code: CodeConfigInvalid, Message: path + " cannot be edited safely: " + why,
+		Help: "fix the file by hand or move it away, then rerun; whatsapp-axi never rewrites settings it does not understand"}
+}
+
+func lineCol(src []byte, offset int) (int, int) {
+	if offset > len(src) {
+		offset = len(src)
+	}
+	line, col := 1, 1
+	for _, c := range src[:max(offset-1, 0)] {
+		if c == '\n' {
+			line, col = line+1, 1
+		} else {
+			col++
+		}
+	}
+	return line, col
+}

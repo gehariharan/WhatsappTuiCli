@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/msgref"
-	"whatsappsync/internal/query"
-	"whatsappsync/internal/storage"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/msgref"
+	"github.com/gehariharan/wasync/internal/query"
+	"github.com/gehariharan/wasync/internal/storage"
 )
 
 const queryUsage = `Usage: wasync [--data-dir PATH] query COMMAND

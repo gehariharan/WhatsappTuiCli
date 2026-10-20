@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/storage"
 )
 
 func TestManualMediaReferenceSurvivesRestartWithoutChangingPolicy(t *testing.T) {

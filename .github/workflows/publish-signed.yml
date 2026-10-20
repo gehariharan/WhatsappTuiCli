@@ -73,13 +73,19 @@ jobs:
           if [[ "$(gh repo view --json isPrivate --jq .isPrivate)" == true ]]; then extra+=(--private); fi
           python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/expected.rb "${extra[@]}"
           cmp dist/expected.rb dist/release/wasync.rb
+          gh api "repos/$GITHUB_REPOSITORY/tarball/v$PACKAGE_VERSION" > dist/source.tar.gz
+          source_sum="$(sha256sum dist/source.tar.gz | cut -d' ' -f1)"
+          tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/v$PACKAGE_VERSION" --jq .sha)"
+          python3 scripts/homebrew-formulas.py "$PACKAGE_VERSION" "$source_sum" dist/expected-formulas --commit "${tag_commit:0:12}"
+          cmp dist/expected-formulas/wasync-formula.rb dist/release/wasync-formula.rb
+          cmp dist/expected-formulas/whatsapp-axi.rb dist/release/whatsapp-axi.rb
           cat > dist/release-notes.md <<'NOTES'
           Prebuilt preview packages. No Go compiler is required.
 
           macOS 15+: Apple Silicon and Intel executables are Developer ID signed and notarized. The matching .pkg installers are signed, notarized, and carry stapled tickets.
           Windows 10/11 x64: download the windows_amd64-setup.exe for a per-user installation, or extract the portable ZIP. Windows previews are currently unsigned; Microsoft Artifact Signing integration is pending.
           Linux: extract the matching archive and install wasync on PATH (glibc 2.35+).
-          Homebrew: brew install --cask gehariharan/tap/wasync. Intel and Apple Silicon downloads select the native architecture automatically.
+          Homebrew: first run `brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git`, then `brew install gehariharan/tap/whatsapp-axi` (Linux installs both tools), or `brew install --cask gehariharan/tap/wasync` for the signed Mac executable. Intel and Apple Silicon downloads select the native architecture automatically.
           Run wasync for the TUI, or wasync query --help for the agent query interface.
           Verify downloads against checksums.txt. Installation preserves per-user archives and pairing credentials.
           NOTES
@@ -87,8 +93,9 @@ jobs:
       - name: Update Homebrew tap
         env:
           GH_TOKEN: ${{ github.token }}
-          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
-        run: bash scripts/publish-tap.sh dist/release
+        run: |
+          gh auth setup-git
+          bash scripts/publish-tap.sh dist/release
 
   homebrew-e2e:
     needs: publish

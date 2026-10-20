@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gehariharan/wasync/internal/cli"
 	"os"
 	"os/signal"
 	"syscall"
-	"whatsappsync/internal/cli"
 )
 
 func main() {

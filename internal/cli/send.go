@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
-	"whatsappsync/internal/api"
-	"whatsappsync/internal/config"
-	"whatsappsync/internal/localfs"
-	"whatsappsync/internal/processlock"
-	"whatsappsync/internal/storage"
-	"whatsappsync/internal/whatsapp"
+	"github.com/gehariharan/wasync/internal/api"
+	"github.com/gehariharan/wasync/internal/config"
+	"github.com/gehariharan/wasync/internal/localfs"
+	"github.com/gehariharan/wasync/internal/processlock"
+	"github.com/gehariharan/wasync/internal/storage"
+	"github.com/gehariharan/wasync/internal/whatsapp"
 )
 
 func (a *App) runSend(ctx context.Context, cfg config.Config, args []string) (result error) {

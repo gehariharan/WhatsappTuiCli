@@ -36,7 +36,7 @@ try {
  $built = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
  $env:CGO_ENABLED = '1'
  $env:CGO_LDFLAGS = '-static'
- go build -trimpath -tags sqlite_fts5 -ldflags "-s -w -X whatsappsync/internal/buildinfo.Version=$Version -X whatsappsync/internal/buildinfo.Commit=$commit -X whatsappsync/internal/buildinfo.BuiltAt=$built -X whatsappsync/internal/buildinfo.Distribution=msix" -o "$stage/wasync.exe" ./cmd/wasync
+ go build -trimpath -tags sqlite_fts5 -ldflags "-s -w -X github.com/gehariharan/wasync/internal/buildinfo.Version=$Version -X github.com/gehariharan/wasync/internal/buildinfo.Commit=$commit -X github.com/gehariharan/wasync/internal/buildinfo.BuiltAt=$built -X github.com/gehariharan/wasync/internal/buildinfo.Distribution=msix" -o "$stage/wasync.exe" ./cmd/wasync
  Check-Exit
  & "$stage/wasync.exe" version; Check-Exit
  Copy-Item README.md, LICENSE $stage
