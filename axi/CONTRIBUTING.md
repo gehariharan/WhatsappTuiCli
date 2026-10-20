@@ -1,8 +1,9 @@
 # Contributing
 
 whatsapp-axi lives in the wasync monorepo under `axi/` and is the agent-facing CLI for [wasync](https://github.com/gehariharan/wasync). Read
-[ADR-001](https://github.com/gehariharan/wasync/blob/main/docs/architecture/ADR-001-repository-boundaries.md)
-before changing anything: it decides what belongs here and what belongs in wasync.
+[ADR-001](../docs/architecture/ADR-001-repository-boundaries.md)
+for the process boundary and [ADR-002](../docs/architecture/ADR-002-monorepo.md)
+for repository and release ownership before changing anything.
 
 ## The boundary
 

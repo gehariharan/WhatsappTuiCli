@@ -62,11 +62,6 @@ All migrations run in one transaction (`sqlite.go` `migrate`). None are destruct
 
 ### Release workflows
 
-| Workflow | Trigger | Does |
-|---|---|---|
-| `ci.yml` | PR to main | race tests on Ubuntu + macOS, Windows tests + installer build, MSIX install/upgrade test |
-| `auto-release.yml` | push to main | preview version → `release.yml` → sign/notarize on self-hosted Mac → upload to draft → `publish-signed.yml` |
-| `release.yml` | call / `v*` tag / dispatch | builds darwin arm64/amd64, linux amd64/arm64, windows amd64; creates tag + draft prerelease with checksums and cask |
-| `publish-signed.yml` | call / dispatch | verifies signatures on both Mac arches, re-checks checksums and cask, publishes, updates tap (`HOMEBREW_TAP_SSH_KEY`), runs Homebrew E2E |
-| `homebrew-e2e.yml` | call / dispatch | installs from tap on macOS arm64/Intel, runs `scripts/smoke-installed.py` |
-| `store-msix.yml` | dispatch | unsigned MSIX submission package |
+Release automation has changed since this Phase 0 inspection. See the
+[common release guide](../releasing.md) for the current workflows and publication
+safeguards.

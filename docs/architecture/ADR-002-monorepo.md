@@ -15,6 +15,8 @@ The AXI and tap histories are imported without squashing. Old releases and
 repositories remain available for installation compatibility. The former
 repositories become historical locations after the consolidated release is
 verified; they are no longer release targets.
+Do not delete historical releases or reuse the former `WhatsappTuiCli` name;
+GitHub redirects preserve old source and download links.
 
 Root `vVERSION` and nested-module `axi/vVERSION` tags identify the same commit.
 The common release contains both binaries, checksums and generated Homebrew

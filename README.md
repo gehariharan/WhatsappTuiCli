@@ -12,8 +12,9 @@ This monorepo also contains **whatsapp-axi**, the agent-facing reader in
 Homebrew definitions are maintained here. wasync owns the WhatsApp connection
 and archive; AXI reads it through the local API or `wasync query`.
 
-For development see [CONTRIBUTING.md](CONTRIBUTING.md). For releases and the
-one-time tap migration see [docs/releasing.md](docs/releasing.md).
+For development see [CONTRIBUTING.md](CONTRIBUTING.md). For releases see
+[docs/releasing.md](docs/releasing.md); for the one-time tap migration see
+[Homebrew installation](#homebrew-installation).
 
 ## Install a prebuilt package
 
@@ -79,7 +80,8 @@ rejects the wrong CPU architecture, unsupported macOS versions and an existing
 The source repository is also the Homebrew tap. Existing users should run the
 custom-remote command below once to migrate from the former standalone tap.
 
-On Linux, install both tools from source:
+After the first verified combined release, Linux Homebrew installs both tools
+from source:
 
 ```sh
 brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
@@ -87,9 +89,13 @@ brew install gehariharan/tap/whatsapp-axi
 ```
 
 On macOS, install the signed core cask below, then install the optional agent
-CLI with `brew install gehariharan/tap/whatsapp-axi`. The core source formula is
-Linux-only.
+CLI with `brew install gehariharan/tap/whatsapp-axi`. The combined release's core
+source formula is Linux-only. The AXI formula builds from source using Homebrew's Go.
 
+Until that combined release is verified and published, the checked-in definitions
+remain pinned to the previous standalone releases. The legacy AXI formula does
+not install the Linux core; install a core archive from the prebuilt downloads
+above in the meantime. Publication replaces the pins with generated definitions.
 
 Each release generates `wasync.rb`, a Homebrew **cask** that installs the
 prebuilt native macOS executable and verifies its archive checksum. It performs
@@ -103,9 +109,20 @@ brew trust --cask gehariharan/tap/wasync
 brew install --cask gehariharan/tap/wasync
 ```
 
+After migrating the tap, upgrade an existing Mac installation with:
+
+```sh
+brew update
+brew upgrade --cask gehariharan/tap/wasync
+wasync version
+```
+
+If AXI is installed, upgrade it with `brew upgrade gehariharan/tap/whatsapp-axi`.
+Homebrew upgrades preserve the local archive, capture preferences and pairing.
+
 Releases from `0.1.0-preview.5` onward are Developer ID signed and notarized.
 Homebrew's quarantine behavior is preserved; no cask hook disables Gatekeeper.
-Both repositories are public. Existing manual launchers may
+The repository is public. Existing manual launchers may
 precede the Homebrew binary; check `command -v wasync` and use
 `/usr/local/bin/wasync` on Intel or `/opt/homebrew/bin/wasync` on Apple Silicon to
 select the installed release explicitly.
@@ -600,170 +617,8 @@ The original design and risk review are saved in
 
 ## Maintainer release packaging
 
-### Automatic releases from main
-
-Code updates to `main` run **Release main updates**. Documentation and generated
-Homebrew-only updates are excluded. Both binaries share the release; see
-[the release guide](docs/releasing.md). The pipeline will:
-
-1. Choose a unique increasing version, `0.1.0-preview.YYYYMMDDHHMMSS` (UTC).
-2. Test and build native macOS and Linux packages for Intel and ARM64 on GitHub
-   runners, then create an unpublished draft.
-3. Sign and notarize both Mac architectures on the repository-scoped
-   `wasync-sakthi-air` runner using its existing Developer ID keys and
-   `wasync-notary` login-Keychain profile.
-4. Verify signatures, notarization, installer tickets, checksums and signed
-   executable behavior on fresh Intel and Apple Silicon runners.
-5. Publish the prerelease, update the Homebrew definitions in this repository, and test real
-   Homebrew installations on both Mac architectures with quarantine enabled.
-
-The Air must be awake, online and logged in as the signing user, with its login
-Keychain unlocked. Signing runs as a user LaunchAgent in that desktop session.
-The job prevents idle sleep while signing, but does not wake an offline Mac or
-unlock a locked Keychain. After reboot, log in again. Jobs wait for an offline
-runner; a failed build or signing check leaves a draft and keeps the tap on the
-previous published version. Homebrew checks run after publication and report
-failures in Actions. Do not run untrusted pull-request code on the signing runner.
-
-The workflow uses existing local Apple credentials; no Apple private key or
-password is exported to GitHub. First-time signing-tool approvals must be
-completed in Terminal on the Air. The runner starts at login and reconnects
-automatically. Its installation is outside this repository at
-`~/wasync-actions-runner` on the Air.
-
-For a new installation:
-
-```sh
-brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
-brew trust --cask gehariharan/tap/wasync # on Homebrew versions with tap trust
-brew install --cask gehariharan/tap/wasync
-```
-
-For an existing installation:
-
-```sh
-brew update
-brew upgrade --cask gehariharan/tap/wasync
-wasync version
-```
-
-No GitHub authentication is needed for public downloads. Homebrew
-updates the executable when requested; installation and upgrades preserve local
-archives, group preferences and pairing credentials. The workflow also supports
-manual dispatch to retry a release without a new commit.
-Releases run one at a time; if several pushes arrive during a release, GitHub
-keeps the newest pending push and may supersede earlier pending runs.
-
-### Manual packaging
-
-Run on each target platform with Go, a C compiler, Python 3 and the platform's
-packaging tools installed:
-
-```sh
-scripts/package.sh 0.1.0-preview.1
-```
-
-Outputs are written under `dist/VERSION/OS_ARCH/` (ignored by Git). Each build
-contains version, commit and timestamp metadata, dependency license notices, a
-compressed executable archive and checksums. macOS builds additionally contain
-a native `.pkg`. The build compiles SQLite with FTS5 enabled and embeds the
-result in the executable; it requires no separately installed SQLite package.
-Linux executables use the build platform's libc, so the workflow uses Ubuntu
-22.04 (glibc 2.35). macOS builds target macOS 15 or later.
-
-`.github/workflows/release.yml` builds on native Intel and ARM runners for macOS
-and Linux. Run **Build prebuilt installers** manually with a version, or push a
-`vVERSION` tag. All four platforms must pass tests and build before the workflow
-creates a prerelease with archives, macOS installers, aggregate checksums and the
-generated Homebrew cask. This workflow creates drafts only, including manual
-tag builds. The automatic main pipeline signs and notarizes these drafts before
-calling **Verify and publish signed release**, updating this repository’s Homebrew definitions
-and running Homebrew installation checks on Intel and Apple Silicon. Existing
-published releases are not overwritten. No workflow changes repository visibility.
-
-The release job uses its temporary `GITHUB_TOKEN` to publish assets and update
-this repository's Homebrew definitions. It no longer needs a deploy key for a
-separate tap. Public Homebrew downloads do not require authentication. The
-optional private-release download strategy uses `gh`; credentials are never
-embedded in casks, download URLs or cache metadata.
-
-### Signing and notarizing with a Keychain profile
-
-For a normal Gatekeeper-accepted release, use Developer ID Application for the
-executable and Developer ID Installer for the package, plus Apple notarization.
-An Apple Development certificate or an Xcode account alone is not sufficient.
-
-On the signing Mac, configure a `notarytool` Keychain profile through Apple's
-credential setup, then run:
-
-```sh
-WASYNC_CODESIGN_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' \
-WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
-WASYNC_NOTARY_PROFILE='wasync-notary' \
-WASYNC_SIGNING_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" \
-  scripts/package.sh 0.1.0
-```
-
-The optional notarization step rejects development/ad hoc signatures, submits
-both the exact signed executable (in a temporary ZIP) and installer to Apple,
-requires an `Accepted` result, staples and validates the installer ticket, and
-checks the installer with Gatekeeper. Checksums are calculated after stapling.
-Credentials are read from the signing Mac's Keychain profile; no Apple password
-is passed in a script argument or committed to Git.
-
-The raw CLI executable cannot hold a stapled ticket. Its code hash is registered
-by notarization; Homebrew downloads the same signed executable and Gatekeeper
-uses Apple's notarization lookup. The `.pkg` carries its own stapled ticket.
-Both architectures in `0.1.0-preview.5` were accepted by Apple's notary service,
-with signed executable/archive matching and stapled installer tickets verified.
-A signed release must run Homebrew E2E with `allow_unsigned_preview=false`.
-
-Apple references: [Developer ID certificates](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/)
-and [Customizing the notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
-
-### Release signing on a separate Mac
-
-The signing Mac does not need Go or GitHub credentials. Apple private keys and
-the notarization profile remain in its login Keychain. Signing needs an
-interactive unlock in the same SSH session; unlocking a previous SSH session
-does not make credentials available to later connections.
-
-1. Run **Build prebuilt installers** with a new version to create a draft.
-   Download the resulting draft assets using `gh release download vVERSION`.
-2. Copy the four macOS assets and `scripts/notarize.sh` and
-   `scripts/sign-release-macos.sh` to the signing Mac. Run:
-
-   ```sh
-   WASYNC_CODESIGN_IDENTITY='Developer ID Application: YOUR NAME (TEAMID)' \
-   WASYNC_INSTALLER_IDENTITY='Developer ID Installer: YOUR NAME (TEAMID)' \
-   WASYNC_NOTARY_PROFILE=wasync-notary \
-   WASYNC_SIGNING_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db" \
-     bash scripts/sign-release-macos.sh VERSION assets
-   ```
-
-   Enter the Mac login password at the Keychain prompt. Approve signing-key
-   access on that Mac if macOS requests it. The script verifies CPU types and
-   matching archive/installer executables, signs and notarizes both architectures,
-   validates Gatekeeper acceptance, and replaces the four assets only after all
-   checks succeed. No executable is launched during signing.
-   For first-time signing-key approval, run this from Terminal directly on the
-   signing Mac and choose Always Allow for the signing tools when prompted.
-   SSH cannot present those approval dialogs. CLI notarization is validated with
-   `codesign --verify -R='notarized' --check-notarization`; `spctl --type execute`
-   expects an app bundle. Installer validation uses `spctl --type install`.
-3. Retrieve the signed assets. Recompute aggregate checksums and regenerate the
-   cask with `scripts/homebrew-cask.py` (`--private` is only for private forks).
-   Replace these assets, `checksums.txt`, and `wasync.rb` in the **draft only**.
-   Never overwrite a published release.
-4. Run **Verify and publish signed release** with the version. It verifies the
-   expected signing team, both architectures, notarization, installer tickets,
-   checksums, and cask hashes before publishing and updating the tap. Homebrew
-   E2E then runs on Intel and Apple Silicon with `allow_unsigned_preview=false`.
-
-The signed publication workflow requires no Apple passwords or private keys in GitHub
-Actions. Manual SSH signing requires an interactive Keychain unlock in that
-session. The automatic pipeline sets `WASYNC_SIGNING_UNATTENDED=1` and runs in
-the logged-in desktop session, using its already-unlocked Keychain.
+See [the release guide](docs/releasing.md) for coordinated core/AXI releases,
+local packaging, signing-runner operation, manual signing and publication safeguards.
 
 ## License
 

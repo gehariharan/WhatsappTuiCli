@@ -60,30 +60,23 @@ Both tools ship from its [releases page](https://github.com/gehariharan/wasync/r
 Existing standalone AXI releases remain available at the old repository.
 See the [common release guide](../docs/releasing.md).
 
-Register or migrate the Homebrew tap once:
-
-```sh
-brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git
-```
-
 Installation options:
 
-- **macOS:** `brew install --cask gehariharan/tap/wasync`, then
-  `brew install gehariharan/tap/whatsapp-axi`. The source formula builds AXI with
-  Homebrew's Go. Combined releases also sign and notarize AXI's Mac archives;
-  old standalone AXI archives were unsigned.
-- **Linux and Windows:** download the archive for your OS and CPU from the
+- **Homebrew (macOS and Linux):** follow the root
+  [Homebrew installation guide](../README.md#homebrew-installation), including
+  tap migration and the transition from legacy pinned definitions.
+- **Prebuilt archives:** download the archive for your OS and CPU from the
   [releases page](https://github.com/gehariharan/wasync/releases), check it against `checksums.txt`
   (`sha256sum -c checksums.txt --ignore-missing`), extract it and put `whatsapp-axi` (`whatsapp-axi.exe`)
   on your `PATH`. The binaries are static (no cgo).
-- **Any OS, from source** (Go 1.27 or newer):
+- **Any OS, from source** (Go 1.27.1 or newer; the module selects Go 1.27.2):
 
   ```sh
   go install github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest
   ```
 
-You also need wasync. Linux Homebrew installs it as a dependency; macOS users
-install the signed cask as shown above. Direct-download users install both binaries.
+You also need wasync. Direct-download users install both binaries; see the
+[core installation guide](../README.md#install-a-prebuilt-package).
 
 ## Usage
 
@@ -175,6 +168,10 @@ Without `--agent`, setup targets the agents whose config directory exists (Claud
   and column, and writes nothing for any agent.
 - **Codex** runs hooks only with `[features] hooks = true` in `~/.codex/config.toml`; `setup hooks` adds
   that line (and leaves it on after `--remove`, since other hooks may need it).
+  Setup validates TOML before editing and refuses representations it cannot
+  preserve safely, including inline or quoted feature definitions that need
+  changing. It returns `config_invalid` before writing any agent's files; enable
+  `features.hooks` manually and rerun setup in that case.
 - `doctor` reports both under `hooks`: installed, missing, pointing at another binary, or unreadable, each
   with the `whatsapp-axi setup ...` command that fixes it.
 

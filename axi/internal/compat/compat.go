@@ -2,8 +2,7 @@
 // The rules live in the embedded compatibility.json: the minimum v1 API and
 // the wasync features each whatsapp-axi command requires.
 //
-// ADR-001 names this file compatibility.yaml. It is JSON so whatsapp-axi
-// can decode it with the standard library; the content and semantics are the same.
+// JSON keeps decoding within the standard library.
 package compat
 
 import (
