@@ -159,7 +159,8 @@
             "text_content": "hello archive",
             "timestamp": "2026-10-01T00:00:00Z"
           }
-        ]
+        ],
+        "total": 3
       },
       "page": {
         "has_more": true,
@@ -227,7 +228,8 @@
             "text_content": "hello archive",
             "timestamp": "2026-10-01T00:00:00Z"
           }
-        ]
+        ],
+        "total": 3
       },
       "page": {
         "has_more": false,
@@ -246,7 +248,8 @@
     "stdout": {
       "data": {
         "account_id": 1,
-        "items": []
+        "items": [],
+        "total": 0
       },
       "page": {
         "has_more": false,

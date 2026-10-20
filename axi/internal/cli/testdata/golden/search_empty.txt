@@ -1,7 +1,9 @@
 transport: api
 query: "-nothing here"
-hits: 0
+shown: 0
+total: unknown
+has_more: false
 order: newest first
-results[0]{chat,ref,time,sender,type,state,untrusted_text}:
+results[0]{chat,ref,time,untrusted_text}:
 help[1]:
   No messages match; try other or fewer words

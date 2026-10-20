@@ -38,6 +38,8 @@ jobs:
         if: runner.os != 'Windows'
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
+      - name: Check generated agent skill
+        run: go run ./cmd/generate-skill --check
       - run: go test ${{ matrix.race }} ./...
 
   # Release packaging dry run: builds every archive, checks contents and

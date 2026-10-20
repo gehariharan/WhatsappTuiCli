@@ -25,7 +25,7 @@ const (
 	setupHooks = "hooks"
 	setupSkill = "skill"
 
-	setupUsage    = "whatsapp-axi setup hooks|skill [--agent claude|codex|all] [--dir DIR] [--remove] [--dry-run] [--json]"
+	setupUsage    = "whatsapp-axi setup hooks|skill [--agent claude|codex|opencode|all] [--dir DIR] [--remove] [--dry-run] [--json]"
 	setupHooksFix = "whatsapp-axi setup hooks"
 	setupSkillFix = "whatsapp-axi setup skill"
 )
@@ -35,8 +35,8 @@ var setupCommand = &command{
 	usage:       setupUsage,
 	description: "Install (or --remove) the session-start hook that shows `whatsapp-axi --brief` in new agent sessions, or the whatsapp-axi agent skill; idempotent, keeps unrelated settings",
 	flags: []flagSpec{
-		{name: "--agent", value: "LIST", description: "claude, codex or all, comma-separated (default: agents whose config directory exists, else claude; with --remove: all)"},
-		{name: "--dir", value: "DIR", description: "use DIR/.claude and DIR/.codex instead of the home directory (project settings, or tests); default $" + config.EnvAgentHome + " or the home directory"},
+		{name: "--agent", value: "LIST", description: "claude, codex, opencode or all, comma-separated (default: detected config directories, else claude; with --remove: all)"},
+		{name: "--dir", value: "DIR", description: "project settings in DIR/.claude, DIR/.codex and DIR/.opencode; default $" + config.EnvAgentHome + " or the home directory (OpenCode: $XDG_CONFIG_HOME/opencode or ~/.config/opencode)"},
 		{name: "--remove", description: "remove whatsapp-axi's hook or skill and nothing else"},
 		{name: "--dry-run", description: "print the planned changes without writing anything"},
 		jsonFlag,
@@ -71,9 +71,14 @@ func (a *App) agentHome() (string, error) {
 // hookCommand is the managed hook's command: the bare name when the
 // whatsapp-axi on PATH is this binary, otherwise this binary's path.
 func (a *App) hookCommand() string {
+	executable := a.hookExecutable()
+	return agentsetup.HookCommand(executable, executable == agentsetup.BinaryName, runtime.GOOS)
+}
+
+func (a *App) hookExecutable() string {
 	exe, err := a.Executable()
 	if err != nil || exe == "" {
-		return agentsetup.HookCommand("", true, runtime.GOOS)
+		return agentsetup.BinaryName
 	}
 	if r, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = r
@@ -87,7 +92,10 @@ func (a *App) hookCommand() string {
 			onPath = sameFile(p, exe)
 		}
 	}
-	return agentsetup.HookCommand(exe, onPath, runtime.GOOS)
+	if onPath {
+		return agentsetup.BinaryName
+	}
+	return exe
 }
 
 func sameFile(a, b string) bool {
@@ -102,28 +110,39 @@ func sameFile(a, b string) bool {
 // setupAgents resolves --agent. Without it, install targets the agents
 // whose config directory exists (Claude Code when none does) and removal
 // targets every agent.
-func setupAgents(inv invocation, root string, remove bool) ([]agentsetup.Agent, error) {
+func (a *App) setupAgents(inv invocation, root string, remove bool) ([]agentsetup.Agent, error) {
+	available := a.agentConfigs(inv.has("--dir"))
 	v, ok := inv.flag("--agent")
 	if !ok {
 		var out []agentsetup.Agent
-		for _, ag := range agentsetup.Agents {
+		for _, ag := range available {
 			if remove || ag.Present(root) {
 				out = append(out, ag)
 			}
 		}
 		if len(out) == 0 {
-			out = append(out, agentsetup.Agents[0])
+			out = append(out, available[0])
 		}
 		return out, nil
 	}
 	seen := map[string]bool{}
 	var out []agentsetup.Agent
+	all := false
 	for _, name := range strings.Split(v, ",") {
 		name = strings.TrimSpace(name)
 		if name == "all" {
-			return agentsetup.Agents, nil
+			all = true
+			continue
 		}
 		ag, ok := agentsetup.FindAgent(name)
+		if ok {
+			for _, candidate := range available {
+				if candidate.Name == name {
+					ag = candidate
+					break
+				}
+			}
+		}
 		if !ok {
 			return nil, usageErr("use --agent "+strings.Join(agentsetup.AgentNames(), ", ")+" or all (comma-separated)", "unknown agent %q", name)
 		}
@@ -132,7 +151,18 @@ func setupAgents(inv invocation, root string, remove bool) ([]agentsetup.Agent, 
 			out = append(out, ag)
 		}
 	}
+	if all {
+		return available, nil
+	}
 	return out, nil
+}
+
+func (a *App) agentConfigs(project bool) []agentsetup.Agent {
+	configHome := a.Getenv("XDG_CONFIG_HOME")
+	if strings.TrimSpace(a.Getenv(config.EnvAgentHome)) != "" {
+		configHome = ""
+	}
+	return agentsetup.AgentsAt(project, configHome)
 }
 
 type setupChangeJSON struct {
@@ -175,7 +205,7 @@ func (a *App) runSetup(_ context.Context, inv invocation) error {
 			return err
 		}
 	}
-	agents, err := setupAgents(inv, root, remove)
+	agents, err := a.setupAgents(inv, root, remove)
 	if err != nil {
 		return err
 	}
@@ -191,7 +221,11 @@ func (a *App) runSetup(_ context.Context, inv invocation) error {
 		var c agentsetup.Change
 		var err error
 		if what == setupHooks {
-			c, err = agentsetup.PlanHook(ag, root, res.HookCommand, remove)
+			if ag.Name == "opencode" {
+				c, err = agentsetup.PlanOpenCodeHook(ag, root, a.hookExecutable(), remove)
+			} else {
+				c, err = agentsetup.PlanHook(ag, root, res.HookCommand, remove)
+			}
 		} else {
 			c, err = agentsetup.PlanSkill(ag, root, skills.WhatsappAXI, remove)
 		}
@@ -295,9 +329,15 @@ func (a *App) hookChecks() []doctorCheck {
 		return []doctorCheck{hooks, skill}
 	}
 	cmd := a.hookCommand()
+	agents := a.agentConfigs(false)
 	var current, stale, broken, featureOff []string
-	for _, ag := range agentsetup.Agents {
-		st := agentsetup.InspectHook(ag, root, cmd)
+	for _, ag := range agents {
+		var st agentsetup.HookStatus
+		if ag.Name == "opencode" {
+			st = agentsetup.InspectOpenCodeHook(ag, root, a.hookExecutable())
+		} else {
+			st = agentsetup.InspectHook(ag, root, cmd)
+		}
 		where := ag.Label + " (" + a.collapseHome(st.Path) + ")"
 		switch {
 		case st.Err != nil:
@@ -317,7 +357,7 @@ func (a *App) hookChecks() []doctorCheck {
 		}
 	}
 	var skillCurrent, skillStale, skillBroken []string
-	for _, ag := range agentsetup.Agents {
+	for _, ag := range agents {
 		st := agentsetup.InspectSkill(ag, root, skills.WhatsappAXI)
 		where := ag.Label + " (" + a.collapseHome(st.Path) + ")"
 		switch {

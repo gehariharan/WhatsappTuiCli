@@ -6,6 +6,9 @@ chat:
   sync: true
   untrusted_name: "Family red"
 order: newest first
-messages[0]{ref,time,sender,type,state,untrusted_text}:
+shown: 0
+total: unknown
+has_more: false
+messages[0]{ref,time,sender,untrusted_text}:
 help[1]:
   No older messages; this is the start of the archived chat

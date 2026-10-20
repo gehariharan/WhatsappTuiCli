@@ -5,7 +5,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 go test -race -tags sqlite_fts5 ./...
 go vet -tags sqlite_fts5 ./...
-(cd axi && go test -race ./... && go vet ./...)
+(cd axi && go run ./cmd/generate-skill --check && go test -race ./... && go vet ./...)
 bash axi/scripts/test-homebrew-formula.sh
 bash scripts/test-publish-tap.sh
 work="$(mktemp -d)"

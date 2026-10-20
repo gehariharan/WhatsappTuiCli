@@ -24,11 +24,9 @@ AXI never touches WhatsApp, the SQLite archive, the session store or `device.loc
 
 `GET /api/v1/version` (no auth, loopback only, no content) and offline `wasync query version --json`:
 
-```json
-{"api_version": 1, "api_minor": 0, "wasync_version": "0.1.0-preview.…", "schema_version": 6,
- "features": ["chats","messages","search","search.context","thread","message.ref","health.deep",
-              "auth.scopes","changes","checkpoints","diagnostics"]}
-```
+The response shape is defined by [`query.VersionInfo`](../../internal/query/v1.go).
+Read the returned `features` array for the owner's registered capabilities rather
+than relying on a copied feature list.
 
 The embedded [AXI compatibility matrix](../../axi/internal/compat/compatibility.json)
 owns the minimum API version and required features per command; a missing feature
@@ -40,6 +38,17 @@ Success: `{"request_id", "data", "page": {"next_cursor", "has_more"}}`
 Error: `{"request_id", "error_code", "error", "help", "state"}`
 
 Error codes: `unauthorized`, `forbidden`, `not_found`, `invalid_argument`, `invalid_cursor`, `cursor_expired`, `chat_ambiguous`, `owner_offline`, `no_account`, `archive_unavailable`, `schema_incompatible`, `rate_limited`, `internal`. The `wasync query --v1` mode emits the same envelope so AXI parses both transports identically.
+
+Message-list and search responses add optional `data.total`, advertised by the
+`messages.total` feature. The archive owner counts all matching messages for the
+current account, chat, sender, time and search filters, restricted to the API
+client's chat allowlist. Offline reads are unscoped. The count ignores cursor and
+limit; search context neighbors do not count as hits. It is independent of the
+page's visible item count and `has_more`, including when authorization leaves an
+empty page. Older compatible owners may omit it, which means unknown, not zero.
+Legacy unversioned responses are unchanged. The schema is owned by
+[`query.V1MessageList`](../../internal/query/v1_message.go), and matching filters
+are shared by reads and counts in [`storage`](../../internal/storage/messages.go).
 
 ### Identifiers
 

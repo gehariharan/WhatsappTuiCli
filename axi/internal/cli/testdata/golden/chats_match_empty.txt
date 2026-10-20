@@ -1,5 +1,9 @@
 transport: api
 total: 0
-chats[0]{id,kind,messages,last_message_at,sync,untrusted_name}:
+groups: 0
+direct: 0
+capture_enabled: 0
+archived_messages: 0
+chats[0]{id,kind,messages,untrusted_name}:
 help[1]:
   No chat matches "nobody"; run `whatsapp-axi chats` to list every chat

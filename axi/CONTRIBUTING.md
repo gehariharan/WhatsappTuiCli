@@ -19,7 +19,7 @@ for repository and release ownership before changing anything.
 2. Add its required wasync features to `internal/compat/compatibility.json`.
 3. Map its API path to the offline `wasync query` command in `internal/transport/query.go`.
 4. Only list commands in `help` once they work.
-5. Mention it in `skills/whatsapp-axi/SKILL.md`.
+5. Run `go generate ./skills`; the command metadata generates the installed skill. Do not edit its generated output by hand.
 6. If it changes what agents read for a common task, rerun `go test ./internal/bench -run TestBenchmarkReport -v`
    and update `docs/benchmark.md`.
 
@@ -29,6 +29,7 @@ Commands that do not talk to wasync (`help`, `setup`) have no compatibility entr
 
 ```sh
 gofmt -l .
+go run ./cmd/generate-skill --check
 go vet ./...
 go test -race ./...
 ```

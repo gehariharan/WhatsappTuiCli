@@ -323,6 +323,11 @@ func (a *App) runQuery(ctx context.Context, cfg config.Config, args []string) (r
 		if err != nil {
 			return fmt.Errorf("query context: %w", err)
 		}
+		total, err := store.CountMessages(ctx, account.ID, group, q, nil)
+		if err != nil {
+			return fmt.Errorf("query total: %w", err)
+		}
+		list.Total = &total
 		return a.queryOutput(true, list, &query.V1Page{NextCursor: next, HasMore: next != ""})
 	}
 	items := make([]query.Message, 0, len(page.Items))

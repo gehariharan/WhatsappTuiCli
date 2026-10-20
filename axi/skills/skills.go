@@ -5,6 +5,8 @@ package skills
 
 import _ "embed"
 
+//go:generate go run ../cmd/generate-skill --output whatsapp-axi/SKILL.md
+
 // WhatsappAXI is skills/whatsapp-axi/SKILL.md.
 //
 //go:embed whatsapp-axi/SKILL.md

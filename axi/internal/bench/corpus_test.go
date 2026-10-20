@@ -229,7 +229,7 @@ func (c corpus) fixtures() []testutil.Fixture {
 		}
 		page := map[string]any{"next_cursor": "p_" + ch.ID + "_2", "has_more": len(ch.Messages) > pageLimit}
 		q := url.Values{"limit": {fmt.Sprint(pageLimit)}}
-		out = append(out, fixture("/chats/"+ch.ID+"/messages", q, envelope(map[string]any{"account_id": 1, "items": items}, page)))
+		out = append(out, fixture("/chats/"+ch.ID+"/messages", q, envelope(map[string]any{"account_id": 1, "items": items, "total": len(ch.Messages)}, page)))
 	}
 
 	type hit struct {
@@ -259,7 +259,7 @@ func (c corpus) fixtures() []testutil.Fixture {
 		items = append(items, item)
 	}
 	q := url.Values{"q": {searchTerm}, "limit": {fmt.Sprint(pageLimit)}, "context": {fmt.Sprint(contextSize)}}
-	out = append(out, fixture("/messages/search", q, envelope(map[string]any{"account_id": 1, "items": items},
+	out = append(out, fixture("/messages/search", q, envelope(map[string]any{"account_id": 1, "items": items, "total": len(hits)},
 		map[string]any{"next_cursor": "s_2", "has_more": len(hits) > pageLimit})))
 
 	// Changes after the checkpoint at sequence changeLimit: one full page.

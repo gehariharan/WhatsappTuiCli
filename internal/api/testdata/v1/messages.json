@@ -176,7 +176,8 @@
             "text_content": "",
             "timestamp": "2026-10-02T10:02:00Z"
           }
-        ]
+        ],
+        "total": 7
       },
       "page": {
         "has_more": true,
@@ -280,7 +281,8 @@
             "text_content": "the needle",
             "timestamp": "2026-10-02T10:01:00Z"
           }
-        ]
+        ],
+        "total": 2
       },
       "page": {
         "has_more": false,
@@ -329,7 +331,8 @@
             "text_content": "hello archive a",
             "timestamp": "2026-10-01T12:00:00Z"
           }
-        ]
+        ],
+        "total": 2
       },
       "page": {
         "has_more": false,

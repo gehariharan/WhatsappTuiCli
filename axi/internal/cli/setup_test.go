@@ -196,7 +196,7 @@ func TestSetupAgentSelection(t *testing.T) {
 	if code != ExitUsage {
 		t.Fatalf("exit %d", code)
 	}
-	mustContain(t, out, `unknown agent "cursor"`, "claude, codex or all")
+	mustContain(t, out, `unknown agent "cursor"`, "claude, codex, opencode or all")
 	out, code = h.run(t, "setup", "nonsense")
 	if code != ExitUsage {
 		t.Fatalf("exit %d", code)

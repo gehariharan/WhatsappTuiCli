@@ -204,6 +204,12 @@ func (h *handler) v1List(w http.ResponseWriter, r *http.Request, id string, a *s
 		v1Fail(w, id, 503, query.CodeArchiveUnavailable, "archive query failed", "check wasync status")
 		return
 	}
+	total, err := h.store.CountMessages(r.Context(), a.ID, chat, q, v1Client(r).Chats)
+	if err != nil {
+		v1Fail(w, id, 503, query.CodeArchiveUnavailable, "archive count failed", "check wasync status")
+		return
+	}
+	list.Total = &total
 	next := ""
 	if page.Next.ID != 0 {
 		next = h.encodeCursor(page.Next, scope)

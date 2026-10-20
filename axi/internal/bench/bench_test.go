@@ -3,6 +3,7 @@ package bench
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gehariharan/wasync/axi/internal/cli"
+	"github.com/gehariharan/wasync/axi/internal/contract"
 	"github.com/gehariharan/wasync/axi/internal/testutil"
 	"github.com/gehariharan/wasync/axi/internal/transport"
 )
@@ -55,7 +57,7 @@ func tasks(c corpus) []task {
 		},
 		{
 			name: "list_chats", goal: "list every chat with its id, kind, size and last activity",
-			axi: [][]string{{"chats"}},
+			axi: [][]string{{"chats", "--fields", "id,kind,messages,last_message_at"}},
 			raw: []rawCall{{"/chats", nil}},
 		},
 		{
@@ -254,6 +256,30 @@ func TestBenchmarkReport(t *testing.T) {
 		}
 		if strings.Contains(r.AXI.Output, "error:") || r.AXI.Bytes == 0 || r.Raw.Bytes == 0 {
 			t.Errorf("%s: empty or failed output", r.Task.name)
+		}
+		if r.Task.name == "list_chats" {
+			var raw struct {
+				Data contract.ChatList `json:"data"`
+			}
+			if err := json.Unmarshal([]byte(r.Raw.Output), &raw); err != nil {
+				t.Fatal(err)
+			}
+			header := fmt.Sprintf("chats[%d]{id,kind,messages,last_message_at}:\n", chats)
+			_, table, found := strings.Cut(r.AXI.Output, header)
+			if !found || len(raw.Data.Items) != chats {
+				t.Fatal("list_chats did not return all required fields and chats")
+			}
+			rows := strings.Split(table, "\n")
+			for i, chat := range raw.Data.Items {
+				if i >= len(rows) {
+					t.Fatal("list_chats omitted rows")
+				}
+				got, err := csv.NewReader(strings.NewReader(strings.TrimSpace(rows[i]))).Read()
+				want := []string{chat.ID, chat.Kind, fmt.Sprint(chat.MessageCount), chat.LastMessageAt}
+				if err != nil || strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+					t.Fatalf("list_chats row %d: %v (%v), want %v", i, got, err, want)
+				}
+			}
 		}
 	}
 	// The read_chat answer is the same messages both ways.
