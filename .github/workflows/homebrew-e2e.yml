@@ -1,6 +1,20 @@
 name: Homebrew installation E2E
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/homebrew-e2e.yml"
+      - "Formula/**"
+      - "Casks/**"
+      - "lib/**"
+      - "scripts/homebrew-*.py"
+      - "scripts/smoke-installed.py"
+      - "axi/scripts/homebrew-formula.py"
+      - "go.mod"
+      - "go.sum"
+      - "axi/go.mod"
+      - "axi/go.sum"
   workflow_call:
     inputs:
       version:
@@ -24,11 +38,17 @@ on:
 permissions:
   contents: read
 
+env:
+  TAP_URL: ${{ github.event_name == 'pull_request' && format('file://{0}', github.workspace) || format('https://github.com/{0}.git', github.repository) }}
+
 jobs:
   linux-install:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878
       - name: Install both tools from the monorepo tap on Linux
         env:
@@ -37,10 +57,15 @@ jobs:
           HOMEBREW_NO_ASK: '1'
           PACKAGE_VERSION: ${{ inputs.version }}
         run: |
-          brew tap --custom-remote gehariharan/tap "https://github.com/$GITHUB_REPOSITORY.git"
+          brew tap --custom-remote gehariharan/tap "$TAP_URL"
+          if brew help trust >/dev/null 2>&1; then
+            brew trust --formula gehariharan/tap/wasync
+            brew trust --formula gehariharan/tap/whatsapp-axi
+          fi
           brew install gehariharan/tap/whatsapp-axi
-          test "$(whatsapp-axi --version)" = "$PACKAGE_VERSION"
-          wasync version | grep -F "wasync $PACKAGE_VERSION "
+          actual_version="$(whatsapp-axi --version)"
+          if [[ -n "$PACKAGE_VERSION" ]]; then test "$actual_version" = "$PACKAGE_VERSION"; fi
+          wasync version | grep -F "wasync $actual_version "
           brew test gehariharan/tap/wasync
           brew test gehariharan/tap/whatsapp-axi
   install:
@@ -53,7 +78,7 @@ jobs:
           - runner: macos-15-intel
             architecture: amd64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -66,18 +91,24 @@ jobs:
           HOMEBREW_NO_ANALYTICS: '1'
           HOMEBREW_NO_ASK: '1'
           HOMEBREW_NO_INSTALL_CLEANUP: '1'
+          PACKAGE_VERSION: ${{ inputs.version }}
         shell: bash
         run: |
-          brew tap --custom-remote gehariharan/tap "https://github.com/$GITHUB_REPOSITORY.git"
-          if brew help trust >/dev/null 2>&1; then brew trust --cask gehariharan/tap/wasync; fi
+          brew tap --custom-remote gehariharan/tap "$TAP_URL"
+          if brew help trust >/dev/null 2>&1; then
+            brew trust --cask gehariharan/tap/wasync
+            brew trust --formula gehariharan/tap/whatsapp-axi
+          fi
           brew install --cask gehariharan/tap/wasync
           brew install gehariharan/tap/whatsapp-axi
-          test "$(whatsapp-axi --version)" = "${{ inputs.version }}"
+          actual_version="$(brew info --json=v2 --cask gehariharan/tap/wasync | python3 -c 'import json,sys; print(json.load(sys.stdin)["casks"][0]["version"])')"
+          if [[ -n "$PACKAGE_VERSION" ]]; then test "$actual_version" = "$PACKAGE_VERSION"; fi
+          test "$(whatsapp-axi --version)" = "$actual_version"
+          printf 'PACKAGE_VERSION=%s\n' "$actual_version" >> "$GITHUB_ENV"
       - name: Explicit CI-only exception for unsigned preview
         if: inputs.allow_unsigned_preview
         run: bash scripts/test-unsigned-preview.sh
       - name: Exercise installed binary, concurrent queries and offline TUI
         env:
-          PACKAGE_VERSION: ${{ inputs.version }}
           EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
         run: python3 scripts/smoke-installed.py "$(brew --prefix)/bin/wasync" "$PACKAGE_VERSION" "$EXPECTED_ARCHITECTURE"

@@ -10,6 +10,13 @@ CLI. Repository and release ownership is defined in
 PR CI runs core tests on Linux x64/ARM64, macOS Intel/Apple Silicon and Windows,
 Windows installer/MSIX tests, AXI tests and reproducible packaging checks, the
 real synthetic API/offline pair smoke test, and Homebrew publisher tests.
+PRs touching Homebrew definitions, generators, module requirements or the
+installation workflow also run native Linux, Intel Mac and Apple Silicon
+installation checks against the PR checkout's tap definitions before merge.
+These install the published versions referenced by those definitions. CI
+explicitly trusts only the owned formulas and cask it installs, including the
+Linux core dependency. See [Homebrew installation](../README.md#homebrew-installation)
+for dependency trust and source-build toolchain behavior.
 
 Locally use `bash scripts/check.sh` with Go 1.27.2 on PATH. CI and packaging
 never use a paired account. Review both modules and run no-mistakes before merge.
@@ -172,6 +179,6 @@ the logged-in desktop session, using its already-unlocked Keychain.
 ## Homebrew migration
 
 See [Homebrew installation](../README.md#homebrew-installation) for the tap's
-custom remote, platform-specific installation commands and legacy-pin transition.
+custom remote and platform-specific installation commands.
 The [consolidation decision](architecture/ADR-002-monorepo.md) owns compatibility
 and historical repository retention requirements.

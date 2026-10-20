@@ -85,7 +85,7 @@ jobs:
           macOS 15+: Apple Silicon and Intel executables are Developer ID signed and notarized. The matching .pkg installers are signed, notarized, and carry stapled tickets.
           Windows 10/11 x64: download the windows_amd64-setup.exe for a per-user installation, or extract the portable ZIP. Windows previews are currently unsigned; Microsoft Artifact Signing integration is pending.
           Linux: extract the matching archive and install wasync on PATH (glibc 2.35+).
-          Homebrew: first run `brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git`, then `brew install gehariharan/tap/whatsapp-axi` (Linux installs both tools), or `brew install --cask gehariharan/tap/wasync` for the signed Mac executable. Intel and Apple Silicon downloads select the native architecture automatically.
+          Homebrew: follow the platform-specific installation and dependency-trust instructions in https://github.com/gehariharan/wasync#homebrew-installation. Linux installs both tools through the AXI formula; macOS uses the signed core cask alongside the AXI formula. Intel and Apple Silicon downloads select the native architecture automatically.
           Run wasync for the TUI, or wasync query --help for the agent query interface.
           Verify downloads against checksums.txt. Installation preserves per-user archives and pairing credentials.
           NOTES

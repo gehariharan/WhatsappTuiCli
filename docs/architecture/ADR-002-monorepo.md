@@ -30,13 +30,10 @@ After verified publication, automation updates only the owned Homebrew files
 on this repository's main branch. These generated commits do not start another
 preview release. No deploy key or write access to a second repository is needed.
 
-New and existing Homebrew users register the same logical tap against its new
-remote using `brew tap --custom-remote gehariharan/tap
-https://github.com/gehariharan/wasync.git`. This retains existing fully qualified
-formula/cask names. A repository rename alone does not migrate another tap's
-remote. Old signed release assets are kept intact; legacy formula definitions
-remain pinned to their published artifacts until the first combined release
-replaces them with generated definitions.
+The logical tap and fully qualified formula/cask names remain unchanged.
+A repository rename alone does not migrate another tap's remote; see
+[Homebrew installation](../../README.md#homebrew-installation) for migration
+and platform-specific commands. Old signed release assets are kept intact.
 
 Consolidation changes packaging and coordination, not capture policy, agent
 permissions, archive schema or the user's WhatsApp pairing.

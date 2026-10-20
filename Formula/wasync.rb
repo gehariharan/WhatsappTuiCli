@@ -13,6 +13,7 @@ class Wasync < Formula
   def install
     ENV["CGO_ENABLED"] = "1"
     ENV["GOWORK"] = "off"
+    ENV["GOTOOLCHAIN"] = "auto"
     ldflags = %W[
       -s -w
       -X github.com/gehariharan/wasync/internal/buildinfo.Version=#{version}
