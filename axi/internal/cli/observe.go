@@ -51,7 +51,7 @@ func observeCommand() *command {
 			{name: "--limit", value: "N", description: "changes per request, 1 to 1000 (default 100)"},
 			{name: "--follow", description: "keep polling until interrupted; with --json prints one JSON object per line"},
 			{name: "--interval", value: "DUR", description: "--follow poll interval such as 500ms or 5s (default 2s); idle polls and retries back off to 8x"},
-			{name: "--commit", description: "also commit each printed page's next_cursor as the consumer's checkpoint (running wasync only); default is explicit `observe ack`"},
+			{name: "--commit", description: "commit after printing each page (running wasync only); one-shot JSON adds a separate committed record; default is explicit `observe ack`"},
 			jsonFlag,
 		},
 		maxArgs:  2,
@@ -221,7 +221,7 @@ type observeWriter interface {
 }
 
 func observeBadResponse(tr transport.Transport, msg string) error {
-	return &contract.Error{Code: contract.CodeInvalidResponse, Message: msg, Help: "check that wasync is up to date: brew upgrade --cask gehariharan/tap/wasync", Transport: tr.Name()}
+	return &contract.Error{Code: contract.CodeInvalidResponse, Message: msg, Help: "check that wasync is up to date: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync", Transport: tr.Name()}
 }
 
 func observeFetch(ctx context.Context, tr transport.Transport, after string, limit int) (observePage, error) {
@@ -424,41 +424,50 @@ func (a *App) observeOnce(ctx context.Context, jsonMode bool, o observeOptions, 
 		}
 		cursor = p.NextCursor
 	}
-	var committed *observeCheckpoint
+	hints := observeOnceHints(o, tr, page)
+	w := output.New(a.Out)
+	if jsonMode {
+		if err := output.JSON(a.Out, struct {
+			observeStart
+			Changes    []observeChange `json:"changes"`
+			NextCursor string          `json:"next_cursor"`
+			HasMore    bool            `json:"has_more"`
+			Help       []string        `json:"help"`
+		}{st, page.Changes, page.NextCursor, page.HasMore, hints}); err != nil {
+			return err
+		}
+	} else {
+		st.write(w)
+		writeObserveChanges(w, page.Changes)
+		w.Field(0, "next_cursor", page.NextCursor)
+		w.Field(0, "has_more", strconv.FormatBool(page.HasMore))
+		if tr.Name() == transport.NameQuery {
+			w.Field(0, "note", observeOfflineNote)
+		}
+		w.Help(hints...)
+		if err := w.Err(); err != nil {
+			return err
+		}
+	}
 	if o.commit && page.NextCursor != st.Checkpoint.cursor() {
 		cp, err := observeCommit(ctx, tr, o.consumer, page.NextCursor)
 		if err != nil {
 			return observeExplain(err, o)
 		}
-		committed = &cp
+		hint := "Checkpoint committed: `whatsapp-axi observe --consumer " + o.consumer + "` resumes after it"
+		if jsonMode {
+			return output.JSON(a.Out, struct {
+				Committed observeCheckpoint `json:"committed"`
+				Help      []string          `json:"help"`
+			}{cp, []string{hint}})
+		}
+		w.Field(0, "committed", cp.cursor())
+		w.Help(hint)
 	}
-	hints := observeOnceHints(o, tr, page, committed)
-	if jsonMode {
-		return output.JSON(a.Out, struct {
-			observeStart
-			Changes    []observeChange    `json:"changes"`
-			NextCursor string             `json:"next_cursor"`
-			HasMore    bool               `json:"has_more"`
-			Committed  *observeCheckpoint `json:"committed,omitempty"`
-			Help       []string           `json:"help"`
-		}{st, page.Changes, page.NextCursor, page.HasMore, committed, hints})
-	}
-	w := output.New(a.Out)
-	st.write(w)
-	writeObserveChanges(w, page.Changes)
-	w.Field(0, "next_cursor", page.NextCursor)
-	w.Field(0, "has_more", strconv.FormatBool(page.HasMore))
-	if committed != nil {
-		w.Field(0, "committed", committed.cursor())
-	}
-	if tr.Name() == transport.NameQuery {
-		w.Field(0, "note", observeOfflineNote)
-	}
-	w.Help(hints...)
 	return w.Err()
 }
 
-func observeOnceHints(o observeOptions, tr transport.Transport, page observePage, committed *observeCheckpoint) []string {
+func observeOnceHints(o observeOptions, tr transport.Transport, page observePage) []string {
 	var h []string
 	if len(page.Changes) > 0 {
 		h = append(h, observeContentHint)
@@ -475,9 +484,7 @@ func observeOnceHints(o observeOptions, tr transport.Transport, page observePage
 	}
 	_, online := tr.(observeWriter)
 	switch {
-	case committed != nil:
-		h = append(h, "Checkpoint committed: `whatsapp-axi observe --consumer "+o.consumer+"` resumes after it")
-	case o.consumer != "" && online && len(page.Changes) > 0:
+	case o.consumer != "" && online && !o.commit && len(page.Changes) > 0:
 		h = append(h, "After processing, save progress with `whatsapp-axi observe ack "+page.NextCursor+" --consumer "+o.consumer+"`; `whatsapp-axi observe --consumer "+o.consumer+"` then resumes there")
 	case o.consumer != "" && !online:
 		h = append(h, "Checkpoints can only be committed while wasync is running; ask the user to start it to save progress")

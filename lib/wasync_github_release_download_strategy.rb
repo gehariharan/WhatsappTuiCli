@@ -4,7 +4,7 @@ require "download_strategy"
 
 class WasyncGitHubReleaseDownloadStrategy < CurlDownloadStrategy
   def fetch(timeout: nil)
-    match = %r{\Ahttps://github\.com/(?<repo>gehariharan/WhatsappTuiCli)/releases/download/(?<tag>v[0-9A-Za-z.-]+)/(?<asset>wasync_[0-9A-Za-z._-]+\.tar\.gz)\z}.match(url)
+    match = %r{\Ahttps://github\.com/(?<repo>gehariharan/(?:wasync|WhatsappTuiCli))/releases/download/(?<tag>v[0-9A-Za-z.-]+)/(?<asset>wasync_[0-9A-Za-z._-]+\.tar\.gz)\z}.match(url)
     raise "Unexpected wasync release URL" unless match
 
     download_lock = DownloadLock.new(temporary_path)

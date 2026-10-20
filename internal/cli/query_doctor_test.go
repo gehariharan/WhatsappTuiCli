@@ -125,7 +125,7 @@ func TestQueryDoctorOwnerStopped(t *testing.T) {
 	if c := check(d, "owner"); c.Status != "warn" || c.Fix != "wasync serve" {
 		t.Fatalf("owner check %+v", c)
 	}
-	if c := check(d, "agent"); c.Status != "warn" || c.Fix != "wasync agents grant NAME --scope read.chats,read.messages" {
+	if c := check(d, "agent"); c.Status != "warn" || c.Fix != "wasync agents grant NAME --scope read.chats,read.messages,observe" {
 		t.Fatalf("agent check %+v", c)
 	}
 	if after := dirEntries(t, dir); !slices.Equal(before, after) {

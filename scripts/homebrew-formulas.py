@@ -14,11 +14,12 @@ def render_wasync(version, checksum, commit):
 class Wasync < Formula
   desc "Local WhatsApp archive, terminal UI, and API for people and agents"
   homepage "https://github.com/gehariharan/wasync"
-  url "https://github.com/gehariharan/wasync/archive/refs/tags/v{version}.tar.gz"
+  url "https://api.github.com/repos/gehariharan/wasync/tarball/v{version}"
   version "{version}"
   sha256 "{checksum}"
   license "MIT"
 
+  depends_on :linux
   depends_on "go" => :build
 
   def install

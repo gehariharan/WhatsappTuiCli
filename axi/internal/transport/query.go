@@ -17,7 +17,7 @@ import (
 )
 
 // InstallHelp tells a human how to install wasync.
-const InstallHelp = "install wasync (brew install --cask gehariharan/tap/wasync) or set " + config.EnvBin + " to its path"
+const InstallHelp = "install wasync (brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew install --cask gehariharan/tap/wasync) or set " + config.EnvBin + " to its path"
 
 // QueryRoute maps one read-only /api/v1 path pattern to a `wasync query`
 // command. Patterns use {name} for one path segment, like wasync's router.
@@ -211,7 +211,7 @@ func (q *Query) Version(ctx context.Context) (contract.VersionInfo, error) {
 	if errors.As(err, &ce) && ce.Code == contract.CodeInvalidResponse {
 		ce.Code = contract.CodeWasyncTooOld
 		ce.Message = "this wasync does not support `wasync query version --v1`"
-		ce.Help = "upgrade wasync: brew upgrade --cask gehariharan/tap/wasync"
+		ce.Help = "upgrade wasync: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync"
 	}
 	return v, err
 }
@@ -246,7 +246,7 @@ func (q *Query) Get(ctx context.Context, path string, query url.Values, out any)
 			return &contract.Error{Code: contract.CodeWasyncNotFound, Message: "cannot run wasync", Help: InstallHelp, Transport: NameQuery}
 		}
 		if len(bytes.TrimSpace(stdout.Bytes())) == 0 {
-			return &contract.Error{Code: contract.CodeInvalidResponse, Message: "wasync query failed without a v1 envelope", Help: "upgrade wasync: brew upgrade --cask gehariharan/tap/wasync", Transport: NameQuery}
+			return &contract.Error{Code: contract.CodeInvalidResponse, Message: "wasync query failed without a v1 envelope", Help: "upgrade wasync: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync", Transport: NameQuery}
 		}
 	}
 	return decodeEnvelope(stdout.Bytes(), NameQuery, out)

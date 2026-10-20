@@ -88,7 +88,7 @@ brew install gehariharan/tap/whatsapp-axi
 
 On macOS, install the signed core cask below, then install the optional agent
 CLI with `brew install gehariharan/tap/whatsapp-axi`. The core source formula is
-also available; choose either the formula or cask to avoid duplicate binaries.
+Linux-only.
 
 
 Each release generates `wasync.rb`, a Homebrew **cask** that installs the

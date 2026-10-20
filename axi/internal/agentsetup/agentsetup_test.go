@@ -324,11 +324,11 @@ func TestCodexFeatureFlag(t *testing.T) {
 		{"[other]\nhooks = false\n", "[other]\nhooks = false\n\n[features]\nhooks = true\n"},
 	}
 	for _, c := range cases {
-		got, changed := enableCodexHooks(c.in)
-		if got != c.want || !changed {
+		got, changed, err := enableCodexHooks(c.in)
+		if err != nil || got != c.want || !changed {
 			t.Errorf("%q: got %q", c.in, got)
 		}
-		if again, changed := enableCodexHooks(got); changed || again != got {
+		if again, changed, err := enableCodexHooks(got); err != nil || changed || again != got {
 			t.Errorf("%q: not idempotent", c.in)
 		}
 	}
@@ -392,6 +392,50 @@ func TestSkillPlan(t *testing.T) {
 		var ce *contract.Error
 		if _, err := PlanSkill(claude, root, content, remove); !errors.As(err, &ce) || ce.Code != CodeConfigInvalid {
 			t.Errorf("remove=%v: %v", remove, err)
+		}
+	}
+}
+
+func TestCodexFeatureRepresentations(t *testing.T) {
+	for _, content := range []string{
+		"features = { hooks = false }\n",
+		"[\"features\"]\nhooks = false\n",
+		"['features']\nhooks = false\n",
+		"[features]\n\"hooks\" = false\n",
+		"[features]\n'hooks' = false\n",
+		"features.hooks = false\n",
+		"features = []\n",
+		"[features]\nhooks = 'false'\n",
+		"[features]\nhooks = false\nhooks = true\n",
+		"model = \"\"\"\n[features]\nhooks = false\n\"\"\"\n",
+	} {
+		t.Run(content, func(t *testing.T) {
+			root := t.TempDir()
+			path := CodexConfigPath(root)
+			write(t, path, content)
+			c, err := PlanCodexFeature(root)
+			var ce *contract.Error
+			if !errors.As(err, &ce) || ce.Code != CodeConfigInvalid || c.Action != ActionNone {
+				t.Fatalf("unsafe edit accepted: %+v %v", c, err)
+			}
+			if got := read(t, path); got != content {
+				t.Fatalf("planning changed config: %q", got)
+			}
+		})
+	}
+	for _, content := range []string{
+		"features = { hooks = true }\n",
+		"[\"features\"]\n'hooks' = true\n",
+		"['features']\n\"hooks\" = true\n",
+		"features.hooks = true\n",
+	} {
+		root := t.TempDir()
+		write(t, CodexConfigPath(root), content)
+		if c, err := PlanCodexFeature(root); err != nil || c.Action != ActionNone {
+			t.Fatalf("enabled config: %+v %v", c, err)
+		}
+		if enabled, err := InspectCodexFeature(root); err != nil || !enabled {
+			t.Fatalf("enabled feature not recognized: %v %v", enabled, err)
 		}
 	}
 }

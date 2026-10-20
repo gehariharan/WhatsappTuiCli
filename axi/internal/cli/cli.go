@@ -220,11 +220,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 func (a *App) resolve(args []string) (*command, []string, bool, error) {
 	jsonMode := containsJSON(args)
-	for _, arg := range args {
-		if IsVersionFlag(arg) {
-			return nil, nil, jsonMode, usageErr("whatsapp-axi --version", "%s takes no other arguments", arg)
-		}
-	}
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return findCommand(""), args, jsonMode, nil
 	}
@@ -274,6 +269,8 @@ func parseFlags(c *command, rest []string) (invocation, bool, error) {
 			inv.args = append(inv.args, arg)
 		case arg == "--":
 			positionalOnly = true
+		case IsVersionFlag(arg):
+			return inv, false, usageErr("whatsapp-axi --version", "%s takes no other arguments", arg)
 		case arg == "--help" || arg == "-h":
 			wantHelp = true
 		case arg == "--json":

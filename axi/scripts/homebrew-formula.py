@@ -21,13 +21,13 @@ def render(version, source_sha256, commit=None):
 class WhatsappAxi < Formula
   desc "Agent-facing CLI that reads a local wasync WhatsApp archive"
   homepage "https://github.com/{REPO}"
-  url "https://github.com/{REPO}/archive/refs/tags/v{version}.tar.gz"
+  url "https://api.github.com/repos/{REPO}/tarball/v{version}"
   version "{version}"
   sha256 "{source_sha256}"
   license "MIT"
 
   livecheck do
-    url :stable
+    url "https://github.com/{REPO}"
     strategy :github_latest
   end
 

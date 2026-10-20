@@ -141,6 +141,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Verify coordinated release tags
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.value }}
+        run: |
+          for tag in "v$PACKAGE_VERSION" "axi/v$PACKAGE_VERSION"; do
+            test "$(git rev-parse "$tag^{commit}")" = "$GITHUB_SHA"
+          done
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
           go-version-file: axi/go.mod
@@ -215,11 +223,12 @@ jobs:
         env:
           PACKAGE_VERSION: ${{ needs.version.outputs.value }}
           PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           extra=()
           if [[ "$PRIVATE_REPOSITORY" == "true" ]]; then extra+=(--private); fi
           python3 scripts/homebrew-cask.py "$PACKAGE_VERSION" dist/release dist/release/wasync.rb "${extra[@]}"
-          curl -fsSL --retry 3 "https://github.com/$GITHUB_REPOSITORY/archive/refs/tags/v$PACKAGE_VERSION.tar.gz" -o dist/source.tar.gz
+          gh api "repos/$GITHUB_REPOSITORY/tarball/v$PACKAGE_VERSION" > dist/source.tar.gz
           source_sum="$(sha256sum dist/source.tar.gz | cut -d' ' -f1)"
           python3 scripts/homebrew-formulas.py "$PACKAGE_VERSION" "$source_sum" dist/release --commit "${GITHUB_SHA:0:12}"
           cd dist/release

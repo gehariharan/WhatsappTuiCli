@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -116,8 +118,21 @@ func obsJSON(t *testing.T, h *harness, args ...string) obsResult {
 	t.Helper()
 	out, code := h.run(t, append(args, "--json")...)
 	var r obsResult
-	if code != ExitOK || json.Unmarshal([]byte(out), &r) != nil {
+	dec := json.NewDecoder(strings.NewReader(out))
+	if code != ExitOK || dec.Decode(&r) != nil {
 		t.Fatalf("%v: exit %d\n%s", args, code, out)
+	}
+	var receipt obsResult
+	if err := dec.Decode(&receipt); err == nil {
+		if receipt.Committed == nil {
+			t.Fatalf("unexpected record: %s", out)
+		}
+		r.Committed = receipt.Committed
+		if err := dec.Decode(&receipt); err != io.EOF {
+			t.Fatalf("unexpected trailing output: %s", out)
+		}
+	} else if err != io.EOF {
+		t.Fatalf("invalid trailing output: %s", out)
 	}
 	return r
 }
@@ -584,4 +599,68 @@ func TestObserveNeedsFeaturesAndCredential(t *testing.T) {
 		t.Fatal(out)
 	}
 	mustContain(t, out, "code: wasync_not_found")
+}
+
+type observeOutputFunc func([]byte) (int, error)
+
+func (f observeOutputFunc) Write(p []byte) (int, error) { return f(p) }
+
+func TestObserveOutputFailureDoesNotCommit(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		for _, capacity := range []int{0, 40} {
+			h, srv := obsOnline(t, testutil.NewJournal(2))
+			remaining := capacity
+			out := observeOutputFunc(func(p []byte) (int, error) {
+				n := min(remaining, len(p))
+				remaining -= n
+				if n < len(p) {
+					return n, errors.New("output full")
+				}
+				return n, nil
+			})
+			a := New(out)
+			a.Getenv = func(k string) string { return h.env[k] }
+			args := []string{"observe", "--consumer", "replica", "--commit"}
+			if jsonMode {
+				args = append(args, "--json")
+			}
+			if code := a.Run(context.Background(), args); code != ExitError {
+				t.Fatalf("json=%v capacity=%d: exit %d", jsonMode, capacity, code)
+			}
+			if obsPuts(srv) != 0 || obsCheckpoint(srv, "replica") != -1 {
+				t.Fatalf("json=%v capacity=%d: undelivered page committed", jsonMode, capacity)
+			}
+			r := obsJSON(t, h, "observe", "--consumer", "replica")
+			if !reflect.DeepEqual(obsSeqs(r), []int{1, 2}) {
+				t.Fatalf("changes lost: %+v", r)
+			}
+		}
+	}
+}
+
+func TestObserveEmitsPageBeforeCommit(t *testing.T) {
+	h, srv := obsOnline(t, testutil.NewJournal(2))
+	var out bytes.Buffer
+	writer := observeOutputFunc(func(p []byte) (int, error) {
+		if out.Len() == 0 && obsPuts(srv) != 0 {
+			t.Error("checkpoint moved before page output")
+		}
+		return out.Write(p)
+	})
+	a := New(writer)
+	a.Getenv = func(k string) string { return h.env[k] }
+	if code := a.Run(context.Background(), []string{"observe", "--consumer", "replica", "--commit", "--json"}); code != ExitOK {
+		t.Fatalf("exit %d: %s", code, out.String())
+	}
+	dec := json.NewDecoder(&out)
+	var page, receipt obsResult
+	if dec.Decode(&page) != nil || len(page.Changes) != 2 || page.Committed != nil {
+		t.Fatalf("invalid page: %+v", page)
+	}
+	if dec.Decode(&receipt) != nil || receipt.Committed["cursor"] != page.NextCursor || len(receipt.Changes) != 0 {
+		t.Fatalf("invalid receipt: %+v", receipt)
+	}
+	if err := dec.Decode(&receipt); err != io.EOF || obsCheckpoint(srv, "replica") != 2 {
+		t.Fatalf("invalid completion: %v", err)
+	}
 }

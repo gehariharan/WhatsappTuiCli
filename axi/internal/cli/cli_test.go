@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -265,6 +266,7 @@ func TestIncompatibleWasync(t *testing.T) {
 	h.env["WASYNC_BIN"] = bin
 	out, _ = h.run(t)
 	mustContain(t, out, "state: unavailable", "status: wasync_too_old")
+	mustContain(t, out, "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync")
 	if strings.Count(out, "brew upgrade --cask gehariharan/tap/wasync") != 1 {
 		t.Fatalf("upgrade hint missing or repeated:\n%s", out)
 	}
@@ -315,5 +317,30 @@ func TestBadCredentialIsReported(t *testing.T) {
 	mustContain(t, out, "credential: invalid", "Credential problem:")
 	if strings.Contains(out, "0123456789abcdef") {
 		t.Fatal("credential value printed")
+	}
+}
+
+func TestVersionAliasesAsData(t *testing.T) {
+	for _, alias := range []string{"--version", "-v", "-V"} {
+		h, srv := apiHarness(t)
+		for _, tc := range []struct {
+			args []string
+			path string
+			key  string
+		}{
+			{[]string{"search", "--", alias}, "/messages/search", "q"},
+			{[]string{"chats", "--match", alias}, "/chats", "match"},
+			{[]string{"chats", "--match=" + alias}, "/chats", "match"},
+		} {
+			srv.Routes[tc.path] = testutil.Envelope(map[string]any{"items": []any{}})
+			out, code := h.run(t, tc.args...)
+			if code != ExitOK {
+				t.Fatalf("%v: exit %d %s", tc.args, code, out)
+			}
+			u, err := url.Parse(srv.Requests[len(srv.Requests)-1])
+			if err != nil || u.Path != "/api/v1"+tc.path || u.Query().Get(tc.key) != alias {
+				t.Fatalf("data changed: %v %v", u, err)
+			}
+		}
 	}
 }

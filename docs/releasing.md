@@ -52,8 +52,7 @@ brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.g
 On Linux, `brew install gehariharan/tap/whatsapp-axi` installs both source-built
 tools. On macOS, install the signed core with `brew install --cask
 gehariharan/tap/wasync`, then `brew install gehariharan/tap/whatsapp-axi`.
-The source-built core formula is an alternative to the Mac cask, not a second
-installation to use alongside it.
+The source-built core formula is Linux-only.
 
 Retain previous release assets, user data directories, installer identifiers and
 existing command names. Do not delete old repositories or reuse the former

@@ -8,7 +8,11 @@ on:
       - "Casks/**"
       - "lib/**"
       - "docs/**"
-      - "**/*.md"
+      - "*.md"
+      - "axi/*.md"
+      - "axi/docs/**"
+      - "packaging/**/*.md"
+      - "website/**/*.md"
   workflow_dispatch:
 
 permissions:

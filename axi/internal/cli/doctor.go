@@ -87,9 +87,9 @@ var scopeUses = []struct{ scope, use string }{
 const defaultAgentName = "whatsapp-axi"
 
 const (
-	upgradeWasyncFix = "brew upgrade --cask gehariharan/tap/wasync"
-	installWasyncFix = "brew install --cask gehariharan/tap/wasync"
-	upgradeAXIFix    = "go install github.com/gehariharan/whatsapp-axi/cmd/whatsapp-axi@latest"
+	upgradeWasyncFix = "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync"
+	installWasyncFix = "brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew install --cask gehariharan/tap/wasync"
+	upgradeAXIFix    = "go install github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest"
 )
 
 type doctorCheck struct {
@@ -486,8 +486,12 @@ func (a *App) permissionChecks(d detection, f facts) []doctorCheck {
 		} else {
 			scopes.Status = statusWarn
 			scopes.Detail = "agent " + agent.Name + " lacks " + strings.Join(missing, ",") + " (needed for " + strings.Join(uses, "; ") + ")"
-			all := orderScopes(append(append([]string(nil), agent.Scopes...), missing...))
-			scopes.Fix = "wasync agents revoke " + name + " && wasync agents grant " + name + " --scope " + strings.Join(all, ",")
+			for _, check := range f.diag.Checks {
+				if check.Name == "agent" {
+					scopes.Fix = check.Fix
+					break
+				}
+			}
 		}
 		if len(agent.Chats) > 0 {
 			scopes.Detail += "; limited to " + strconv.Itoa(len(agent.Chats)) + " chat(s)"

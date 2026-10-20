@@ -136,7 +136,10 @@ whatsapp-axi observe --consumer replica --follow --json   # poll until interrupt
 
 The checkpoint never moves on its own: only `observe ack` or an explicit `--commit` commits it, and only
 through the running wasync API with an agent granted the `observe` scope. Offline reads work but never
-commit. A `cursor_expired` error means the position is gone (older than wasync's 30-day journal or from
+commit. With one-shot `--commit --json`, the page is emitted first and a separate JSON line
+containing `committed` confirms the checkpoint write. A failed page write leaves the checkpoint
+unchanged; use explicit `observe ack` to acknowledge processing by a downstream consumer.
+A `cursor_expired` error means the position is gone (older than wasync's 30-day journal or from
 another archive): re-read what you replicate, then restart with `--from-oldest` and ack the new cursor.
 
 ## Agent integration

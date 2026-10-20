@@ -76,7 +76,7 @@ diff <(tap_file Formula/wasync.rb) "$assets1/wasync-formula.rb" >/dev/null || fa
 diff <(tap_file Formula/whatsapp-axi.rb) "$assets1/whatsapp-axi.rb" >/dev/null || fail "AXI formula not updated"
 pass "both source formulas published with the cask"
 diff <(tap_file lib/wasync_github_release_download_strategy.rb) \
-  "$project_dir/packaging/homebrew/lib/wasync_github_release_download_strategy.rb" >/dev/null || fail "lib helper not copied"
+  "$project_dir/lib/wasync_github_release_download_strategy.rb" >/dev/null || fail "lib helper not copied"
 pass "download strategy helper copied"
 [[ "$(tap_file Casks/whatsapp-axi.rb)" == *'version "0.2.0"'* ]] || fail "concurrent whatsapp-axi update lost"
 pass "Casks/whatsapp-axi.rb kept the other publisher's version"

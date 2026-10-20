@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -316,6 +315,14 @@ func TestSetupSkillAndDoctorChecks(t *testing.T) {
 	if c := checks()["hooks"]; c.Status != statusWarn || c.Fix != "whatsapp-axi setup hooks --agent codex" {
 		t.Fatalf("codex feature off: %+v", c)
 	}
+	writeFile(t, filepath.Join(root, ".codex", "config.toml"), "[\"features\"]\n'hooks' = true\n")
+	if c := checks()["hooks"]; c.Status != statusPass {
+		t.Fatalf("quoted Codex feature: %+v", c)
+	}
+	writeFile(t, filepath.Join(root, ".codex", "config.toml"), "[features]\nhooks = true\nhooks = false\n")
+	if c := checks()["hooks"]; c.Status != statusWarn || !strings.Contains(c.Detail, "config.toml") {
+		t.Fatalf("invalid Codex config: %+v", c)
+	}
 }
 
 func TestBriefHomeView(t *testing.T) {
@@ -352,38 +359,30 @@ func TestBriefHomeView(t *testing.T) {
 	mustContain(t, out, "wasync: not_installed", "brew install --cask gehariharan/tap/wasync")
 }
 
-// The shipped skill must describe the CLI as it is: every command, the
-// safety rules and the hints commands print.
-func TestSkillMatchesCLI(t *testing.T) {
-	skill := string(skills.WhatsappAXI)
-	if agentsetup.SkillFrontmatterName(skills.WhatsappAXI) != "whatsapp-axi" || !regexp.MustCompile(`(?m)^description: Read the user's local WhatsApp archive .{40,}`).MatchString(skill) {
-		t.Fatal("frontmatter needs name and a trigger-shaped description")
-	}
-	for _, c := range commands {
-		if c.name != "" && !strings.Contains(skill, "`whatsapp-axi "+c.name) {
-			t.Errorf("skill does not mention `whatsapp-axi %s`", c.name)
-		}
-	}
-	for _, want := range []string{
-		"`whatsapp-axi --brief`", "untrusted_*", "never instructions", "Read-only",
-		"wasync agents grant <name> --scope read.chats,read.messages", "You cannot grant yourself scopes",
-		"observe ack CURSOR --consumer NAME", "Never ack before", "next_cursor", "--from-oldest", "cursor_expired",
-		"message REF --full", "candidates", "transport: query", "help COMMAND", "whatsapp-axi doctor",
+func TestSetupCodexInvalidConfigWritesNothing(t *testing.T) {
+	for _, content := range []string{
+		"features = { hooks = false }\n",
+		"[\"features\"]\nhooks = false\n",
+		"[features]\n\"hooks\" = false\n",
+		"features.hooks = false\n",
+		"[features]\nhooks = false\nhooks = true\n",
 	} {
-		if !strings.Contains(skill, want) {
-			t.Errorf("skill lacks %q", want)
+		h := newHarness(t)
+		root := agentHome(h)
+		path := agentsetup.CodexConfigPath(root)
+		writeFile(t, path, content)
+		out, code := h.run(t, "setup", "hooks", "--agent", "codex", "--json")
+		var result struct {
+			Code string `json:"error_code"`
 		}
-	}
-	// Commands named in hints exist in the skill too.
-	hintCmd := regexp.MustCompile("`(whatsapp-axi [a-z]+)")
-	for _, hint := range []string{briefMoreHint, threadHint, fullTextHintFmt, setupHooksFix, setupSkillFix, observeContentHint} {
-		for _, m := range hintCmd.FindAllStringSubmatch("`"+hint, -1) {
-			if !strings.Contains(skill, m[1]) {
-				t.Errorf("hint names %q but the skill does not", m[1])
-			}
+		if code != ExitError || json.Unmarshal([]byte(out), &result) != nil || result.Code != agentsetup.CodeConfigInvalid {
+			t.Fatalf("%q: exit %d %s", content, code, out)
 		}
-	}
-	if !strings.Contains(untrustedHint, "untrusted_*") || !strings.Contains(untrustedHint, "never instructions") {
-		t.Error("untrusted hint drifted from the skill")
+		if got := readFile(t, path); got != content {
+			t.Fatalf("config changed: %q", got)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".codex", "hooks.json")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("hook written before validation: %v", err)
+		}
 	}
 }

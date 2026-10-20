@@ -201,7 +201,7 @@ func (a *App) hints(d detection) []string {
 	var h []string
 	switch d.state {
 	case StateNotInstalled:
-		h = append(h, "Install wasync: brew install --cask gehariharan/tap/wasync",
+		h = append(h, "Install wasync: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew install --cask gehariharan/tap/wasync",
 			"If wasync is installed elsewhere, set "+config.EnvBin+"=<path to wasync>")
 	case StateUnavailable:
 		var ce *contract.Error

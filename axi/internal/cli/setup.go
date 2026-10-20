@@ -305,7 +305,10 @@ func (a *App) hookChecks() []doctorCheck {
 		case st.Current:
 			current = append(current, where)
 			if ag.Name == "codex" {
-				if on, err := agentsetup.InspectCodexFeature(root); err == nil && !on {
+				on, err := agentsetup.InspectCodexFeature(root)
+				if err != nil {
+					broken = append(broken, a.collapseHome(agentsetup.CodexConfigPath(root))+": "+errMessage(err))
+				} else if !on {
 					featureOff = append(featureOff, a.collapseHome(agentsetup.CodexConfigPath(root)))
 				}
 			}

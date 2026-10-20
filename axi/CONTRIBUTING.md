@@ -6,8 +6,7 @@ before changing anything: it decides what belongs here and what belongs in wasyn
 
 ## The boundary
 
-- No WhatsApp logic, SQL, SQLite driver, whatsmeow or wasync `internal/` imports. `internal/policy` fails the
-  build if go.mod, go.sum or an import breaks this.
+- No WhatsApp logic, SQL, SQLite driver, whatsmeow or wasync `internal/` imports.
 - Read wasync only through `/api/v1` on loopback or `wasync query <cmd> --v1 --json`.
 - If a feature needs SQL, a WhatsApp call, a policy decision or persisted state other than whatsapp-axi's own
   config, it goes into wasync first behind an API endpoint and a `wasync query` equivalent.
@@ -19,8 +18,7 @@ before changing anything: it decides what belongs here and what belongs in wasyn
 2. Add its required wasync features to `internal/compat/compatibility.json`.
 3. Map its API path to the offline `wasync query` command in `internal/transport/query.go`.
 4. Only list commands in `help` once they work.
-5. Mention it in `skills/whatsapp-axi/SKILL.md`; a test fails when the skill misses a command or a command
-   that a hint names.
+5. Mention it in `skills/whatsapp-axi/SKILL.md`.
 6. If it changes what agents read for a common task, rerun `go test ./internal/bench -run TestBenchmarkReport -v`
    and update `docs/benchmark.md`.
 
@@ -34,4 +32,5 @@ go vet ./...
 go test -race ./...
 ```
 
-Standard library only, unless a dependency is clearly justified in the pull request.
+Dependencies require a clear justification. The TOML parser validates user-owned Codex
+configuration before setup edits it; regular expressions cannot validate TOML semantics.

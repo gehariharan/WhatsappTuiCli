@@ -138,7 +138,7 @@ func (a *API) send(ctx context.Context, method, path string, query url.Values, p
 	var ce *contract.Error
 	if errors.As(err, &ce) && ce.Code == contract.CodeInvalidResponse && resp.StatusCode == http.StatusNotFound && path == "/version" {
 		// A wasync without /api/v1 answers 404 without an envelope.
-		return &contract.Error{Code: contract.CodeWasyncTooOld, Message: "wasync API has no /api/v1", Help: "upgrade wasync: brew upgrade --cask gehariharan/tap/wasync", Transport: NameAPI}
+		return &contract.Error{Code: contract.CodeWasyncTooOld, Message: "wasync API has no /api/v1", Help: "upgrade wasync: brew tap --custom-remote gehariharan/tap https://github.com/gehariharan/wasync.git && brew upgrade --cask gehariharan/tap/wasync", Transport: NameAPI}
 	}
 	if err == nil && resp.StatusCode >= 400 {
 		return &contract.Error{Code: contract.CodeInvalidResponse, Message: fmt.Sprintf("wasync API answered HTTP %d without an error envelope", resp.StatusCode), Transport: NameAPI}

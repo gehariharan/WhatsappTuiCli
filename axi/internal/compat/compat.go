@@ -3,7 +3,7 @@
 // the wasync features each whatsapp-axi command requires.
 //
 // ADR-001 names this file compatibility.yaml. It is JSON so whatsapp-axi
-// stays standard-library only; the content and semantics are the same.
+// can decode it with the standard library; the content and semantics are the same.
 package compat
 
 import (

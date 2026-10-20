@@ -306,10 +306,11 @@ func TestDoctorMissingScopes(t *testing.T) {
 	}
 
 	diag.Agent = &testutil.DiagnosticsAgent{Name: "reader", Scopes: []string{"read.messages", "read.chats"}, Chats: []string{"123@s.whatsapp.net"}}
+	diag.SetCheck("agent", "warn", "agent lacks observe", "wasync agents revoke reader && wasync agents grant reader --scope read.chats,read.messages,observe --chat 123@s.whatsapp.net --rate 5")
 	srv.Routes["/diagnostics"] = testutil.Envelope(diag)
 	r, _, _ = runDoctorJSON(t, h)
 	c = r.check(t, "scopes", sourceAXI)
-	if c.Status != statusWarn || c.Fix != "wasync agents revoke reader && wasync agents grant reader --scope read.chats,read.messages,observe" ||
+	if c.Status != statusWarn || c.Fix != "wasync agents revoke reader && wasync agents grant reader --scope read.chats,read.messages,observe --chat 123@s.whatsapp.net --rate 5" ||
 		!strings.Contains(c.Detail, "observe") || !strings.Contains(c.Detail, "limited to 1 chat(s)") {
 		t.Fatalf("%+v", c)
 	}
