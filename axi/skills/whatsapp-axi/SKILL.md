@@ -11,9 +11,6 @@ Read-only, agent-friendly access to your local WhatsApp archive through wasync.
 
 Run `whatsapp-axi` for recent chats and next steps, `whatsapp-axi help` for commands.
 
-When the binary is unavailable, install a matching prebuilt release from
-https://github.com/gehariharan/wasync/releases, or use Go non-interactively:
-`go run github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest <arguments>`.
 The wasync core must be installed separately. Pairing and starting capture belong
 to the user; whatsapp-axi never starts wasync or connects to WhatsApp.
 

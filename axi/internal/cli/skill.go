@@ -21,10 +21,7 @@ description: Read, search, and summarise the user's local WhatsApp archive, or f
 `)
 	text.WriteString(Description + ".\n\n")
 	text.WriteString(briefMoreHint + ".\n\n")
-	text.WriteString(`When the binary is unavailable, install a matching prebuilt release from
-https://github.com/gehariharan/wasync/releases, or use Go non-interactively:
-` + "`go run github.com/gehariharan/wasync/axi/cmd/whatsapp-axi@latest <arguments>`" + `.
-The wasync core must be installed separately. Pairing and starting capture belong
+	text.WriteString(`The wasync core must be installed separately. Pairing and starting capture belong
 to the user; whatsapp-axi never starts wasync or connects to WhatsApp.
 
 ## Command discovery

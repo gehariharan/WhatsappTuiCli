@@ -25,12 +25,12 @@ const (
 )
 
 // Agent is an agent tool whose session hooks and skills setup manages.
-// Paths are relative to a root: the user's home directory, or a project
-// directory for project-scoped settings.
+// Config paths are absolute or relative to a root: the user's home directory,
+// or a project directory for project-scoped settings.
 type Agent struct {
 	Name     string // flag value
 	Label    string // display name
-	Dir      string // config directory under the root
+	Dir      string // absolute config directory or path under the root
 	HookFile string // hook settings file inside Dir
 }
 
@@ -42,12 +42,14 @@ var Agents = []Agent{
 }
 
 // AgentsAt distinguishes OpenCode's global config from project-local config.
-func AgentsAt(project bool) []Agent {
+func AgentsAt(project bool, configHome string) []Agent {
 	agents := append([]Agent(nil), Agents...)
-	if project {
-		for i := range agents {
-			if agents[i].Name == "opencode" {
+	for i := range agents {
+		if agents[i].Name == "opencode" {
+			if project {
 				agents[i].Dir = ".opencode"
+			} else if filepath.IsAbs(configHome) {
+				agents[i].Dir = filepath.Join(configHome, "opencode")
 			}
 		}
 	}
@@ -74,17 +76,24 @@ func FindAgent(name string) (Agent, bool) {
 }
 
 // HookPath is the agent's hook settings file under root.
-func (a Agent) HookPath(root string) string { return filepath.Join(root, a.Dir, a.HookFile) }
+func (a Agent) HookPath(root string) string { return filepath.Join(a.configDir(root), a.HookFile) }
 
 // SkillPath is where the agent loads the whatsapp-axi skill under root.
 func (a Agent) SkillPath(root string) string {
-	return filepath.Join(root, a.Dir, "skills", SkillName, "SKILL.md")
+	return filepath.Join(a.configDir(root), "skills", SkillName, "SKILL.md")
 }
 
-// Present reports whether the agent's config directory exists under root.
+// Present reports whether the agent's resolved config directory exists.
 func (a Agent) Present(root string) bool {
-	info, err := os.Stat(filepath.Join(root, a.Dir))
+	info, err := os.Stat(a.configDir(root))
 	return err == nil && info.IsDir()
+}
+
+func (a Agent) configDir(root string) string {
+	if filepath.IsAbs(a.Dir) {
+		return a.Dir
+	}
+	return filepath.Join(root, a.Dir)
 }
 
 // CodexConfigPath is Codex's config.toml under root; Codex runs hooks only

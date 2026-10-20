@@ -36,7 +36,7 @@ var setupCommand = &command{
 	description: "Install (or --remove) the session-start hook that shows `whatsapp-axi --brief` in new agent sessions, or the whatsapp-axi agent skill; idempotent, keeps unrelated settings",
 	flags: []flagSpec{
 		{name: "--agent", value: "LIST", description: "claude, codex, opencode or all, comma-separated (default: detected config directories, else claude; with --remove: all)"},
-		{name: "--dir", value: "DIR", description: "project settings in DIR/.claude, DIR/.codex and DIR/.opencode; default $" + config.EnvAgentHome + " or the home directory (OpenCode: .config/opencode)"},
+		{name: "--dir", value: "DIR", description: "project settings in DIR/.claude, DIR/.codex and DIR/.opencode; default $" + config.EnvAgentHome + " or the home directory (OpenCode: $XDG_CONFIG_HOME/opencode or ~/.config/opencode)"},
 		{name: "--remove", description: "remove whatsapp-axi's hook or skill and nothing else"},
 		{name: "--dry-run", description: "print the planned changes without writing anything"},
 		jsonFlag,
@@ -110,8 +110,8 @@ func sameFile(a, b string) bool {
 // setupAgents resolves --agent. Without it, install targets the agents
 // whose config directory exists (Claude Code when none does) and removal
 // targets every agent.
-func setupAgents(inv invocation, root string, remove bool) ([]agentsetup.Agent, error) {
-	available := agentsetup.AgentsAt(inv.has("--dir"))
+func (a *App) setupAgents(inv invocation, root string, remove bool) ([]agentsetup.Agent, error) {
+	available := a.agentConfigs(inv.has("--dir"))
 	v, ok := inv.flag("--agent")
 	if !ok {
 		var out []agentsetup.Agent
@@ -157,6 +157,14 @@ func setupAgents(inv invocation, root string, remove bool) ([]agentsetup.Agent, 
 	return out, nil
 }
 
+func (a *App) agentConfigs(project bool) []agentsetup.Agent {
+	configHome := a.Getenv("XDG_CONFIG_HOME")
+	if strings.TrimSpace(a.Getenv(config.EnvAgentHome)) != "" {
+		configHome = ""
+	}
+	return agentsetup.AgentsAt(project, configHome)
+}
+
 type setupChangeJSON struct {
 	Agent  string `json:"agent"`
 	Item   string `json:"item"`
@@ -197,7 +205,7 @@ func (a *App) runSetup(_ context.Context, inv invocation) error {
 			return err
 		}
 	}
-	agents, err := setupAgents(inv, root, remove)
+	agents, err := a.setupAgents(inv, root, remove)
 	if err != nil {
 		return err
 	}
@@ -321,8 +329,9 @@ func (a *App) hookChecks() []doctorCheck {
 		return []doctorCheck{hooks, skill}
 	}
 	cmd := a.hookCommand()
+	agents := a.agentConfigs(false)
 	var current, stale, broken, featureOff []string
-	for _, ag := range agentsetup.Agents {
+	for _, ag := range agents {
 		var st agentsetup.HookStatus
 		if ag.Name == "opencode" {
 			st = agentsetup.InspectOpenCodeHook(ag, root, a.hookExecutable())
@@ -348,7 +357,7 @@ func (a *App) hookChecks() []doctorCheck {
 		}
 	}
 	var skillCurrent, skillStale, skillBroken []string
-	for _, ag := range agentsetup.Agents {
+	for _, ag := range agents {
 		st := agentsetup.InspectSkill(ag, root, skills.WhatsappAXI)
 		where := ag.Label + " (" + a.collapseHome(st.Path) + ")"
 		switch {

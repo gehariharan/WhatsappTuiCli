@@ -41,7 +41,7 @@ messages or hits, 100 changes):
 | Task | whatsapp-axi | raw wasync |
 |---|---|---|
 | orient: is WhatsApp data reachable, what chats exist | `whatsapp-axi` | `wasync query version`, `wasync query chats` |
-| list_chats: every chat with id, kind, size, activity | `whatsapp-axi chats` | `wasync query chats` |
+| list_chats: every chat with id, kind, size, activity | `whatsapp-axi chats --fields id,kind,messages,last_message_at` | `wasync query chats` |
 | read_chat: find "Project Falcon", read its last 20 messages | `whatsapp-axi messages "Project Falcon"` | `wasync query chats --match=...`, then `wasync query messages --chat=JID --limit=20` |
 | search_context: 20 newest hits for "invoice", 2 messages of context each | `whatsapp-axi search invoice --context 2` | `wasync query search --context=2 --limit=20 -- invoice` |
 | follow_changes: next 100 changes after a cursor, then the busiest changed chat's newest messages | `whatsapp-axi observe --after c1_...`, `whatsapp-axi messages JID` | `wasync query changes --after=c1_... --limit=100`, `wasync query messages --chat=JID --limit=20` |
@@ -66,11 +66,11 @@ Linux amd64, Go 1.27.2, full corpus (40 chats x 150 messages):
 | Task | Agent calls (axi / raw) | wasync calls by axi | Bytes (axi / raw) | Bytes saved | ~Tokens (axi / raw) | Tokens saved |
 |---|---|---|---|---|---|---|
 | orient | 1 / 2 | 2 | 1417 / 12218 | 88% | 504 / 6309 | 92% |
-| list_chats | 1 / 1 | 2 | 2488 / 11921 | 79% | 1022 / 6149 | 83% |
+| list_chats | 1 / 1 | 2 | 2817 / 11921 | 76% | 1401 / 6149 | 77% |
 | read_chat | 1 / 2 | 3 | 4897 / 11652 | 58% | 1788 / 5514 | 68% |
 | search_context | 1 / 1 | 2 | 16344 / 48200 | 66% | 5399 / 23130 | 77% |
 | follow_changes | 2 / 2 | 5 | 22589 / 41470 | 46% | 9469 / 20280 | 53% |
-| **total** | 6 / 8 | | 47735 / 125461 | 62% | 18182 / 61382 | 70% |
+| **total** | 6 / 8 | | 48064 / 125461 | 62% | 18561 / 61382 | 70% |
 
 Session hook (`whatsapp-axi --brief`, offline, no credential): 466 bytes, about 149 tokens per session.
 

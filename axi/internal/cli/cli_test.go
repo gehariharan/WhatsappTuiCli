@@ -28,11 +28,12 @@ func TestMain(m *testing.M) {
 var home = filepath.Join(string(filepath.Separator)+"home", "user")
 
 type harness struct {
-	env map[string]string
+	env     map[string]string
+	homeDir string
 }
 
 func newHarness(t *testing.T) *harness {
-	return &harness{env: map[string]string{
+	return &harness{homeDir: home, env: map[string]string{
 		"WASYNC_API_ADDR":         testutil.ClosedAddr(t),
 		"WASYNC_BIN":              filepath.Join(t.TempDir(), "no-wasync"),
 		"WHATSAPP_AXI_CONFIG_DIR": t.TempDir(),
@@ -46,7 +47,7 @@ func (h *harness) run(t *testing.T, args ...string) (string, int) {
 	a := New(&out)
 	a.Getenv = func(k string) string { return h.env[k] }
 	a.Executable = func() (string, error) { return filepath.Join(home, "bin", "whatsapp-axi"), nil }
-	a.HomeDir = func() (string, error) { return home, nil }
+	a.HomeDir = func() (string, error) { return h.homeDir, nil }
 	a.LookPath = func(string) (string, error) { return "", os.ErrNotExist }
 	a.ProbeTimeout = 2 * time.Second
 	code := a.Run(context.Background(), args)

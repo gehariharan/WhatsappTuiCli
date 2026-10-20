@@ -34,7 +34,7 @@ Settings, all optional:
 | `WASYNC_DATA_DIR` | wasync data directory, passed as `--data-dir` to `wasync query` | wasync's default |
 | `WHATSAPP_AXI_TOKEN` | agent credential (`wsa_...`) | the `credential` file below |
 | `WHATSAPP_AXI_CONFIG_DIR` | whatsapp-axi config directory | `<user config dir>/whatsapp-axi` |
-| `WHATSAPP_AXI_AGENT_HOME` | where `setup` and `doctor` look for agent settings (`.claude`, `.codex`, `.config/opencode`) | your home directory |
+| `WHATSAPP_AXI_AGENT_HOME` | synthetic home for `setup` and `doctor` agent settings (`.claude`, `.codex`, `.config/opencode`); overrides native XDG paths | unset (native agent paths) |
 
 ## Security model
 
@@ -200,7 +200,10 @@ Without `--agent`, setup targets the agents whose config directory exists (Claud
   view once per session with a timeout. It merges context into the existing system
   block, avoids duplicate injection, and reports short repair guidance on failure.
   Project plugins live in `.opencode/plugins/`; global plugins live in
-  `.config/opencode/plugins/` under the selected agent home. Setup owns only
+  `$XDG_CONFIG_HOME/opencode/plugins/` when `XDG_CONFIG_HOME` is absolute, otherwise
+  `~/.config/opencode/plugins/`. Skills use the same config root. Setting
+  `WHATSAPP_AXI_AGENT_HOME` overrides XDG and uses `.config/opencode/` under that
+  synthetic home. Setup owns only
   `whatsapp-axi.js`; another file at that path is never overwritten or removed.
 - `doctor` reports both under `hooks`: installed, missing, pointing at another binary, or unreadable, each
   with the `whatsapp-axi setup ...` command that fixes it.
@@ -217,8 +220,9 @@ shared static home-view guidance; CI rejects drift. Regenerate it from `axi/` wi
 ## Benchmark
 
 On a synthetic corpus (40 chats, 6,000 messages), whatsapp-axi needs 6 commands where raw
-`wasync query --v1 --json` needs 8 for the same five tasks, and prints about 62% fewer bytes and an
-estimated 70% fewer tokens. Method, per-task numbers and limits: [docs/benchmark.md](docs/benchmark.md).
+`wasync query --v1 --json` needs 8 for the same five tasks, and prints about 62% fewer bytes
+(48,064 versus 125,461) and an estimated 70% fewer tokens (18,561 versus 61,382).
+Method, per-task numbers and limits: [docs/benchmark.md](docs/benchmark.md).
 
 ## License
 

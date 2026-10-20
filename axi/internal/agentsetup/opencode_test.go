@@ -131,7 +131,7 @@ func TestOpenCodeInstallRepairRemoveAndOwnership(t *testing.T) {
 			t.Fatal("unowned plugin modified")
 		}
 	}
-	for _, ag := range AgentsAt(true) {
+	for _, ag := range AgentsAt(true, "") {
 		if ag.Name == "opencode" && !strings.Contains(ag.HookPath(root), filepath.Join(".opencode", "plugins")) {
 			t.Fatal("project plugin path", ag.HookPath(root))
 		}
